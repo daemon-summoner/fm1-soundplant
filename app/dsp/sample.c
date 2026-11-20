@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8 samples (sample.h): the factory bank, the user bank, the IMA ADPCM decoder. The decoder is the
+/* SoundPlant samples (sample.h): the factory bank, the user bank, the IMA ADPCM decoder. The decoder is the
  * standard IMA one (IMA Digital Audio Focus and Technical Working Groups, "Recommended Practices for Enhancing
  * Digital Audio Compatibility in Multimedia Systems", 1992), run a block at a time from the block's checkpoint. */
 #include "sample.h"

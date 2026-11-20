@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8's resource region (fm1-base device/res.c, plat_res; tools/gen_res.py): its sections by tag, read in place.
+/* SoundPlant's resource region (fm1-base device/res.c, plat_res; tools/gen_res.py): its sections by tag, read in place.
  * The region is the installer's to write after an update; until it has, every section is absent (0) and its readers
- * do without: the 909 cymbals are silent, large type falls back to the faces built in. */
+ * do without: the 909 cymbals and the wavetable engine are silent, large type falls back to the faces built in. */
 #define RES_MAGIC_LRS 0x3153524Cu                    /* "LRS1" */
 #define RES_TAG(a, b, c, d) ((uint32_t)(a) | (uint32_t)(b) << 8 | (uint32_t)(c) << 16 | (uint32_t)(d) << 24)
 
@@ -30,3 +30,5 @@ static const uint8_t *res_section(uint32_t t, uint32_t *len)
 }
 /* the 909 cymbals' samples (dsp/d909.c d909_res_get) */
 static const uint8_t *res_samples(uint32_t *len) { return res_section(RES_TAG('N', '9', 'S', '1'), len); }
+/* the wavetable engine's nine tables (dsp/synth.c wt_res_get) */
+static const uint8_t *res_wavetables(uint32_t *len) { return res_section(RES_TAG('W', 'T', 'B', '1'), len); }

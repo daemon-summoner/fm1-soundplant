@@ -1,0 +1,39 @@
+# the master's polish, the EQ page's fourth knob (KNOB 4): on in a new project (POLISH_DEF, 40), turned by hand it moves a step
+# a click, reaches 0 (off) and 127, goes out as CC 19 on the master's channel, a CC 19 sets it; saved with the project
+wait 300
+expect mst.polish 40
+tap GLO
+expect page Mix
+turn SELECT 1
+expect page Master_EQ
+wait 40
+shot master_polish.png
+ccreset
+turn K4 1
+wait 20
+expect mst.polish 41
+expect ccst 186
+expect ccd1 19
+spin K4 -200
+expect mst.polish 0
+spin K4 300
+expect mst.polish 127
+midi BA 13 20
+wait 20
+expect mst.polish 32
+# saved with the project, back from its slot
+mst polish 77
+projsave 1 polish_test
+mst polish 5
+reboot
+wait 400
+expect mst.polish 77
+# a new project starts with it on
+tap HOME
+tap SEL
+row NEW PROJECT
+tap SEL
+wait 100
+tap SEL
+wait 200
+expect mst.polish 40

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8 audio engine: the sequencer, the voices (synth + drumline per track), the sends, the two FX
+/* SoundPlant audio engine: the sequencer, the voices (synth + drumline per track), the sends, the two FX
  * tracks, the master; the two cores and the overload guard. engine_render() runs in the
  * audio interrupt; everything else is called from the main loop and reaches the interrupt through
  * the command queue (one 32-bit word a command, single producer / consumer), so the engines' state
@@ -17,7 +17,7 @@
 
 extern seq_t seq;
 #ifdef PLAT_HOST
-void engine_lookahead(int on);                   /* the look-ahead on (the default) or off: LOOM_LOOKAHEAD=0 */
+void engine_lookahead(int on);                   /* the look-ahead on (the default) or off: SOUNDPLANT_LOOKAHEAD=0 */
 uint32_t engine_lookahead_most(void);            /* the most calls a block queued */
 uint32_t engine_lookahead_lost(void);            /* calls that found the queue full */
 #endif                      /* the sequencer (its pattern pointer is the project's) */

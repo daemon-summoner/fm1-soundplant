@@ -1,4 +1,4 @@
-# LOOM-8 demo: deep house, 122 BPM, A minor, the conductor driving the changes. (tools/demos/render.sh renders it;
+# SoundPlant demo: deep house, 122 BPM, A minor, the conductor driving the changes. (tools/demos/render.sh renders it;
 # its bank is build/demos/house.bin: the sesame break and a sung "hey", private.)
 #   T1 kit: a round kick on every beat, clap, the open hat on the offbeats, shaker, conga; a little swing
 #   T2 tines "felt bass": the bass, ducked by the kick (pump)       T3 tines "felt piano": minor-ninth stabs, delayed
@@ -219,7 +219,7 @@ knob 3 cut 70
 tap HOME
 turn SELECT 1
 stats reset
-wav loom_demo_house.wav
+wav soundplant_demo_house.wav
 tap PLAY
 # intro 4
 bars 4

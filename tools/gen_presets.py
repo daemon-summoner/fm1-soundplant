@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MPL-2.0
-"""LOOM-8's factory presets: the recipes in tools/presets/*.py (tools/presets/lib.py says how one is written) into
+"""SoundPlant's factory presets: the recipes in tools/presets/*.py (tools/presets/lib.py says how one is written) into
 the PRESETS table app/dsp/synth.c includes, each value by its parameter's name (synth.h TP_*), so a change of the
 layout cannot shift them. The presets go in the engines' order (synth.h EG_*: an engine's first is its sound in a
 new project), each engine's in the order its files list them (FILES, then any other file, by name).

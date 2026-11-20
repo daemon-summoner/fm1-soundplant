@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MPL-2.0
-// app/web/samples/loom_samples.js against tools/loom_samples.py (and sampleio.py): the samples page builds the bank
+// app/web/samples/soundplant_samples.js against tools/soundplant_samples.py (and sampleio.py): the samples page builds the bank
 // the command line builds.
 //   1. the same int16 samples -> the same bank image, byte for byte (layout, the update record's marks, header, CRC)
 //   2. WAV files -> the same samples at a rate (numpy's path: within a rounding), the same loop points
-//   3. loom_samples.py build (auto rate) -> the same rate chosen and the same layout (the header but its CRC)
+//   3. soundplant_samples.py build (auto rate) -> the same rate chosen and the same layout (the header but its CRC)
 //   4. a bank read back (keptOf) and built again -> the same image; with a sample removed, the rest kept as stored
 //   node tests/host/samples_web.mjs [PYTHON]     (PYTHON: one with numpy for 2 and 3; without, they are skipped)
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import * as L from "../../app/web/samples/loom_samples.js";
+import * as L from "../../app/web/samples/soundplant_samples.js";
 
 const PY = process.argv[2] || process.env.PYTHON || "python3";
-const dir = mkdtempSync(join(tmpdir(), "loom-samples-"));
+const dir = mkdtempSync(join(tmpdir(), "soundplant-samples-"));
 let bad = 0;
 const check = (what, ok) => { console.log(`  ${ok ? "ok  " : "FAIL"} ${what}`); if (!ok) bad++; };
 const py = (code) => execFileSync(PY, ["-c", `import sys; sys.path.insert(0, "tools")\n${code}`],
@@ -99,7 +99,7 @@ if (hasNumpy) {
     for (const rate of [32000, 22050, 11025]) {
       const { rate: sr, x, loop: lp } = L.readWav(readFileSync(path));
       const js = L.atRate(x, sr, lp, rate);
-      const out = JSON.parse(py(`import json, loom_samples as ls
+      const out = JSON.parse(py(`import json, soundplant_samples as ls
 p = ls.parse("${path}")
 t = ls.at_rate(p, ${rate})
 print(json.dumps({"s": t[1], "loop": t[3]}))`));
@@ -119,7 +119,7 @@ print(json.dumps({"s": t[1], "loop": t[3]}))`));
 if (hasNumpy) {
   const specs = [`${files[0][0]}`, `beat=${files[1][0]}@1`, `${files[2][0]}:62%32k`];
   const out = join(dir, "py.bin");
-  const log = py(`import loom_samples as ls
+  const log = py(`import soundplant_samples as ls
 from pathlib import Path
 Path("${out}").write_bytes(ls.build(${JSON.stringify(specs)}, None, factory=False))`);
   const pyImg = readFileSync(out);
@@ -136,7 +136,7 @@ Path("${out}").write_bytes(ls.build(${JSON.stringify(specs)}, None, factory=Fals
   const { img, chose } = L.build(items);
   const ph = Buffer.from(pyImg.subarray(0, L.BANK_HDR)), jh = Buffer.from(img.subarray(0, L.BANK_HDR));
   ph.fill(0, 12, 16); jh.fill(0, 12, 16);
-  check(`loom_samples.py build: auto chose ${chose} Hz; the same header but the CRC (${img.length} B, ${log.trim().split("\n").pop()})`,
+  check(`soundplant_samples.py build: auto chose ${chose} Hz; the same header but the CRC (${img.length} B, ${log.trim().split("\n").pop()})`,
     img.length === pyImg.length && Buffer.compare(ph, jh) === 0);
 }
 
@@ -150,7 +150,7 @@ Path("${fb}").write_bytes(sio.user_bank(gen_samples.factory_set()))`);
   const factory = L.factoryOf(new Uint8Array(readFileSync(fb)));
   check(`the factory set: ${factory.length} entries, all marked`, factory.length === L.NFENT && factory.every(L.isFactory));
   const specs = [`${files[0][0]}`, `beat=${files[1][0]}@1`];
-  py(`import loom_samples as ls
+  py(`import soundplant_samples as ls
 from pathlib import Path
 Path("${out2}").write_bytes(ls.build(${JSON.stringify(specs)}, None, quiet=True))`);
   const items = specs.map((sp) => {
@@ -189,14 +189,14 @@ Path("${out2}").write_bytes(ls.build(${JSON.stringify(specs)}, None, quiet=True)
   const e = h.entries[1], k2 = kept[2];
   const same = Buffer.compare(Buffer.from(fewer.subarray(e.adpOff, e.adpOff + k2.adpcm.length)), Buffer.from(k2.adpcm)) === 0;
   check("one removed: the others kept as stored", h.count === 2 && e.n === k2.n && same && L.crc32(fewer.subarray(L.BANK_HDR)) === h.crc);
-  // the frames: as loom_samples.frames sends them
+  // the frames: as soundplant_samples.frames sends them
   const fr = [...L.frames(img)].map(([c, a]) => [c, a]);
   writeFileSync(join(dir, "web.bin"), img);
-  const pyFr = JSON.parse(py(`import json, loom_samples as ls
+  const pyFr = JSON.parse(py(`import json, soundplant_samples as ls
 from pathlib import Path
 img = Path("${join(dir, "web.bin")}").read_bytes()
 print(json.dumps([[c, a] for c, a, _, _ in ls.frames(img)]))`));
-  check(`the upload's frames: as loom_samples.py sends them (${fr.length})`, JSON.stringify(fr) === JSON.stringify(pyFr));
+  check(`the upload's frames: as soundplant_samples.py sends them (${fr.length})`, JSON.stringify(fr) === JSON.stringify(pyFr));
 }
 // findLink: the FM-1's ports as each system names them (a fake FM-1 answers PING; other gear never probed)
 {
@@ -213,8 +213,8 @@ print(json.dumps([[c, a] for c, a, _, _ in ls.frames(img)]))`));
   };
   const cases = [
     ["macOS: an earlier firmware's name", [["IAC Driver Bus 1", "IAC Driver Bus 1"], ["X0X FM-1", "X0X FM-1", 1]], true],
-    ["Windows: the ends named apart", [["LOOM-8 FM-1", "MIDIOUT2 (LOOM-8 FM-1)", 1], ["loopMIDI", "loopMIDI"]], true],
-    ["Windows: numbered", [["LOOM-8 FM-1 0", "LOOM-8 FM-1 1", 1], ["Digital Piano", "Digital Piano"]], true],
+    ["Windows: the ends named apart", [["SoundPlant FM-1", "MIDIOUT2 (SoundPlant FM-1)", 1], ["loopMIDI", "loopMIDI"]], true],
+    ["Windows: numbered", [["SoundPlant FM-1 0", "SoundPlant FM-1 1", 1], ["Digital Piano", "Digital Piano"]], true],
     ["Windows: USB-MIDI", [["USB-MIDI", "USB-MIDI", 1]], true],
     ["other gear only", [["Digital Piano", "Digital Piano"]], false],
   ];
@@ -224,8 +224,8 @@ print(json.dumps([[c, a] for c, a, _, _ in ls.frames(img)]))`));
     check(`findLink: ${what}`, !!l === found && !probed.some((n) => /IAC|Piano|loopMIDI/.test(n)));
     if (l) l.close();
   }
-  const { midi } = fm1([["LOOM-8 FM-1", "LOOM-8 FM-1", 1]], { busy: true });
+  const { midi } = fm1([["SoundPlant FM-1", "SoundPlant FM-1", 1]], { busy: true });
   check("findLink: a port another app holds is passed over", (await L.findLink(midi, 50)) === null);
 }
-console.log(bad ? "SAMPLES WEB FAILED" : "samples web: as loom_samples.py");
+console.log(bad ? "SAMPLES WEB FAILED" : "samples web: as soundplant_samples.py");
 process.exit(bad ? 1 : 0);

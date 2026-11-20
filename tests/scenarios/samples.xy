@@ -1,6 +1,6 @@
 # the kit's keys, each with its own envelope and filter (ENV: Envelope, Filter, Kit env, Kit filter); a lock on a
 # step reaching the step's key; the sample model on a key; the sample engine on track 3 with its presets and
-# the user bank (build/gen/user_bank.bin, made by tests/run_tests.sh with tools/loom_samples.py); WAVs of it all
+# the user bank (build/gen/user_bank.bin, made by tests/run_tests.sh with tools/soundplant_samples.py); WAVs of it all
 # (indices: TP_DRUM(key, DP_*) = 48 + key * 18 + DP_*: the snare's decay 77, its filter type 83)
 wait 300
 expect trk 1

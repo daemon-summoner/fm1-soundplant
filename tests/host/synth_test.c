@@ -22,6 +22,7 @@
 #include <time.h>
 #include <math.h>
 #include "synth.h"
+#include "wt_res.h"                               /* wt_host_init: the wavetable engine's tables */
 #include "drumline.h"
 #include "sample.h"
 #include "bass303.h"                          /* bass303_cutoff_hz */
@@ -159,6 +160,12 @@ static void fingerprint(int t, float *out)
         block(N, &finite);
     memcpy(out, L, sizeof L);
     synth_note_off(S, t, 1);
+}
+static const uint8_t *wt_short_get(uint32_t *len)
+{
+    const uint8_t *p = wt_host_get(len);
+    *len -= 1u;
+    return p;
 }
 static int differ(const float *a, const float *b)
 {
@@ -309,7 +316,7 @@ static void sample_tests(void)
     sprintf(what, "a sample at its root plays at its rate: the kick ends after %d frames (%d), an octave up %d",
             stop, smp_frames(kick), stop2);
     check(what, abs(stop - smp_frames(kick)) < 200 && abs(stop2 * 2 - stop) < 300);
-    par[0][TP_E1] = (uint8_t)piano;               /* the piano (16 kHz): C4 at its root, looped */
+    par[0][TP_E1] = (uint8_t)piano;               /* the piano (11 kHz): C4 at its root, looped */
     par[0][TP_E4] = SM_LOOP;
     stop = sample_run(60, 1.5f, &n);
     p1 = period_of(sbuf + 13230, 8192, 140, 200);
@@ -1574,7 +1581,7 @@ static void bench_char(void)
 
 /* a kit's character (char_bus): on the kit's summed pair, off by default and at mix 0, every type finite */
 /* knit's voices spread evenly about the centre at every count and width: a centred sound's left and right within
- * 0.5 dB (fm1-loom#15: an even count's last voice had no left partner, and leaned right) */
+ * 0.5 dB (an even count's last voice had no left partner, and leaned right) */
 static void knit_balance_tests(void)
 {
     static const int W[3] = {0, 64, 127};
@@ -1655,6 +1662,7 @@ static void kit_char_tests(void)
 
 int main(void)
 {
+    wt_host_init();
     breaks_attach();                             /* the breaks installed, as a player has them */
     int e, k, t, finite = 1, b;
     float pk;
@@ -2059,6 +2067,21 @@ int main(void)
                 ok = 0;
         }
         check("wavetable: nine tables, each its own sound", ok);
+        {
+            float live[N], none[N], torn[N];
+            fingerprint(0, live);
+            wt_res_get = 0;
+            fingerprint(0, none);
+            check("wavetable: no resource region: jacquard silent, wt_res_ok says so",
+                  !wt_res_ok() && peak_of(none, N) < 1e-6f && peak_of(live, N) > 1e-3f);
+            wt_res_get = wt_short_get;
+            fingerprint(0, torn);
+            check("wavetable: a table section of the wrong length is not read: silent",
+                  !wt_res_ok() && peak_of(torn, N) < 1e-6f);
+            wt_res_get = wt_host_get;
+            fingerprint(0, none);
+            check("wavetable: the region back: the sound is the same as before", wt_res_ok() && !differ(live, none));
+        }
     }
 
     /* a six-note chord of the loudest kind stays inside full scale */

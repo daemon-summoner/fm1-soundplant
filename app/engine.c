@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8 audio engine; see engine.h. The shape is X0X's: a command queue from the main loop, the
+/* SoundPlant audio engine; see engine.h. The shape is X0X's: a command queue from the main loop, the
  * sequencer stepped sample-accurately between renders, one stretch of frames rendered as the first
  * core's part plus the second core's job, summed in one fixed order so a device with one core and a
  * device with two produce the same samples, then the sends, the two FX tracks, the master.
@@ -533,6 +533,7 @@ static void pump_drum(int trk, int sound, int vel)
 }
 #ifdef PLAT_HOST
 static uint32_t host_drum_hits, host_note_ons;
+uint64_t eng_host_hash = 1469598103934665603ull;       /* FNV-1a of every output word (host.c SOUNDPLANT_HASH) */
 #endif
 static void s_note_on(void *x, int trk, int note, int vel, int glide_ms, uint32_t tag)
 {
@@ -722,11 +723,11 @@ typedef struct { uint16_t at; uint8_t kind, trk; int16_t a, b; uint32_t c; } la_
 static la_ev_t la_q[LA_N] POOL;
 static uint16_t la_n, la_at, la_frames;                  /* events queued; the frame the next goes at; the block's */
 static uint8_t la_ok;                                     /* the queue is this block's: play it back */
-static uint8_t la_enable = 1;                             /* (the host: LOOM_LOOKAHEAD=0 for the old way, to compare) */
+static uint8_t la_enable = 1;                             /* (the host: SOUNDPLANT_LOOKAHEAD=0 for the old way, to compare) */
 static uint32_t la_lost, la_most;                         /* events that found the queue full (played at once);
                                                            * the most a block queued */
 #ifdef PLAT_HOST
-void engine_lookahead(int on) { la_enable = (uint8_t)(on != 0); }   /* (host.c: LOOM_LOOKAHEAD) */
+void engine_lookahead(int on) { la_enable = (uint8_t)(on != 0); }   /* (host.c: SOUNDPLANT_LOOKAHEAD) */
 uint32_t engine_lookahead_most(void) { return la_most; }
 uint32_t engine_lookahead_lost(void) { return la_lost; }
 #endif
@@ -1190,7 +1191,7 @@ static volatile uint32_t c2_took;                          /* the last job's tim
  * block: a split fixed ahead could miss by that, on 2026-10-19's FM-1 by 25 points). No atomics between the cores:
  * each writes its own count, syncs, then reads the other's (Dekker's order: one of two that took the same voice sees
  * it, and gives it back); a voice both gave back the first core renders after the wait. Core 1 checks the index it
- * reads (on some FM-1s its reads come back wrong now and then: loom_cpu1.h) */
+ * reads (on some FM-1s its reads come back wrong now and then: soundplant_cpu1.h) */
 static int8_t ws_ord[NVOICE];
 static int32_t ws_n = NVOICE;                              /* the queue's length this stretch (synth_order) */
 static volatile int32_t ws_a, ws_b;                        /* taken: by the second core (the bottom), the first (the top) */
@@ -1303,7 +1304,7 @@ static void metro_tick(uint32_t n)
 }
 
 #ifdef PLAT_HOST
-#define HOST_ON(b) (synth_host_solo >> (b) & 1u)  /* the host's stems (host.c LOOM_SOLO) */
+#define HOST_ON(b) (synth_host_solo >> (b) & 1u)  /* the host's stems (host.c SOUNDPLANT_SOLO) */
 #else
 #define HOST_ON(b) 1
 #endif
@@ -1723,6 +1724,10 @@ void engine_render(int32_t *out_lr, uint32_t n, uint32_t gain_q12)
         r = r > 2.0f ? 2.0f : r < -2.0f ? -2.0f : r;
         out_lr[2u * i] = (int32_t)(l * 4194303.0f);
         out_lr[2u * i + 1u] = (int32_t)(r * 4194303.0f);
+#ifdef PLAT_HOST
+        eng_host_hash = (eng_host_hash ^ (uint32_t)out_lr[2u * i]) * 1099511628211ull;
+        eng_host_hash = (eng_host_hash ^ (uint32_t)out_lr[2u * i + 1u]) * 1099511628211ull;
+#endif
         if (i & 1u)
             eng_scope[eng_scope_w++ & (SCOPE_N - 1u)] = (int16_t)((mix_l[i] + mix_r[i]) * 16383.5f);
     }

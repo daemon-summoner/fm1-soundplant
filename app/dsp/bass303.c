@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* LOOM-8's acid engine: X0X's TB-303 bass engine - see bass303.h for what is ported and what is not.
+/* SoundPlant's acid engine: X0X's TB-303 bass engine - see bass303.h for what is ported and what is not.
  * Its render in passes over sub-blocks, the cold paths' maths out of line and the coefficients every voice shares
  * in one table are Optimist's (w0ts/optimist 7faf1452 .. d6eef1d9, GPL-3.0-only: bit-identical to X0X's), with
- * LOOM-8's Devilfish knobs and pitch multiplier kept per voice.
+ * SoundPlant's Devilfish knobs and pitch multiplier kept per voice.
  *
  * Reference: schwung-303 src/dsp/open303/rosic_Open303.{h,cpp} (getSample, triggerNote,
  * slideToNote, calculateEnvModScalerAndOffset), rosic_TeeBeeFilter.h (TB_303 mode),
@@ -109,7 +109,7 @@ static void calc_envmod(bass303_t *b)
 {
     float e = (float)b->pot[BASS303_ENVMOD] * (1.0f / 127.0f);
     float c = c_log2f(b->cutoff * (1.0f / 313.8152786f)) * (1.0f / 2.931683907f); /* log2(c1/c0) */
-    if (c < 0.0f)                                /* (LOOM-8: below the stock range, as at its bottom) */
+    if (c < 0.0f)                                /* (SoundPlant: below the stock range, as at its bottom) */
         c = 0.0f;
     float slo = 3.773996325f * e + 0.736965594f;
     float shi = 4.194548788f * e + 0.864344901f;
@@ -242,8 +242,8 @@ void bass303_set(bass303_t *b, int i, int v)
     case BASS303_DRIVE:
         b->drv_amt = n;
         b->s_gain = c_db2lin(24.0f * n);
-        {   /* LOOM-8: Soft's make-up, the drive-off level kept (within 1.6 dB, measured across cutoff, resonance and
-             * both waves); drive.h's 1 / gain lost up to 18 dB at LOOM-8's level, where tanh already caps the peaks */
+        {   /* SoundPlant: Soft's make-up, the drive-off level kept (within 1.6 dB, measured across cutoff, resonance and
+             * both waves); drive.h's 1 / gain lost up to 18 dB at SoundPlant's level, where tanh already caps the peaks */
             const float h = 1.0f - 1.0f / b->s_gain;
             b->s_inv = 1.0f / (1.0f + h * h);
         }
@@ -369,7 +369,7 @@ void bass303_init(bass303_t *b)
         p[k] = 0;
     if (!bass303_k.ready)
         fixed_init();
-    /* LOOM-8: the coefficients its Devilfish knobs set, per voice, at the stock values first (the knobs below set
+    /* SoundPlant: the coefficients its Devilfish knobs set, per voice, at the stock values first (the knobs below set
      * them again) */
     b->rc1_c = rc_coeff(3.0f, BASS303_SR);           /* normalAttack */
     powers(b->rc1_pw, b->rc1_c);
@@ -527,7 +527,7 @@ static void idle_advance(bass303_t *b, int n)
  * filter's state and coefficients in registers for its pass, the same operations in the same order. The 2x
  * upsampler's odd input is 0 and the lowpass's b0, b1, b2 are positive, so b * 0 is +0: its zero-input step is
  * written without the three products (0 + z1, (0 - a1 y) + z2, 0 - a2 y), which is the same to the bit. */
-#define BASS303_DSUB 16                          /* (LOOM-8: 16, not Optimist's 32: the second core's stack) */
+#define BASS303_DSUB 16                          /* (SoundPlant: 16, not Optimist's 32: the second core's stack) */
 
 typedef struct { float b0, b1, b2, a1, a2, z1, z2; } bass303_bql_t;   /* a biquad in locals */
 
@@ -686,7 +686,7 @@ static const float recip[5] = { 0.0f, 1.0f, 0.5f, 0.333333343f, 0.25f };
  * state in registers (the FPU works on the 16 general registers: one pass for everything spilled on every
  * sample); every value is computed by the same operations in the same order as one pass would, so the output
  * is the same to the bit. */
-#define BASS303_SUB 16                           /* (LOOM-8: 16, not Optimist's 32: its buffers are on the
+#define BASS303_SUB 16                           /* (SoundPlant: 16, not Optimist's 32: its buffers are on the
                                                   * stack, and a voice may render on the second core's 2.8 KB) */
 
 /* Pass 1 runs as three loops over the sub-block: the control steps (which also advance the per-sample linear
@@ -704,7 +704,7 @@ static BASS303_PASS void run_control(bass303_t *b, bass303_cs_t *cs, float *ab, 
     float inc = b->c_inc, f_b0 = b->c_b0, k = b->c_k, g2 = b->c_g2, a = b->c_a;
     const float osc_freq = b->osc_freq, acc = b->accent_gain;
     const float scaler = b->env_scaler, offset = b->env_offset, cutoff = b->cutoff, r = b->reso;
-    /* Open303's floor, 200 Hz; LOOM-8's knob below the stock 314 Hz takes it down with the cutoff (38 Hz at 60) */
+    /* Open303's floor, 200 Hz; SoundPlant's knob below the stock 314 Hz takes it down with the cutoff (38 Hz at 60) */
     const float fc_min = cutoff < 314.0f ? cutoff * (200.0f / 314.0f) : 200.0f;
     const float *amp_pw = b->gate ? b->ampd_pw : b->amp_acc ? bass303_k.ampa_pw : bass303_k.ampn_pw;
     const float amp_boost = b->gate ? 0.45f + 4.0f * acc : 0.0f;
@@ -1009,7 +1009,7 @@ void bass303_render(bass303_t *b, float *out, int n)
     if (b->drv_type != BASS303_DRV_OFF && b->drv_amt > 0.0f)
         drive_block(b, out, n);
     else if (b->dcb_y1 != 0.0f || b->dcb_x1 != 0.0f)
-        drive_clear(b);          /* LOOM-8: the drive turned off mid-sound: its states go (its DC blocker's held value,
+        drive_clear(b);          /* SoundPlant: the drive turned off mid-sound: its states go (its DC blocker's held value,
                                   * no longer run down, kept the idle test below from ever passing: the voice stuck) */
 
     /* states that decay toward zero while the engine still runs (the idle hold-off, where the

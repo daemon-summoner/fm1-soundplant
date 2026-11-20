@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8 voices: sixteen voices playing fifteen engines (synth.h), each with two ADSRs, a filter (six
+/* SoundPlant voices: sixteen voices playing fifteen engines (synth.h), each with two ADSRs, a filter (six
  * types), a character stage (five types: drive, fold, crush, ring, tilt), a steal fade and sends; per track an LFO, a mono stack, parameter locks and
  * performance offsets.
  *
@@ -21,13 +21,12 @@
  * knit's unison is NuSaw's (the NuSaw plugin, Copyright (c) Charles Vestal, MIT; through its FM-1 port, fm1-nusaw):
  * the detune offsets and curve, the pans, the keytracked high-pass. cane and voile are Mutable Instruments Braids'
  * models (Copyright 2012 Emilie Gillet, MIT), ported in dsp/braids.h (MIT), included below. acid is X0X's TB-303
- * (dsp/bass303.c, GPL-3.0-only: its own unit, so a LOOM-8 built with it is GPL-3.0 as a whole). */
+ * (dsp/bass303.c, GPL-3.0-only: its own unit, so a SoundPlant built with it is GPL-3.0 as a whole). */
 #include "synth.h"
 #include "bass303.h"
 #include "fastmath.h"
 #include "drumline.h"
 #include "sample.h"
-#include "wavetables.h"
 
 #define SUB 16                                /* filter coefficient refresh, steal fade steps */
 #define NCK 8                                 /* chunk slots a prepare may cover (n <= 512) */
@@ -400,11 +399,22 @@ SY_INLINE float saw_pulse(float p, float dt, float idt, sawp_t k)
     return 2.0f * p - k.m2 * q + k.c - blep(p, dt, idt) + k.mix * blep(q, dt, idt);
 }
 /* wavetable: a frame crossfade (scan) through one of nine tables, bend bends the phase (symmetry), ripple
- * phase-modulates it by a second oscillator that climbs from a slow wobble to the note's own rate */
+ * phase-modulates it by a second oscillator that climbs from a slow wobble to the note's own rate. The tables are the
+ * resource region's: wt_find at each chunk's start (every voice finds the same pointer), silence while there are none */
+const uint8_t *(*wt_res_get)(uint32_t *len);
+static const int8_t *wt_tab;
+static const int8_t *wt_find(void)
+{
+    uint32_t len = 0;
+    const uint8_t *p = wt_res_get ? wt_res_get(&len) : 0;
+    return p && len == (uint32_t)WT_NTABLE * WT_NFRAME * WT_N ? (const int8_t *)p : 0;
+}
+int wt_res_ok(void) { return wt_find() != 0; }
 static void wt_prep(voice_t *v)
 {
     cfg_t *c = &v->c;
     float pos = c->e[1] * (float)(WT_NFRAME - 1), fr = fm_floorf(pos), dr = c->e[3];
+    wt_tab = wt_find();
     c->ex[0] = fm_minf(c->freq * INV_SR, 0.45f);
     c->ex[1] = fm_clampf(fm_floorf(c->ek[0] + 0.5f), 0.0f, (float)(WT_NTABLE - 1));
     c->ex[2] = fm_minf(fr, (float)(WT_NFRAME - 2));
@@ -417,11 +427,18 @@ static void wt_prep(voice_t *v)
 static void wt_run(voice_t *v, float *xl, float *xr, int m)
 {
     const cfg_t *c = &v->c;
-    const int8_t *ta = WT[(int)c->ex[1]][(int)c->ex[2]], *tb = ta + WT_N;
+    const int8_t *ta, *tb;
     float p = v->o[0], mp = v->o[1], d = c->ex[0], md = c->ex[5], fb = c->ex[3], w = c->ex[4];
     float ka = 0.5f / w, kb = 0.5f / (1.0f - w), depth = c->ex[6];
     int i;
     (void)xr;
+    if (!wt_tab) {
+        for (i = 0; i < m; i++)
+            xl[i] = 0.0f;
+        return;
+    }
+    ta = wt_tab + ((int)c->ex[1] * WT_NFRAME + (int)c->ex[2]) * WT_N;
+    tb = ta + WT_N;
     for (i = 0; i < m; i++) {
         float q, s, fa, a, b;
         int k;
@@ -809,7 +826,7 @@ SY_INLINE void knit_loop(voice_t *v, float *xl, float *xr, int m, const int ster
     int i, k;
     for (k = 0; k < n; k++) {                    /* the voices: the centre, then the pairs (upper right, lower left); an
                                                   * even count's last voice has no lower one: the centre is its partner,
-                                                  * on the left (fm1-loom#15: it leaned right) */
+                                                  * on the left (it leaned right) */
         d[k] = fm_clampf((c->ex[0] + co[k] * c->ex[1]) * dr, 1e-6f, 0.45f);
         gg[2 * k] = gg[2 * k + 1] = g;
         if ((k || !(n & 1)) && stereo) {
@@ -950,6 +967,20 @@ static int smp_xfade(voice_t *v, const smp_t *sm, int32_t *pos, float *fr, float
     }
     return k;
 }
+static __attribute__((noinline)) int smp_xf_begin(voice_t *v, int32_t pos, float fr, int32_t ls, int32_t le, int32_t xf)
+{                                                /* the crossing's start: a cache for the voice (0: none free) */
+    int x;
+    for (x = 0; x < SMP_NXF && smp_xo[x] != NVOICE; x++)
+        ;
+    if (x == SMP_NXF)
+        return 0;
+    smp_xo[x] = (uint8_t)v->vi;
+    smp_cache_reset(&smp_xc[x]);
+    v->o[7] = (float)(x + 1);
+    v->o[8] = (float)(ls + (pos - (le - xf)));
+    v->o[9] = fr;
+    return 1;
+}
 static void smp_run(voice_t *v, float *xl, float *xr, int m)
 {
     const cfg_t *c = &v->c;
@@ -996,6 +1027,10 @@ static void smp_run(voice_t *v, float *xl, float *xr, int m)
     }
     while (!done && i < m && v->o[5] < 0.5f) {
         int32_t lo = s0, hi = s1;
+        if (mode == SM_LOOP && v->o[7] < 0.5f && xf > 0 && pos >= le - xf && pos < le &&
+            !smp_xf_begin(v, pos, fr, ls, le, xf))
+            xf = 0;                               /* (a block that ends on the crossing's start leaves the next one
+                                                   * here, in it already; none free: this turn jumps) */
         if (mode == SM_LOOP && v->o[7] > 0.5f) {      /* crossing the loop point */
             i += smp_xfade(v, sm, &pos, &fr, inc, ls, le, xf, xl + i, m - i);
             continue;
@@ -1023,18 +1058,9 @@ static void smp_run(voice_t *v, float *xl, float *xr, int m)
             break;
         if (mode == SM_ONESHOT || mode == SM_REVERSE || le - ls < 2 || ++turns > 4)
             done = 1;                            /* (a loop shorter than the step: once round is enough) */
-        else if (mode == SM_LOOP && xf > 0 && pos >= le - xf && pos < le) {   /* the crossfade's start: a cache for it */
-            int x;
-            for (x = 0; x < SMP_NXF && smp_xo[x] != NVOICE; x++)
-                ;
-            if (x < SMP_NXF) {
-                smp_xo[x] = (uint8_t)v->vi;
-                smp_cache_reset(&smp_xc[x]);
-                v->o[7] = (float)(x + 1);
-                v->o[8] = (float)(ls + (pos - (le - xf)));
-                v->o[9] = fr;
-            } else
-                xf = 0;                          /* (none free: this turn jumps, as before) */
+        else if (mode == SM_LOOP && xf > 0 && pos >= le - xf && pos < le) {
+            if (!smp_xf_begin(v, pos, fr, ls, le, xf))
+                xf = 0;                          /* (none free: this turn jumps) */
         } else if (mode == SM_LOOP)
             pos = ls + (pos - le) % (le - ls);
         else if (dir > 0) {                      /* pingpong: back from the loop's end */
@@ -2566,7 +2592,7 @@ static void voice_chunk(synth_t *s, voice_t *v)
         c->ftype = FT_LP24;
     c->mute = t->perf.mute;
 #ifdef PLAT_HOST
-    if (!(synth_host_solo >> trk & 1u))          /* the host's stems (LOOM_SOLO): a track left out is muted */
+    if (!(synth_host_solo >> trk & 1u))          /* the host's stems (SOUNDPLANT_SOLO): a track left out is muted */
         c->mute = 1;
 #endif
     /* gains */

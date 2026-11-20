@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* LOOM-8's acid engine (synth.h EG_ACID), X0X's TB-303 bass engine (charlesvestal/fm1-x0x
- * firmware/src/dsp/bass303.c) as it is there, but for the parameter table (LOOM-8's knobs are synth.c's
- * tp_info) and the pitch multiplier (bass303_pitch: LOOM-8's bend, octave and LFO on the pitch). Copyright (C)
- * 2026 Charles Vestal. GPL-3.0-only, for jc303's Devilfish ranges and dm-Rat's RAT model in it: LOOM-8 built with
+/* SoundPlant's acid engine (synth.h EG_ACID), X0X's TB-303 bass engine (charlesvestal/fm1-x0x
+ * firmware/src/dsp/bass303.c) as it is there, but for the parameter table (SoundPlant's knobs are synth.c's
+ * tp_info) and the pitch multiplier (bass303_pitch: SoundPlant's bend, octave and LFO on the pitch). Copyright (C)
+ * 2026 Charles Vestal. GPL-3.0-only, for jc303's Devilfish ranges and dm-Rat's RAT model in it: SoundPlant built with
  * it is GPL-3.0 as a whole (the MPL-2.0 files stay MPL-2.0 each, MPL-2.0 section 3.3).
  *
  * X0X's notes: a C99 / float / no-libm port of Open303 (Robin Schmidt, MIT) with
@@ -67,7 +67,7 @@
 #error "BASS303_CTRL must be 1..4"
 #endif
 /* bass303_set_lite (the overload guard). 0: compiled out, the render always oversamples (Optimist's ACID engine never
- * sets it); LOOM-8 uses it */
+ * sets it); SoundPlant uses it */
 #ifndef BASS303_LITE
 #define BASS303_LITE 1
 #endif
@@ -79,7 +79,7 @@ enum {
     BASS303_CUTOFF, BASS303_RESO, BASS303_ENVMOD, BASS303_DECAY,     /* page 1 */
     BASS303_ACCENT, BASS303_WAVE, BASS303_TUNE, BASS303_VOLUME,      /* page 2 */
     BASS303_DRIVE, BASS303_DRVTYPE, BASS303_SLIDE, BASS303_ACCDEC,   /* page 3 */
-    /* LOOM-8: the other Devilfish controls jc303 has (its ranges), each at the stock 303's value by default */
+    /* SoundPlant: the other Devilfish controls jc303 has (its ranges), each at the stock 303's value by default */
     BASS303_SOFTATK,         /* soft attack: the filter envelope's rise on a plain note, 0.3 ms .. 3 s (3 ms) */
     BASS303_AMPDEC,          /* the amp's decay while the note is held, 30 .. 3000 ms (1230 ms) */
     BASS303_FBHPF,           /* the filter's feedback high-pass, 350 .. 100 Hz (150 Hz): the resonance's low end */
@@ -106,11 +106,11 @@ typedef struct bass303 {
     float decay_c, accdec_c; /* main-envelope multipliers for normal / accented notes */
     float slew_c;            /* pitch slew-limiter coefficient */
     int wave;                /* 0 saw, 1 square */
-    float pmul;              /* LOOM-8: the oscillator's frequency times this (bass303_pitch), 1 = as the note */
+    float pmul;              /* SoundPlant: the oscillator's frequency times this (bass303_pitch), 1 = as the note */
     int drv_type;
     float drv_amt;
 
-    /* the coefficients LOOM-8's Devilfish knobs set (the others every voice shares: bass303_fixed_t) */
+    /* the coefficients SoundPlant's Devilfish knobs set (the others every voice shares: bass303_fixed_t) */
     float rc1_c;                        /* the filter envelope's first RC follower (3 ms stock; BASS303_SOFTATK) */
     float fbhp_b0, fbhp_a1;             /* feedback highpass at the oversampled rate (BASS303_FBHPF) */
     float fbhpl_b0, fbhpl_a1;           /* the same at the base rate (lite) */
@@ -183,11 +183,11 @@ void bass303_render(bass303_t *b, float *out, int n);
 /* the engine's overload guard: 1 = no oversampling from the next block (~12 % of the worst case
  * on the FM-1; some aliasing on bright, resonant notes), 0 = back to BASS303_OS */
 void bass303_set_lite(bass303_t *b, int on);
-/* LOOM-8: the frequency, slid or not, times mul from the next sample (cents of bend, octave, an LFO: 2^(c / 1200)) */
+/* SoundPlant: the frequency, slid or not, times mul from the next sample (cents of bend, octave, an LFO: 2^(c / 1200)) */
 void bass303_pitch(bass303_t *b, float mul);
 int bass303_max(int i);                          /* a parameter's top value: 127, or a switch's last */
 void bass303_set(bass303_t *b, int i, int value);
 int bass303_get(const bass303_t *b, int i);
-/* LOOM-8: the cutoff pot (0..127) in Hz: its top half the stock 303's (874 Hz at 64 .. 2394 Hz), its bottom half
+/* SoundPlant: the cutoff pot (0..127) in Hz: its top half the stock 303's (874 Hz at 64 .. 2394 Hz), its bottom half
  * stretched down to 60 Hz (the stock 303 stops at 314 Hz): the dark end the other engines' filters have */
 float bass303_cutoff_hz(int v);

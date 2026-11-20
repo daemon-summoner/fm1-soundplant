@@ -1,33 +1,33 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MPL-2.0
 # Copyright (C) 2026 Charles Vestal
-"""LOOM-8's user sample bank: WAV files into the FM-1's flash over USB-MIDI, beside the factory samples.
+"""SoundPlant's user sample bank: WAV files into the FM-1's flash over USB-MIDI, beside the factory samples.
 
-  loom_samples.py info                          what the bank holds now
-  loom_samples.py load [--rate R] SPEC ...      replace the bank with these (up to 32), and the factory set
-  loom_samples.py erase [--all]                 empty the bank: the factory set left in it (--all: that too)
-  loom_samples.py factory [--make-room]         LOOM-8's sounds added after the samples there (the installer's step);
+  soundplant_samples.py info                          what the bank holds now
+  soundplant_samples.py load [--rate R] SPEC ...      replace the bank with these (up to 32), and the factory set
+  soundplant_samples.py erase [--all]                 empty the bank: the factory set left in it (--all: that too)
+  soundplant_samples.py factory [--make-room]         SoundPlant's sounds added after the samples there (the installer's step);
                                                 --make-room: if they do not fit, your samples made smaller to fit
-  loom_samples.py build [--rate R] OUT.bin SPEC ...   no device: the bank's image into OUT.bin
+  soundplant_samples.py build [--rate R] OUT.bin SPEC ...   no device: the bank's image into OUT.bin
                                                 (the host simulator loads it: "samples OUT.bin")
-  loom_samples.py syx [--rate R] OUT.syx SPEC ...     no device: the SysEx frames "load" would send (and "info"),
+  soundplant_samples.py syx [--rate R] OUT.syx SPEC ...     no device: the SysEx frames "load" would send (and "info"),
                                                 into OUT.syx (the host simulator plays them through: "upload OUT.syx")
-  loom_samples.py backup OUT.bin                the bank as it is, read back from the FM-1, into OUT.bin
-  loom_samples.py restore IN.bin                put a backup (or a "build" image, or the web backup page's .loom8
+  soundplant_samples.py backup OUT.bin                the bank as it is, read back from the FM-1, into OUT.bin
+  soundplant_samples.py restore IN.bin                put a backup (or a "build" image, or the web backup page's .soundplant
                                                 file: its samples) back: the bank replaced
-  loom_samples.py extract DUMP.bin OUT.bin      no device: the bank out of a full flash dump (1 MB: fm1t.py dump,
+  soundplant_samples.py extract DUMP.bin OUT.bin      no device: the bank out of a full flash dump (1 MB: fm1t.py dump,
                                                 fm1_rescue.py), into OUT.bin for "restore"
 
   SPEC: [NAME=]file.wav[:ROOT][@BARS][%RATE], or "breaks": the break pack (classic, heat, choke, ecstasy: the
         slice engine's breaks, in the firmware until 0.7, which finds them in the bank by name), e.g.
-        loom_samples.py load breaks my_kick.wav, or "factory": the factory set (the kits' drums, the instruments,
+        soundplant_samples.py load breaks my_kick.wav, or "factory": the factory set (the kits' drums, the instruments,
         the sweep and the vinyl: in the firmware until 0.8, now in the bank, as the installer puts them there), or
         "bank:FILE.bin": the samples of a bank image (a backup, a build) as it stores them
 
 load, build and syx add the factory set after the samples given (if no SPEC says where: "factory"), so a load
 never leaves the kits silent; --no-factory leaves it out; --make-room puts samples kept as stored (bank:FILE) at a
 lower rate when the bank would not fit otherwise. Its 12 entries are not user slots: user 1 is still the
-first sample given. It takes 86 KB of the bank.
+first sample given. It takes 77 KB of the bank.
 
 Each file becomes one sample: mixed to mono, resampled to its rate (a windowed-sinc anti-alias filter first),
 pre-emphasised for the playback's linear interpolation (flat to 0.4 x its rate as it plays), its peak normalised, IMA
@@ -42,9 +42,9 @@ unless given.
 The rate: %RATE for one sample, --rate for the rest: 11025, 16000, 22050 or 32000 (or 11k, 16k, 22k, 32k), or
 auto (the default): the highest of 22050, 16000 and 11025 at which the whole bank fits, the same for every
 sample that did not choose. Higher is brighter (a sample keeps what lies below half its rate) and costs more
-room, and a little more of the FM-1's time while it plays. The bank holds 214 KB of sound (the factory set's 86 KB of it):
-about 18.7 s in all at 22050 Hz, 25.8 s at 16000, 37.4 s at 11025, 12.9 s at 32000 (a bar at 120 BPM takes 2 s). A sample may be as
-long as the bank's first two windows (about 16 s at 22050 Hz).
+room, and a little more of the FM-1's time while it plays. The bank holds 178 KB of sound (the factory set's 77 KB of it):
+about 15.6 s in all at 22050 Hz, 21.4 s at 16000, 31.1 s at 11025, 10.7 s at 32000 (a bar at 120 BPM takes 2 s). A sample may be as
+long as the bank's first two windows (about 14 s at 22050 Hz).
 On a track, the sample engine's (and the kit's sample model's) sample knob counts the factory samples first,
 then user 1, user 2 ...: a load replaces them all, in the order given.
 
@@ -52,6 +52,7 @@ Protocol (app/samples.c): F0 7D 46 4C cmd ... F7; BEGIN 11, WRITE 12, HDR 16, EN
 CRC before it commits), ERASE 14, INFO 15. Needs mido and a backend (pip install mido python-rtmidi) for the
 device commands.
 """
+
 import struct
 import sys
 import time
@@ -62,19 +63,27 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sampleio as sio  # noqa: E402
 
 HDR = [0x7D, 0x46, 0x4C]
-RC = {1: "size or offset", 2: "erase", 3: "write", 4: "not begun", 5: "header", 6: "data CRC", 7: "no samples",
-      8: "an update record's mark"}
+RC = {
+    1: "size or offset",
+    2: "erase",
+    3: "write",
+    4: "not begun",
+    5: "header",
+    6: "data CRC",
+    7: "no samples",
+    8: "an update record's mark",
+}
 PART = 320
 NPART = (sio.ENT0 + sio.NENT * sio.ENT + PART - 1) // PART
-AUTO = (22050, 16000, 11025)                        # what auto tries, best first
-LOOP_ROOT = 53                                      # a loop's slice 1: F3, the lowest key at the keys' own octave
+AUTO = (22050, 16000, 11025)  # what auto tries, best first
+LOOP_ROOT = 53  # a loop's slice 1: F3, the lowest key at the keys' own octave
 
 
 def pack7(b):
     """bytes -> 7-bit MIDI data: each run of up to seven bytes after a byte holding their eighth bits (bit k: byte k)"""
     out = []
     for start in range(0, len(b), 7):
-        run = bytes(b[start:start + 7])
+        run = bytes(b[start : start + 7])
         high = 0
         for k, x in enumerate(run):
             high |= (x >> 7) << k
@@ -84,18 +93,20 @@ def pack7(b):
 
 
 def rate_of(s):
-    """"22050" / "22k" / "auto" -> Hz or None (auto)"""
+    """ "22050" / "22k" / "auto" -> Hz or None (auto)"""
     s = s.lower()
     if s == "auto":
         return None
-    r = {"11k": 11025, "16k": 16000, "22k": 22050, "32k": 32000}.get(s) or (int(s) if s.isdigit() else 0)
+    r = {"11k": 11025, "16k": 16000, "22k": 22050, "32k": 32000}.get(s) or (
+        int(s) if s.isdigit() else 0
+    )
     if r not in sio.RATES:
         raise ValueError(f"rate {s}: one of {', '.join(map(str, sio.RATES))} (or auto)")
     return r
 
 
 def parse(spec):
-    """"[NAME=]file.wav[:ROOT][@BARS][%RATE]" -> (name, float samples, file rate, root, loop, bars, rate or None)"""
+    """ "[NAME=]file.wav[:ROOT][@BARS][%RATE]" -> (name, float samples, file rate, root, loop, bars, rate or None)"""
     name = None
     if "=" in spec:
         name, spec = spec.split("=", 1)
@@ -127,14 +138,23 @@ def at_rate(p, rate):
     name, x, sr, root, loop, bars, _ = p
     if loop:
         loop = (int(loop[0] * rate / sr), int((loop[1] + 1) * rate / sr))
-    return (name, sio.to_int16(sio.emphasis(sio.resample(x, sr, rate))), root, loop, bars, rate)
+    return (
+        name,
+        sio.to_int16(sio.emphasis(sio.resample(x, sr, rate))),
+        root,
+        loop,
+        bars,
+        rate,
+    )
 
 
 def fits(parsed, default):
     """the bank at these rates, if it fits (None: it does not); an entry of parsed is a file's parse() or the
     factory set's sample (a tuple of 7, sampleio's, kept as it is)"""
     try:
-        return sio.user_bank([tuple(p) if is_factory(p) else at_rate(p, p[6] or default) for p in parsed])
+        return sio.user_bank(
+            [tuple(p) if is_factory(p) else at_rate(p, p[6] or default) for p in parsed]
+        )
     except ValueError as e:
         if str(e).startswith("too long"):
             return None
@@ -149,14 +169,18 @@ def expand(specs, factory=True):
     """a SPEC "breaks": the break pack (the four breaks, built into the firmware until 0.7: gen_samples.py RECORDINGS);
     "factory": the factory set (until 0.8), added at the end unless named or factory is False"""
     import gen_samples
+
     out = []
     for s in specs:
         if s == "factory":
             out += [Factory(f) for f in gen_samples.factory_set()]
         elif s.startswith("bank:"):
             img = checked(Path(s[5:]).read_bytes(), s[5:])
-            out += [Factory(t) for t in sio.stored_of(img)
-                    if not (t[6] & sio.E_FACTORY and factory and "factory" not in specs)]
+            out += [
+                Factory(t)
+                for t in sio.stored_of(img)
+                if not (t[6] & sio.E_FACTORY and factory and "factory" not in specs)
+            ]
         else:
             out += gen_samples.break_specs() if s == "breaks" else [s]
     if factory and "factory" not in specs:
@@ -179,7 +203,7 @@ def is_factory_set(p):
 
 def at_rate_stored(p, rate):
     """a sample kept as stored (bank:FILE, a backup) at a lower rate: decoded, resampled, its level kept (one
-    generation of ADPCM more), as the installer's makeRoom (loom_samples.js atRateKept)"""
+    generation of ADPCM more), as the installer's makeRoom (soundplant_samples.js atRateKept)"""
     name, st, root, loop, bars, old, flags = p
     y = sio.resample([float(v) for v in sio.ima_decode(st.adp, st.n)], old, rate)
     s16 = [max(-32768, min(32767, int(round(v)))) for v in y]
@@ -194,7 +218,12 @@ def make_room(parsed, rate):
     for cap in AUTO:
         changed, nxt = [], []
         for p in parsed:
-            if is_factory(p) and not is_factory_set(p) and isinstance(p[1], sio.Stored) and p[5] > cap:
+            if (
+                is_factory(p)
+                and not is_factory_set(p)
+                and isinstance(p[1], sio.Stored)
+                and p[5] > cap
+            ):
                 changed.append(p[0])
                 nxt.append(at_rate_stored(p, cap))
             else:
@@ -231,23 +260,31 @@ def build(specs, rate=None, quiet=False, factory=True, room=False):
         if r:
             img, cap, changed = r
             if not quiet:
-                print(f"made room: {', '.join(changed)} at {cap} Hz (what is above {cap // 2} Hz went)")
+                print(
+                    f"made room: {', '.join(changed)} at {cap} Hz (what is above {cap // 2} Hz went)"
+                )
             return img
     if img is None:
-        need = fixed + sum(sio.sample_bytes(length_at(p, p[6] or tries[-1])) for p in own)
-        raise ValueError(f"too long: {need / 1024:.1f} KB at {tries[-1]} Hz, the bank holds "
-                         f"{sio.BANK_MAX_DATA / 1024:.1f} KB" + (f" ({fset / 1024:.1f} KB of it the factory set's)"
-                                                                if fset else "") +
-                         f" (about {sio.BANK_MAX_DATA / sio.bytes_per_second(11025):.1f} s "
-                         f"at 11025 Hz, {sio.BANK_MAX_DATA / sio.bytes_per_second(22050):.1f} s at 22050 Hz)")
+        need = fixed + sum(
+            sio.sample_bytes(length_at(p, p[6] or tries[-1])) for p in own
+        )
+        raise ValueError(
+            f"too long: {need / 1024:.1f} KB at {tries[-1]} Hz, the bank holds "
+            f"{sio.BANK_MAX_DATA / 1024:.1f} KB"
+            + (f" ({fset / 1024:.1f} KB of it the factory set's)" if fset else "")
+            + f" (about {sio.BANK_MAX_DATA / sio.bytes_per_second(11025):.1f} s "
+            f"at 11025 Hz, {sio.BANK_MAX_DATA / sio.bytes_per_second(22050):.1f} s at 22050 Hz)"
+        )
     if not quiet:
-        report([p for p in parsed if not is_factory_set(p)], chose, img, auto=rate is None)
+        report(
+            [p for p in parsed if not is_factory_set(p)], chose, img, auto=rate is None
+        )
     return img
 
 
 def report(parsed, chose, img, auto):
     for k, p in enumerate(parsed):
-        if is_factory(p):                     # kept as stored: its own rate and length
+        if is_factory(p):  # kept as stored: its own rate and length
             r, n, hz = p[5], len(p[1]), f"{p[5]} Hz (kept)"
         else:
             r = p[6] or chose
@@ -260,42 +297,66 @@ def report(parsed, chose, img, auto):
     used = sio.bank_used(img)
     free = sio.BANK_MAX_DATA - used
     fs = img[6] - len(parsed)
-    print(f"bank: {len(parsed)} samples" + (f" and the factory set ({fs})" if fs else "") +
-          f", {used / 1024:.1f} of {sio.BANK_MAX_DATA / 1024:.1f} KB used; free: " +
-          ", ".join(f"{free / sio.bytes_per_second(r):.1f} s at {r} Hz" for r in sio.RATES))
+    print(
+        f"bank: {len(parsed)} samples"
+        + (f" and the factory set ({fs})" if fs else "")
+        + f", {used / 1024:.1f} of {sio.BANK_MAX_DATA / 1024:.1f} KB used; free: "
+        + ", ".join(
+            f"{free / sio.bytes_per_second(r):.1f} s at {r} Hz" for r in sio.RATES
+        )
+    )
 
 
 def frames(image):
     """the upload's frames: (command, args, timeout s, what it is)"""
-    hdr = image[:sio.BANK_HDR]
+    hdr = image[: sio.BANK_HDR]
     yield 11, [0], 10, "begin"
     for off in range(sio.BANK_HDR, len(image), 256):
-        yield 12, [0, off & 0x7F, (off >> 7) & 0x7F, (off >> 14) & 0x7F] + pack7(image[off:off + 256]), 5, off
+        yield (
+            12,
+            [0, off & 0x7F, (off >> 7) & 0x7F, (off >> 14) & 0x7F]
+            + pack7(image[off : off + 256]),
+            5,
+            off,
+        )
     for part in range(NPART):
-        yield 16, [0, part] + pack7(hdr[part * PART:(part + 1) * PART]), 3, f"header part {part}"
+        yield (
+            16,
+            [0, part] + pack7(hdr[part * PART : (part + 1) * PART]),
+            3,
+            f"header part {part}",
+        )
     yield 13, [0], 20, "end"
 
 
 class Link:
-    """the FM-1 running LOOM-8 over USB-MIDI (its ports found by fm1-base's tools/fm1_remote.py), asked in the
+    """the FM-1 running SoundPlant over USB-MIDI (its ports found by fm1-base's tools/fm1_remote.py), asked in the
     samples protocol (app/samples.c): req sends a command and waits for its answer"""
+
     def __init__(self):
         sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "base" / "tools"))
         try:
             import fm1_remote
         except ImportError:
             sys.exit("needs mido: pip install mido python-rtmidi")
-        self.dev = fm1_remote.FM1()               # (the first port named FM-1: LOOM-8's, as USB names it)
+        self.dev = (
+            fm1_remote.FM1()
+        )  # (the first port named FM-1: SoundPlant's, as USB names it)
         self.o, self.i = self.dev.out, self.dev.inp
-        for _ in range(3):                         # (a port just opened can miss its first frame: PING until heard)
+        for attempt in range(
+            3
+        ):  # (a port just opened can miss its first frame: PING until heard)
             try:
                 self.req(25, [], 1.0)
                 return
             except TimeoutError:
-                pass
+                if attempt == 2:
+                    raise
 
     def req(self, cmd, args, timeout=3.0):
-        for _ in self.i.iter_pending():            # (what came before is not this command's answer)
+        for (
+            _
+        ) in self.i.iter_pending():  # (what came before is not this command's answer)
             pass
         self.dev.sysex(HDR + [cmd] + list(args))
         end = time.time() + timeout
@@ -312,8 +373,10 @@ def upload(link, image):
     t0 = time.time()
     total = len(image) - sio.BANK_HDR
     for cmd, args, timeout, what in frames(image):
-        for tries in range(4):                      # a WRITE again when its answer is lost (the same bytes: the
-            try:                                    # sector's erase, if it starts one, and the page written again)
+        for tries in range(
+            4
+        ):  # a WRITE again when its answer is lost (the same bytes: the
+            try:  # sector's erase, if it starts one, and the page written again)
                 r = link.req(cmd, args, timeout)
                 break
             except TimeoutError:
@@ -328,8 +391,11 @@ def upload(link, image):
             sys.exit(f"{where} failed ({RC.get(rc, rc)})")
         if cmd == 12:
             done = min(what + 256, len(image)) - sio.BANK_HDR
-            print(f"\r  {done / 1024:6.1f} / {total / 1024:.1f} KB  {100 * done // max(1, total):3d} %", end="",
-                  flush=True)
+            print(
+                f"\r  {done / 1024:6.1f} / {total / 1024:.1f} KB  {100 * done // max(1, total):3d} %",
+                end="",
+                flush=True,
+            )
     print(f"\n  {time.time() - t0:.1f} s: loaded, the data's CRC checked by the FM-1")
     n, _, used, names = info(link)
     if n != image[6]:
@@ -343,7 +409,7 @@ def info(link):
     while True:
         r = link.req(15, [len(out)])
         if r[0] != 2:
-            sys.exit("the FM-1's LOOM-8 is older than this tool: update it")
+            sys.exit("the FM-1's SoundPlant is older than this tool: update it")
         size, used, n, k = r[1] | r[2] << 7, r[3] | r[4] << 7, r[5], r[7]
         i = 8
         for _ in range(k):
@@ -361,7 +427,7 @@ def unpack7(a):
     """pack7 undone: runs of up to eight values, the first holding the others' eighth bits"""
     out = bytearray()
     for start in range(0, len(a), 8):
-        high, run = a[start], a[start + 1:start + 8]
+        high, run = a[start], a[start + 1 : start + 8]
         out.extend(x | (high >> k & 1) << 7 for k, x in enumerate(run))
     return bytes(out)
 
@@ -370,50 +436,66 @@ def checked(img, what):
     """a bank image (backup, extract, build) cut to its used length; ValueError if it is not one or is damaged.
     A bank with no samples is a header alone, with a count of 0"""
     if len(img) < sio.BANK_HDR:
-        raise ValueError(f"{what}: not a LOOM-8 sample bank (too short)")
+        raise ValueError(f"{what}: not a SoundPlant sample bank (too short)")
     magic, ver, n, _, dlen, crc, _ = struct.unpack_from("<IHBBIII", img)
     if magic != sio.BANK_MAGIC or ver not in sio.BANK_VERS:
-        raise ValueError(f"{what}: not a LOOM-8 sample bank (version {sio.BANK_VER})")
+        raise ValueError(
+            f"{what}: not a SoundPlant sample bank (version {sio.BANK_VER})"
+        )
     if n > sio.NENT or dlen > sio.BANK_MAX_DATA or len(img) < sio.BANK_HDR + dlen:
         raise ValueError(f"{what}: cut short or damaged")
-    if zlib.crc32(img[sio.BANK_HDR:sio.BANK_HDR + dlen]) & 0xFFFFFFFF != crc:
+    if zlib.crc32(img[sio.BANK_HDR : sio.BANK_HDR + dlen]) & 0xFFFFFFFF != crc:
         raise ValueError(f"{what}: damaged (the data's CRC does not match)")
-    return bytes(img[:sio.BANK_HDR + dlen])
+    return bytes(img[: sio.BANK_HDR + dlen])
 
 
 def bank_in(data, what):
-    """a bank image, or the samples section of a .loom8 file (the web backup page's: fm1_backup.py split) -> the
+    """a bank image, or the samples section of a .soundplant file (the web backup page's: fm1_backup.py split) -> the
     bank's image, checked"""
     if data[:4] != struct.pack("<I", sio.BANK_MAGIC) and len(data) > 16:
-        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "base" / "tools"))
+        sys.path.insert(
+            0, str(Path(__file__).resolve().parent.parent / "base" / "tools")
+        )
         import fm1_backup
+
         try:
             _, sections = fm1_backup.split(data)
         except fm1_backup.BackupError as e:
             raise ValueError(f"{what}: {e}")
         found = [body for tag, body in sections if tag == "LSMP"]
         if not found:
-            raise ValueError(f"{what}: no samples in it (a backup made before the backup page kept them?)")
+            raise ValueError(
+                f"{what}: no samples in it (a backup made before the backup page kept them?)"
+            )
         return checked(found[0], f"{what}'s samples")
     return checked(data, what)
 
 
 def empty_bank():
-    return struct.pack("<IHBBIII", sio.BANK_MAGIC, sio.BANK_VER, 0, 0, 0, 0, sio.BANK_SIZE).ljust(sio.BANK_HDR, b"\0")
+    return struct.pack(
+        "<IHBBIII", sio.BANK_MAGIC, sio.BANK_VER, 0, 0, 0, 0, sio.BANK_SIZE
+    ).ljust(sio.BANK_HDR, b"\0")
 
 
 def listing(img):
-    """a bank image's samples, a line each: the user slots, then LOOM-8's sounds (the factory set's entries)"""
+    """a bank image's samples, a line each: the user slots, then SoundPlant's sounds (the factory set's entries)"""
     names = names_of(img)
-    fset = [k for k in range(len(names)) if img[sio.ENT0 + k * sio.ENT + 33] & sio.E_FACTORY]
+    fset = [
+        k for k in range(len(names)) if img[sio.ENT0 + k * sio.ENT + 33] & sio.E_FACTORY
+    ]
     own = [nm for k, nm in enumerate(names) if k not in fset]
-    return ("".join(f"\n  user {k + 1:2}: {nm}" for k, nm in enumerate(own)) +
-            (f"\n  LOOM-8's: {', '.join(names[k] for k in fset)}" if fset else ""))
+    return "".join(f"\n  user {k + 1:2}: {nm}" for k, nm in enumerate(own)) + (
+        f"\n  SoundPlant's: {', '.join(names[k] for k in fset)}" if fset else ""
+    )
 
 
 def names_of(img):
-    return [img[sio.ENT0 + k * sio.ENT:sio.ENT0 + k * sio.ENT + sio.NAME_LEN].split(b"\0")[0].decode(errors="replace")
-            for k in range(img[6])]
+    return [
+        img[sio.ENT0 + k * sio.ENT : sio.ENT0 + k * sio.ENT + sio.NAME_LEN]
+        .split(b"\0")[0]
+        .decode(errors="replace")
+        for k in range(img[6])
+    ]
 
 
 def read_bank(link, off, n):
@@ -423,19 +505,39 @@ def read_bank(link, off, n):
         at, want = off + len(out), min(224, n - len(out))
         for tries in range(4):
             try:
-                r = link.req(17, [0, at & 0x7F, (at >> 7) & 0x7F, (at >> 14) & 0x7F, want & 0x7F, want >> 7])
+                r = link.req(
+                    17,
+                    [
+                        0,
+                        at & 0x7F,
+                        (at >> 7) & 0x7F,
+                        (at >> 14) & 0x7F,
+                        want & 0x7F,
+                        want >> 7,
+                    ],
+                )
                 break
             except TimeoutError:
                 if tries == 3:
                     raise
         if r[4]:
-            sys.exit("the FM-1 is writing its samples" if r[4] == 4 else f"read at {at:#x} failed ({RC.get(r[4], r[4])})")
+            sys.exit(
+                "the FM-1 is writing its samples"
+                if r[4] == 4
+                else f"read at {at:#x} failed ({RC.get(r[4], r[4])})"
+            )
         b = unpack7(r[5:])
         if len(b) < want:
             sys.exit(f"read at {at:#x}: short reply")
         out += b[:want]
-        if n > 4096 and (len(out) == n or 100 * len(out) // n != 100 * (len(out) - want) // n):
-            print(f"\r  {len(out) / 1024:6.1f} / {n / 1024:.1f} KB  {100 * len(out) // n:3d} %", end="", flush=True)
+        if n > 4096 and (
+            len(out) == n or 100 * len(out) // n != 100 * (len(out) - want) // n
+        ):
+            print(
+                f"\r  {len(out) / 1024:6.1f} / {n / 1024:.1f} KB  {100 * len(out) // n:3d} %",
+                end="",
+                flush=True,
+            )
     if n > 4096:
         print()
     return bytes(out)
@@ -455,13 +557,13 @@ def extract(dump):
     """the bank's image out of a full flash dump (its windows end to end)"""
     if len(dump) < 0x100000:
         raise ValueError(f"a full 1 MB flash dump, not {len(dump)} bytes")
-    v = b"".join(dump[o:o + n] for o, n in sio.REGIONS)
+    v = b"".join(dump[o : o + n] for o, n in sio.REGIONS)
     if struct.unpack_from("<I", v)[0] != sio.BANK_MAGIC:
-        return empty_bank()                         # (an erased bank: no samples)
+        return empty_bank()  # (an erased bank: no samples)
     return checked(v, "the dump's bank")
 
 
-ROOM = False                                        # --make-room (args_of)
+ROOM = False  # --make-room (args_of)
 
 
 def args_of(argv):
@@ -491,8 +593,17 @@ def args_of(argv):
 
 
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in ("info", "load", "erase", "build", "syx", "backup", "restore",
-                                                 "extract", "factory"):
+    if len(sys.argv) < 2 or sys.argv[1] not in (
+        "info",
+        "load",
+        "erase",
+        "build",
+        "syx",
+        "backup",
+        "restore",
+        "extract",
+        "factory",
+    ):
         sys.exit(__doc__)
     cmd = sys.argv[1]
     try:
@@ -504,17 +615,27 @@ def main():
             if cmd == "build":
                 Path(rest[0]).write_bytes(img)
             else:
-                fr = list(frames(img)) + [(15, [0], 3, "info")]   # (and what "info" asks, after)
-                Path(rest[0]).write_bytes(b"".join(bytes([0xF0] + HDR + [c] + a + [0xF7]) for c, a, _, _ in fr))
-            print(f"{rest[0]}: {img[6]} samples, {sio.bank_used(img)} of {sio.BANK_MAX_DATA} B")
+                fr = list(frames(img)) + [
+                    (15, [0], 3, "info")
+                ]  # (and what "info" asks, after)
+                Path(rest[0]).write_bytes(
+                    b"".join(
+                        bytes([0xF0] + HDR + [c] + a + [0xF7]) for c, a, _, _ in fr
+                    )
+                )
+            print(
+                f"{rest[0]}: {img[6]} samples, {sio.bank_used(img)} of {sio.BANK_MAX_DATA} B"
+            )
             return
         if cmd == "extract":
             if len(rest) != 2:
                 sys.exit(__doc__)
             img = extract(Path(rest[0]).read_bytes())
             Path(rest[1]).write_bytes(img)
-            print(f"{rest[1]}: {img[6]} samples, {sio.bank_used(img) / 1024:.1f} KB" +
-                  listing(img))
+            print(
+                f"{rest[1]}: {img[6]} samples, {sio.bank_used(img) / 1024:.1f} KB"
+                + listing(img)
+            )
             return
         if cmd == "restore":
             if len(rest) != 1:
@@ -523,7 +644,10 @@ def main():
             link = Link()
             if not img[6]:
                 r = link.req(14, [0], 60)
-                print("an empty bank: erase", "ok" if r[1] == 0 else f"FAILED ({RC.get(r[1], r[1])})")
+                print(
+                    "an empty bank: erase",
+                    "ok" if r[1] == 0 else f"FAILED ({RC.get(r[1], r[1])})",
+                )
                 sys.exit(1 if r[1] else 0)
             print(f"{rest[0]}: {img[6]} samples, {sio.bank_used(img) / 1024:.1f} KB")
             sys.exit(0 if upload(link, img) else 1)
@@ -532,20 +656,29 @@ def main():
                 sys.exit(__doc__)
             img = build(rest, rate, factory=factory, room=ROOM)
             sys.exit(0 if upload(Link(), img) else 1)
-        if cmd == "erase" and factory:              # the factory set kept: the bank is it alone
+        if cmd == "erase" and factory:  # the factory set kept: the bank is it alone
             img = build([], factory=True, quiet=True)
             print("erase: the user samples (the factory set kept: --all for that too)")
             sys.exit(0 if upload(Link(), img) else 1)
     except (OSError, ValueError) as e:
         sys.exit(f"cannot build the bank: {e}")
     link = Link()
-    if cmd == "factory":                            # the installer's step: the set after the samples there
+    if cmd == "factory":  # the installer's step: the set after the samples there
         img = backup(link)
-        own = [t for t in sio.stored_of(img) if not t[6] & sio.E_FACTORY] if img[6] else []
-        have = {t[0] for t in sio.stored_of(img) if t[6] & sio.E_FACTORY} if img[6] else set()
+        own = (
+            [t for t in sio.stored_of(img) if not t[6] & sio.E_FACTORY]
+            if img[6]
+            else []
+        )
+        have = (
+            {t[0] for t in sio.stored_of(img) if t[6] & sio.E_FACTORY}
+            if img[6]
+            else set()
+        )
         import gen_samples
+
         if {t[0] for t in gen_samples.factory_set()} <= have:
-            print("LOOM-8's sounds are in the bank already")
+            print("SoundPlant's sounds are in the bank already")
             return
         path = Path("build") / "factory_before.bin"
         path.parent.mkdir(exist_ok=True)
@@ -553,33 +686,50 @@ def main():
         try:
             new = build([f"bank:{path}"] if own else [], factory=True, room=ROOM)
         except ValueError as e:
-            sys.exit(f"cannot add LOOM-8's sounds: {e}" + ("" if ROOM else "\n  --make-room: your samples made smaller to fit "
-                                                             "(their highs above the rate's half go; back up first)"))
+            sys.exit(
+                f"cannot add SoundPlant's sounds: {e}"
+                + (
+                    ""
+                    if ROOM
+                    else "\n  --make-room: your samples made smaller to fit "
+                    "(their highs above the rate's half go; back up first)"
+                )
+            )
         sys.exit(0 if upload(link, new) else 1)
     if cmd == "backup":
         if len(rest) != 1:
             sys.exit(__doc__)
         img = backup(link)
         Path(rest[0]).write_bytes(img)
-        print(f"{rest[0]}: {img[6]} samples, {sio.bank_used(img) / 1024:.1f} KB" +
-              listing(img))
+        print(
+            f"{rest[0]}: {img[6]} samples, {sio.bank_used(img) / 1024:.1f} KB"
+            + listing(img)
+        )
         return
     if cmd == "erase":
         r = link.req(14, [0], 60)
         print("erase:", "ok" if r[1] == 0 else f"FAILED ({RC.get(r[1], r[1])})")
         return
     n, size, used, smp = info(link)
-    hdr = read_bank(link, 0, sio.ENT0 + n * sio.ENT) if n else b""   # (each entry's flags: the factory set's)
+    hdr = (
+        read_bank(link, 0, sio.ENT0 + n * sio.ENT) if n else b""
+    )  # (each entry's flags: the factory set's)
     fset = [k for k in range(n) if hdr[sio.ENT0 + k * sio.ENT + 33] & sio.E_FACTORY]
     own = [s for k, s in enumerate(smp) if k not in fset]
-    print(f"user bank: {len(own)} samples" + (f" and LOOM-8's sounds ({len(fset)})" if fset else "") +
-          f", {used} of {size} KB" +
-          "".join(f"\n  user {k + 1:2}: {nm:11}  {rt} Hz  {ns / max(1, rt):.2f} s" for k, (nm, rt, ns) in enumerate(own)) +
-          (f"\n  LOOM-8's: {', '.join(smp[k][0] for k in fset)}" if fset else ""))
+    print(
+        f"user bank: {len(own)} samples"
+        + (f" and SoundPlant's sounds ({len(fset)})" if fset else "")
+        + f", {used} of {size} KB"
+        + "".join(
+            f"\n  user {k + 1:2}: {nm:11}  {rt} Hz  {ns / max(1, rt):.2f} s"
+            for k, (nm, rt, ns) in enumerate(own)
+        )
+        + (f"\n  SoundPlant's: {', '.join(smp[k][0] for k in fset)}" if fset else "")
+    )
 
 
 if __name__ == "__main__":
     try:
         main()
     except TimeoutError as e:
-        sys.exit(f"{e}: is LOOM-8 running, and no other app using its MIDI port?")
+        sys.exit(f"{e}: is SoundPlant running, and no other app using its MIDI port?")

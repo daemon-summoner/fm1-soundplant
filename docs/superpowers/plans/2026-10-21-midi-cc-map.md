@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers-extended-cc:subagent-driven-development (recommended) or superpowers-extended-cc:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** LOOM-8 is played and mixed from MIDI: fixed channels, a CC map for the tracks / kits / FX / master (in, recorded, and out), and scenes by Program Change or notes.
+**Goal:** SoundPlant is played and mixed from MIDI: fixed channels, a CC map for the tracks / kits / FX / master (in, recorded, and out), and scenes by Program Change or notes.
 
 **Architecture:** The audio interrupt's `midi_in` (app/engine.c) keeps notes and bend, and puts every CC, Program Change and channel-11 note into a 16-entry ring. The main loop (`ui_frame`) drains it through a new unity-build part, `app/midicc.c` (included after ui.c), which holds the map and applies each message the way the knob or key would (`set_tp`, `set_mute`, `kit_sound_mute`, `scene_go`, the master's path). Out: `set_tp` and `master_knob` call midicc.c's senders, which send only while a flag says a person turned something (`knob()` and `list_change()` set it).
 
-**Tech Stack:** C (single-precision, no libm, no memmove), LOOM-8's unity build (app/app.c), fm1-base's host simulator (`loom_host` + tests/scenarios/*.xy).
+**Tech Stack:** C (single-precision, no libm, no memmove), SoundPlant's unity build (app/app.c), fm1-base's host simulator (`soundplant_host` + tests/scenarios/*.xy).
 
 **Spec:** docs/superpowers/specs/2026-10-21-midi-cc-map-design.md
 
@@ -27,8 +27,8 @@
 ```sh
 cd /Volumes/ExtFS/charlesvestal/github/fm1-parent/fm1-xy
 export PATH=~/github/fm1-parent/bin:$PATH
-PYTHON=/opt/homebrew/bin/python3.14 sh build.sh --host                 # the simulator: app/build/host/loom_host
-mkdir -p app/build/scenarios/midicc && app/build/host/loom_host tests/scenarios/midicc.xy app/build/scenarios/midicc
+PYTHON=/opt/homebrew/bin/python3.14 sh build.sh --host                 # the simulator: app/build/host/soundplant_host
+mkdir -p app/build/scenarios/midicc && app/build/host/soundplant_host tests/scenarios/midicc.xy app/build/scenarios/midicc
 PYTHON=/opt/homebrew/bin/python3.14 sh tests/run_tests.sh              # everything (ends "all tests passed")
 ```
 
@@ -72,7 +72,7 @@ on. `midi B1 07 40` sends CC 7 = 64 on channel 2 (the status byte's low nibble i
 - [ ] The SEL row reads MIDI OUT on / off; ALGORITHM sets 1 / 0.
 - [ ] A project whose track holds channel 5 loads with that track's TP_CHAN = 1.
 
-**Verify:** `app/build/host/loom_host tests/scenarios/midicc.xy app/build/scenarios/midicc` → no FAIL lines, exit 0; `grep -c "^.*: 92 3C" app/build/scenarios/midicc/midi_out.txt` → at least 1.
+**Verify:** `app/build/host/soundplant_host tests/scenarios/midicc.xy app/build/scenarios/midicc` → no FAIL lines, exit 0; `grep -c "^.*: 92 3C" app/build/scenarios/midicc/midi_out.txt` → at least 1.
 
 **Steps:**
 
@@ -93,7 +93,7 @@ wait 20
 
 (The `92 3C` out check is in `midi_out.txt`, the Verify's grep; Setup's NOTES is on in a new project.)
 
-- [ ] **Step 2: Run it**: `expect par3.51 1` fails (a new project's T3 has 3). Run: `PYTHON=/opt/homebrew/bin/python3.14 sh build.sh --host && app/build/host/loom_host tests/scenarios/midicc.xy app/build/scenarios/midicc` → `FAIL expect par3.51 1, got 3`.
+- [ ] **Step 2: Run it**: `expect par3.51 1` fails (a new project's T3 has 3). Run: `PYTHON=/opt/homebrew/bin/python3.14 sh build.sh --host && app/build/host/soundplant_host tests/scenarios/midicc.xy app/build/scenarios/midicc` → `FAIL expect par3.51 1, got 3`.
 
 - [ ] **Step 3: The channels.** In `app/engine.h`, after `#define PUNCH_HP 90`:
 
@@ -223,7 +223,7 @@ and in the Verify, also: `grep -c ": 92 40" app/build/scenarios/midicc/midi_out.
 
 ```bash
 git add app/engine.c app/engine.h app/seq/seq.c app/dsp/synth.c app/project.c app/pages.c app/ui.c tests/scenarios/midicc.xy tests/scenarios/edits.xy
-git commit -m "LOOM-8: MIDI's fixed channels (T1-T8 on 1-8, 12-16 the track selected, none on 9-11); MIDI CHANNEL becomes MIDI OUT on / off (an old channel number reads as on)"
+git commit -m "SoundPlant: MIDI's fixed channels (T1-T8 on 1-8, 12-16 the track selected, none on 9-11); MIDI CHANNEL becomes MIDI OUT on / off (an old channel number reads as on)"
 ```
 
 ---
@@ -245,7 +245,7 @@ git commit -m "LOOM-8: MIDI's fixed channels (T1-T8 on 1-8, 12-16 the track sele
 - [ ] REC held, playing: CC 7 on channel 3 while T2 is selected writes a lane on T3's parameter 48.
 - [ ] The existing CC 7 check in edits.xy still passes.
 
-**Verify:** `app/build/host/loom_host tests/scenarios/midicc.xy app/build/scenarios/midicc` → exit 0, no FAIL.
+**Verify:** `app/build/host/soundplant_host tests/scenarios/midicc.xy app/build/scenarios/midicc` → exit 0, no FAIL.
 
 **Steps:**
 
@@ -391,7 +391,7 @@ int engine_cc_take(uint32_t *pkt);                       /* the main loop: the n
 
 ```c
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8's MIDI map (docs/superpowers/specs/2026-10-21-midi-cc-map-design.md): CCs in, as the knob or key would set
+/* SoundPlant's MIDI map (docs/superpowers/specs/2026-10-21-midi-cc-map-design.md): CCs in, as the knob or key would set
  * them (recorded with REC on, playing); CCs out for a knob turned by hand; the scenes by Program Change or notes on the
  * master's channel. Part of app.c's unity build, after ui.c: set_tp, set_mute, kit_sound_mute, scene_go. */
 
@@ -489,7 +489,7 @@ Replace `ui.c:3755-3760` (the `eng_cc_level` loop) with:
 
 ```bash
 git add app/midicc.c app/app.c app/engine.c app/engine.h app/ui.c tests/scenarios/midicc.xy
-git commit -m "LOOM-8: the MIDI CC map in (midicc.c): a track's level, pan, sends, cutoff, reso, attack, release, decay, glide, LFO amount; a kit's bus cuts, attack, length; FX I / II; the master; recorded on its own track"
+git commit -m "SoundPlant: the MIDI CC map in (midicc.c): a track's level, pan, sends, cutoff, reso, attack, release, decay, glide, LFO amount; a kit's bus cuts, attack, length; FX I / II; the master; recorded on its own track"
 ```
 
 ---
@@ -508,7 +508,7 @@ git commit -m "LOOM-8: the MIDI CC map in (midicc.c): a track's level, pan, send
 - [ ] CC 81 = 0 on channel 1 sets sound 2's pan (par1.78 = 0); CC 103 = 90 its level (par1.79 = 90).
 - [ ] With sound 1's send I at 10 and sound 2's at 40, CC 91 = 74 then 84 on channel 1 leaves them 30 and 60 (offsets +10, +10 from 64).
 
-**Verify:** `app/build/host/loom_host tests/scenarios/midicc.xy app/build/scenarios/midicc` → exit 0, no FAIL.
+**Verify:** `app/build/host/soundplant_host tests/scenarios/midicc.xy app/build/scenarios/midicc` → exit 0, no FAIL.
 
 **Steps:**
 
@@ -617,7 +617,7 @@ static void cc_track(int t, int cc, int v)
 
 ```bash
 git add app/midicc.c tests/scenarios/midicc.xy
-git commit -m "LOOM-8: MIDI CC mutes (9 a track, 16-26 a kit's sounds, as the Mix page and Arrange), a kit sound's pan and level (80-90, 102-112), a kit's sends by an offset (91 / 93)"
+git commit -m "SoundPlant: MIDI CC mutes (9 a track, 16-26 a kit's sounds, as the Mix page and Arrange), a kit sound's pan and level (80-90, 102-112), a kit's sends by an offset (91 / 93)"
 ```
 
 ---
@@ -638,7 +638,7 @@ git commit -m "LOOM-8: MIDI CC mutes (9 a track, 16-26 a kit's sounds, as the Mi
 - [ ] A CC that came in sends nothing (`expect ccouts 0` after `ccreset`).
 - [ ] CC OUT off (GLO's SEL list) or T2's MIDI OUT off: the knob sends nothing (`ccouts 0`).
 
-**Verify:** `app/build/host/loom_host tests/scenarios/midicc.xy app/build/scenarios/midicc` → exit 0, no FAIL.
+**Verify:** `app/build/host/soundplant_host tests/scenarios/midicc.xy app/build/scenarios/midicc` → exit 0, no FAIL.
 
 **Steps:**
 
@@ -824,7 +824,7 @@ If ui.c has a prototype `static void knob(int k, int32_t e);` earlier, it stays 
 
 ```bash
 git add app/midicc.c app/ui.c app/pages.c app/host.c tests/scenarios/midicc.xy
-git commit -m "LOOM-8: CC OUT (GLO's list, on by default): a mapped knob turned by hand sends its CC on its track's channel (FX 9 / 10, the master 11); CCs in, locks and automation never"
+git commit -m "SoundPlant: CC OUT (GLO's list, on by default): a mapped knob turned by hand sends its CC on its track's channel (FX 9 / 10, the master 11); CCs in, locks and automation never"
 ```
 
 ---
@@ -842,7 +842,7 @@ git commit -m "LOOM-8: CC OUT (GLO's list, on by default): a mapped knob turned 
 - [ ] Playing: Program Change 4 cues scene 5 for the next bar (scene still the old one 20 ms later; 5 after a bar).
 - [ ] A scene picked on Arrange's white key sends `CA nn` (`expect ccst 202`, `ccd1` = scene - 1); one that came in over MIDI does not (`expect ccouts 0` after `ccreset`).
 
-**Verify:** `app/build/host/loom_host tests/scenarios/midicc.xy app/build/scenarios/midicc` → exit 0, no FAIL.
+**Verify:** `app/build/host/soundplant_host tests/scenarios/midicc.xy app/build/scenarios/midicc` → exit 0, no FAIL.
 
 **Steps:**
 
@@ -940,7 +940,7 @@ In `app/ui.c`, add the prototype `static void cc_out_scene(int n);` beside the o
 
 ```bash
 git add app/midicc.c app/ui.c tests/scenarios/midicc.xy
-git commit -m "LOOM-8: scenes over MIDI: Program Change 0-31 and notes 36-67 on channel 11 pick scenes 1-32 as Arrange's keys do; a scene change sends its Program Change (not one that came in)"
+git commit -m "SoundPlant: scenes over MIDI: Program Change 0-31 and notes 36-67 on channel 11 pick scenes 1-32 as Arrange's keys do; a scene change sends its Program Change (not one that came in)"
 ```
 
 ---
@@ -956,13 +956,13 @@ git commit -m "LOOM-8: scenes over MIDI: Program Change 0-31 and notes 36-67 on 
 **Acceptance Criteria:**
 - [ ] MANUAL.md has the channel table, the track / kit / FX / master CC tables (as the spec's), scenes over MIDI, CC OUT and MIDI OUT; no "MIDI CHANNEL" left.
 - [ ] `sh tests/run_tests.sh` ends `all tests passed` (the reader's audit included).
-- [ ] `./build.sh` builds `build/loom.fwsc`; flash and RAM printed under the slot (581 KB) and RAM (98.3 KB) limits.
+- [ ] `./build.sh` builds `build/soundplant.fwsc`; flash and RAM printed under the slot (581 KB) and RAM (98.3 KB) limits.
 
 **Verify:** `PYTHON=/opt/homebrew/bin/python3.14 sh tests/run_tests.sh | tail -1` → `all tests passed`; `PYTHON=/opt/homebrew/bin/python3.14 ./build.sh 2>&1 | tail -5` → the size lines, no error.
 
 **Steps:**
 
-- [ ] **Step 1: Manual.** In `docs/MANUAL.md`, replace the sentence about MIDI CHANNEL (line ~899: "**SEL** list on its sound pages has MIDI CHANNEL, off or 1 to 16, which also picks the track for notes coming in on ...") with a MIDI section: "Over USB MIDI each track has its own channel: T1 to T8 on channels 1 to 8, FX I on 9, FX II on 10, the master and the scenes on 11; notes on 12 to 16 play the track selected. A track's **SEL** list on its sound pages has MIDI OUT (on in a new project): its notes go out, with Setup's NOTES on." followed by the spec's two map tables (copied from docs/superpowers/specs/2026-10-21-midi-cc-map-design.md, "The map"), a paragraph "Scenes: Program Change 0 to 31 on channel 11, or notes C1 to G3 (36 to 67) there, pick scenes 1 to 32 as Arrange's white keys do (SCENES SWITCH decides when). A scene changed on LOOM-8 sends its Program Change on 11.", and "CC OUT, in **GLO**'s **SEL** list (on in a new project): a mapped knob you turn sends its CC on its track's channel; what comes in, locks and automation are not sent back." Check: `grep -n "MIDI CHANNEL" docs/MANUAL.md` → nothing.
+- [ ] **Step 1: Manual.** In `docs/MANUAL.md`, replace the sentence about MIDI CHANNEL (line ~899: "**SEL** list on its sound pages has MIDI CHANNEL, off or 1 to 16, which also picks the track for notes coming in on ...") with a MIDI section: "Over USB MIDI each track has its own channel: T1 to T8 on channels 1 to 8, FX I on 9, FX II on 10, the master and the scenes on 11; notes on 12 to 16 play the track selected. A track's **SEL** list on its sound pages has MIDI OUT (on in a new project): its notes go out, with Setup's NOTES on." followed by the spec's two map tables (copied from docs/superpowers/specs/2026-10-21-midi-cc-map-design.md, "The map"), a paragraph "Scenes: Program Change 0 to 31 on channel 11, or notes C1 to G3 (36 to 67) there, pick scenes 1 to 32 as Arrange's white keys do (SCENES SWITCH decides when). A scene changed on SoundPlant sends its Program Change on 11.", and "CC OUT, in **GLO**'s **SEL** list (on in a new project): a mapped knob you turn sends its CC on its track's channel; what comes in, locks and automation are not sent back." Check: `grep -n "MIDI CHANNEL" docs/MANUAL.md` → nothing.
 
 - [ ] **Step 2: Release notes.** In `docs/feedback-2026-10-21.md` "Draft release notes", replace "MIDI: notes out by default, MIDI CHANNEL per track, CC 7 level, kit notes with lengths" with "MIDI: fixed channels (T1-T8 on 1-8, FX 9 / 10, the master 11), a CC map for the mixer, sounds, kits, FX and master, in (recorded with REC) and out (CC OUT), scenes by Program Change or notes on 11, MIDI OUT per track, kit notes with lengths".
 
@@ -974,7 +974,7 @@ git commit -m "LOOM-8: scenes over MIDI: Program Change 0-31 and notes 36-67 on 
 
 ```bash
 git add docs/MANUAL.md docs/feedback-2026-10-21.md app/words.tsv app/words.allow
-git commit -m "LOOM-8 docs: MIDI's fixed channels, the CC map, scenes over MIDI, CC OUT and MIDI OUT in the manual and the release notes"
+git commit -m "SoundPlant docs: MIDI's fixed channels, the CC map, scenes over MIDI, CC OUT and MIDI OUT in the manual and the release notes"
 ```
 
-- [ ] **Step 6: Hand to the user for the FM-1** (not automated): flash (`python3 tools/fm1_install.py build/loom.fwsc --yes`, after a backup to `build/backups/`), then from a DAW or a MIDI monitor: CC 7 on channel 3 moves T3's level; turning T2's level sends CC 7 on channel 2; Program Change 1 on channel 11 cues scene 2.
+- [ ] **Step 6: Hand to the user for the FM-1** (not automated): flash (`python3 tools/fm1_install.py build/soundplant.fwsc --yes`, after a backup to `build/backups/`), then from a DAW or a MIDI monitor: CC 7 on channel 3 moves T3's level; turning T2's level sends CC 7 on channel 2; Program Change 1 on channel 11 cues scene 2.

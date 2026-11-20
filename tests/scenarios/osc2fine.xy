@@ -85,7 +85,7 @@ expect par1.d1.k1 82
 expect par1.d1.k5 0
 expect par1.d2.model 1
 expect par1.fine 77
-# a kit saved (now format 11, eight kits after the presets with their fine), Loom loaded, the kit back: its keys (a key
+# a kit saved (now format 11, eight kits after the presets with their fine), SoundPlant loaded, the kit back: its keys (a key
 # on sophie, model 20: a development build's number before format 10, a model of its own now: kept)
 param 1 d3.model 4
 param 1 d5.model 20

@@ -1,4 +1,4 @@
-# LOOM-8 demo: 90s jungle / drum and bass, 170 BPM, A minor. (tools/demos/render.sh renders it; its bank, the amen
+# SoundPlant demo: 90s jungle / drum and bass, 170 BPM, A minor. (tools/demos/render.sh renders it; its bank, the amen
 # and think breaks, is build/demos/jungle.bin: private, never committed.)
 #   T1 slice "chop": the amen, one bar in 16 slices, mono, crushed a little (a sampler's twelve bits); re-cut per
 #      section, rolls by multiply, its pitch turned up by hand through the build
@@ -367,7 +367,7 @@ knob 4 cut 70
 tap HOME
 turn SELECT 1
 stats reset
-wav loom_demo_jungle.wav
+wav soundplant_demo_jungle.wav
 tap PLAY
 bars 2
 knob 1 cut 62

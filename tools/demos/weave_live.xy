@@ -1,4 +1,4 @@
-# LOOM-8 demo: weaving live on the WEAVE track (nothing written). A beat on T1, a felt-piano line on T2 (A) and a
+# SoundPlant demo: weaving live on the WEAVE track (nothing written). A beat on T1, a felt-piano line on T2 (A) and a
 # second line (T2's P2), a bass on T3. T2 weaves with its own P2 by rhythm (its rhythm, P2's notes); T3 weaves with
 # T1's beat by notes (the beat's rhythm, the bass's notes). Two bars each: as written; T2 held; T3 held; both; as
 # written. Factory sounds only. Renders build/demos/weave_live/.

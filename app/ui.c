@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8's input: the panel's buttons, keys and encoders, what they do on each page, and the screen reader.
+/* SoundPlant's input: the panel's buttons, keys and encoders, what they do on each page, and the screen reader.
  * Part of the unity build, after pages.c; the host simulator includes it too. The gestures are the OP-XY
  * notebook's, with HOME as shift and a held step as "what is on it":
  *
@@ -214,7 +214,7 @@ static void set_tp(int trk, int p, int v)
             engine_set(trk, TP_DRUMX(key, k), par[TP_DRUMX(key, k)]);
         }
         if (v % NDM >= DM_909CH && v % NDM <= DM_909CRASH && !d909_res_ok())
-            say_no("NO SAMPLES", "reinstall LOOM-8");   /* (the 909 cymbals: the installer writes them beside it) */
+            say_no("NO SAMPLES", "reinstall SoundPlant");   /* (the 909 cymbals: the installer writes them beside it) */
         mark_dirty();
         return;
     }
@@ -227,6 +227,8 @@ static void set_tp(int trk, int p, int v)
             if (grp_index(ui.page) < 0)
                 ui.page = (uint8_t)grp_page(g, 0);
         }
+        if (v == EG_JACQUARD && !wt_res_ok())
+            say_no("NO WAVETABLES", "reinstall SoundPlant");   /* (the tables: the installer writes them beside the firmware) */
     } else
         engine_set(trk, p, v);
     if (p == TP_PLAYER && !is_aux(trk) && !is_drum(trk) && v == PL_RAND) {
@@ -1241,7 +1243,7 @@ static void scene_key(int k, int w, int when)    /* a white key on Arrange; agai
     }
     scene_go(w, when);
 }
-/* a scene's key held to clear it: what its press did is taken back first, so the scene playing stays while LOOM-8
+/* a scene's key held to clear it: what its press did is taken back first, so the scene playing stays while SoundPlant
  * asks (a cue withdrawn; a scene the press made, a copy, empty again and the one before it back). 1: nothing to ask */
 static int scene_hold(int w)
 {
@@ -2182,8 +2184,6 @@ static void glfo_knob(int k, int32_t e)          /* the shared LFO's knobs (synt
 static void master_knob(int k, int32_t e)
 {
     int m = mst_base(ui.page) + k, v;
-    if (m == MS_RSV3)
-        return;                                  /* (EQ: three knobs) */
     v = clampi(proj.master[m] + e, 0, master_max(m));
     if (v == proj.master[m])
         return;                                  /* (a knob past its end: no undo step, no CC) */
@@ -2709,6 +2709,10 @@ static void list_change_do(int32_t e)
             proj.rsv[3] = (uint8_t)(d > 0 ? proj.rsv[3] | CC_IN_ENDLESS : proj.rsv[3] & ~CC_IN_ENDLESS);
             mark_dirty();
             break;
+        case A_MOTION:
+            proj.rsv[3] = (uint8_t)(d > 0 ? proj.rsv[3] | MOTION_STILL : proj.rsv[3] & ~MOTION_STILL);
+            mark_dirty();
+            break;
         default: break;
         }
         break;
@@ -3173,7 +3177,7 @@ static void kit_pack(const uint8_t *par, const char *name, uint8_t *img)
     memcpy(img + NAME_LEN, par, NTP_SOUND);
     memcpy(img + NAME_LEN + NTP_SOUND, par + TP_DRUM0, KIT_KEYS);
 }
-/* the factory kits, from the default kit (Loom): the others tools/gen_kits.py's (kits.h GKIT: each key's model, knobs 1..8,
+/* the factory kits, from the default kit (SoundPlant): the others tools/gen_kits.py's (kits.h GKIT: each key's model, knobs 1..8,
  * volume, pan, play mode, the key's decay) */
 static void kit_factory(int k, uint8_t *img)
 {
@@ -3724,7 +3728,7 @@ static void action_run(int a)
     case A_FOLLOW: case A_USB_AUDIO: case A_COUNT_IN: case A_THEME: case A_LARGE_TYPE: case A_PLAYMODE: case A_FTYPE: case A_FX_HP: case A_FX_LP:
     case A_FX_SEND: case A_PUMP_BY: case A_PUMP_REL: case A_PUMP_ACC: case A_LEVEL: case A_SCENE_AT: case A_AUTOSAVE:
     case A_MIDI_OUT: case A_LOOP_FREE: case A_CC_OUT: case A_SCENES_OUT: case A_MIDI_CC: case A_USB_HOST: case A_KIT_FILTER:
-    case A_CC_IN: case A_FX_WIDTH:
+    case A_CC_IN: case A_FX_WIDTH: case A_MOTION:
         return;   /* (ALGORITHM sets them; SEL
                                                                                     * leaves the list) */
     case A_REMOVE_NOTE: act_remove_note(lst.sel); break;
@@ -4094,7 +4098,7 @@ static void leds(void)
             }
         }
     }
-    loom_lights(b, k, proj.lights == 1, (dim | mid) & ~k, rec);
+    soundplant_lights(b, k, proj.lights == 1, (dim | mid) & ~k, rec);
     plat_lights_mid(0, mid & ~k);
 }
 
@@ -4748,8 +4752,8 @@ void ui_init(void)
     engine_tempo(proj.tempo_x10);
     engine_groove(proj.groove);
 #if defined(PLAT_HOST) && !defined(PLAT_WEB)
-    if (getenv("LOOM_THEME"))                        /* the host's screenshots in another theme */
-        proj.rsv[1] = (uint8_t)(THEME_SET | (uint32_t)atoi(getenv("LOOM_THEME")) % NTHEMES);
+    if (getenv("SOUNDPLANT_THEME"))                        /* the host's screenshots in another theme */
+        proj.rsv[1] = (uint8_t)(THEME_SET | (uint32_t)atoi(getenv("SOUNDPLANT_THEME")) % NTHEMES);
     theme = THEME_OF_PROJ();
 #endif
     lcd_fill(0, 0, 240, 240, K_BG);
@@ -4772,6 +4776,7 @@ static void autosave(void)
 }
 void ui_frame(void)
 {
+    an_frame();
     input();
     bt_poll();
     if (ui.chordmode && (ui.page != P_STEPS || !is_seqt(sel_trk()) || is_drum(sel_trk()) ||
@@ -4810,6 +4815,7 @@ void ui_frame(void)
     }
     autosave();
     draw_header();
+    draw_rule();
     draw_page();
     draw_rec_strip();
     if (!(lst.open && !ui.card) && !(ui.card && band != &BANDS[0])) {   /* (large type: a card over them too) */

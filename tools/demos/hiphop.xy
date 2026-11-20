@@ -1,4 +1,4 @@
-# LOOM-8 demo: hip hop, boom bap, 90 BPM swung, C minor (Cm9 Fm9 Bb9 Ebmaj9). (tools/demos/render.sh renders it; its
+# SoundPlant demo: hip hop, boom bap, 90 BPM swung, C minor (Cm9 Fm9 Bb9 Ebmaj9). (tools/demos/render.sh renders it; its
 # bank is build/demos/hiphop.bin: a bar of the funky drummer and a horn stab made by tools/demos/make_banks.py,
 # private.)
 #   T1 slice: the funky drummer in 16, mono, re-chopped and swung, its pitch two semitones down (heavier), through
@@ -287,7 +287,7 @@ knob 1 cut 64
 tap HOME
 turn SELECT 1
 stats reset
-wav loom_demo_hiphop.wav
+wav soundplant_demo_hiphop.wav
 tap PLAY
 # intro 2: the break opening up
 bars 1

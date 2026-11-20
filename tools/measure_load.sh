@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: MPL-2.0
-# Measure LOOM-8's audio load on an attached FM-1, as the Status page reads it (GLO, SELECT to Status; the screen
+# Measure SoundPlant's audio load on an attached FM-1, as the Status page reads it (GLO, SELECT to Status; the screen
 # reader says "audio load N percent, voices N[ of M][, saws N], peak N percent, guard trips N, dropouts N"),
 # driving the FM-1 over USB-MIDI with fm1-base's tools/fm1_remote.py (its remote control and the screen reader's
 # channel). Nothing is flashed or saved.
@@ -23,7 +23,7 @@
 # release-all can lose its keys frame: a key then stays down, and its next press sounds nothing: the old 0-voice
 # rows). The crash log is read after each block (a crash stops the run). A table is printed and appended to build/measure_load.csv with the label (the
 # firmware), so builds can be compared:
-#   ./build.sh && python3 base/tools/fm1_install.py app/build/loom.fwsc --yes && tools/measure_load.sh --label default
+#   ./build.sh && python3 base/tools/fm1_install.py app/build/soundplant.fwsc --yes && tools/measure_load.sh --label default
 # FM1_REMOTE: the path of fm1_remote.py (default base/tools/fm1_remote.py); needs mido + python-rtmidi.
 set -eu
 cd "$(dirname "$0")/.."
@@ -298,7 +298,7 @@ def finish():
     new_project()
 
 
-print(f"LOOM-8 audio load ({label})")
+print(f"SoundPlant audio load ({label})")
 LOG0 = crash_log()[:2]
 if LOG0[:1] != ["no crash recorded"]:
     print("  (an earlier crash is on record: " + " ".join(LOG0) + ")")

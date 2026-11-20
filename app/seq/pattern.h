@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8 data model: tracks, patterns, steps, lanes (parameter locks), scenes and the song.
+/* SoundPlant data model: tracks, patterns, steps, lanes (parameter locks), scenes and the song.
  *
  * Plain data, no pointers, so a pattern copies with an assignment and the project stores the bytes
  * (X0X's rule). The UI edits these in place from the main loop while the sequencer reads them in the
@@ -25,7 +25,7 @@ enum { AUX_BRAIN = NTRK, AUX_PUNCH, AUX_FX1, AUX_FX2, AUX_WEAVE, NALLTRK };   /*
 #define NDRUM 11                      /* drumline keys: the black keys (a model instance each) */
 #define PPS 24                        /* ticks a step (a sixteenth at scale 1): nudge and lengths count in these */
 
-/* step components: the OP-XY's 14, in the cheat sheet's order, then LOOM-8's flam (append only: saved with the
+/* step components: the OP-XY's 14, in the cheat sheet's order, then SoundPlant's flam (append only: saved with the
  * project); 0 = none. Values 0..8 = the black keys 1-9, 9 = black key 10 (random, where the OP-XY prints rnd). A step
  * carries up to two (comp / comp2). Defaults when a component is added (the notebook p. 139): SC_DEFAULT[]. */
 enum { SC_NONE, SC_PULSE, SC_HOLD, SC_MULTIPLY, SC_VELOCITY, SC_RAMP_UP, SC_RAMP_DOWN, SC_RANDOM,

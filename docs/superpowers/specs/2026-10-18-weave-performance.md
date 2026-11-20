@@ -1,7 +1,7 @@
-# Weave as a performance (LOOM-8), 2026-10-18
+# Weave as a performance (SoundPlant), 2026-10-18
 
 Part 1 is the design as agreed before (the 2026-10-18 handoff, "Agreed, not built"), written out. Part 2 reviews
-it against LOOM-8 as it is at the end of 2026-10-18 and the rules the UI follows now. Part 3 is the design after
+it against SoundPlant as it is at the end of 2026-10-18 and the rules the UI follows now. Part 3 is the design after
 Charles's notes on the review (the WEAVE track kept), and part 4 the questions left.
 
 ## 1. As agreed
@@ -16,7 +16,7 @@ Charles's notes on the review (the WEAVE track kept), and part 4 the questions l
 - **Patterns are never written.** A kit or slice pattern crossed with a melodic one weaves the rhythm only.
 - **Storage:** compact weave steps (~1 KB). **2-3 tracks** woven at once.
 
-## 2. Review against LOOM-8 now
+## 2. Review against SoundPlant now
 
 The rules it is checked against (Charles, 2026-10-17 and today): each button is one place and each place has pages
 of four knobs; ARP is pattern modification; ALGORITHM picks the track; no held modifiers (HOME no longer shifts

@@ -8,10 +8,10 @@ Groups of three songs (K: house's main scene on the Nylon, Elastane and Wire kit
   A: jungle garage hyperpop       B: house pop hiphop       C: stress (the worst case) ambient hiphop
   K: house's main scene on the Nylon, Elastane and Wire factory kits (the x models, sophie, clang under load)
 For each group: one user sample bank with the three songs' samples (OUT_DIR/bank_A.bin, about 175 KB; B about
-135 KB: the 216 KB bank holds them), each song's sample slots moved to its place in it (song 2's u1 is u3 ...);
+135 KB: the 180 KB bank holds them), each song's sample slots moved to its place in it (song 2's u1 is u3 ...);
 then the host simulator runs each song's setup (tools/demos/<song>.xy up to "tap HOME", where its performance
 starts), saves it into slot 1..3 (named after the song), starts a new project for the next, and writes the backup
-(OUT_DIR/group_A.loom8, base/tools/fm1_backup.py's file). OUT_DIR/manifest.json lists, per song: its slot, the
+(OUT_DIR/group_A.soundplant, base/tools/fm1_backup.py's file). OUT_DIR/manifest.json lists, per song: its slot, the
 host's model of the project as the FM-1 will play it (the backup restored in the simulator, the slot loaded from
 HOME's list, its song from the Song page until it stops: project_model), render.sh's model with the performance
 (model, if build/demos/run_<song>/log.txt is there), and what the script does live while it plays (knob moves,
@@ -20,6 +20,7 @@ throws, keys) that a project cannot hold: the FM-1 plays the project's song alon
 The banks hold classic breaks (make_banks.py): private, never committed or published (OUT_DIR is under build/).
 Needs the host simulator built (./build.sh --host) and numpy + scipy (make_banks.py).
 """
+
 import json
 import os
 import re
@@ -32,21 +33,33 @@ ROOT = HERE.parents[1]
 sys.path.insert(0, str(HERE))
 import make_banks as MB  # noqa: E402
 
-GROUPS = {"A": ["jungle", "garage", "hyperpop"], "B": ["house", "pop", "hiphop"], "C": ["stress", "ambient", "hiphop"],
-          "M": ["house_m", "house_pad", "pop"]}       # (M: house's main scene alone, 8 bars: a quick check)
+GROUPS = {
+    "A": ["jungle", "garage", "hyperpop"],
+    "B": ["house", "pop", "hiphop"],
+    "C": ["stress", "ambient", "hiphop"],
+    "M": ["house_m", "house_pad", "pop"],
+}  # (M: house's main scene alone, 8 bars: a quick check)
 # a song played otherwise: its setup, then these lines
-VARIANTS = {"house_m": ("house", ["song 4:8"])}       # the main scene (chord changes every bar, the busiest) for 8 bars
-VARIANTS["house_pad"] = ("house_m", ["scenemute 4 xxx.xxxx"])   # the main scene's pad (T4) alone: knit's cost per
-NAMES_EXTRA = {"house_pad": "pad_alone"}                         # voice with little else in the cache
+VARIANTS = {
+    "house_m": ("house", ["song 4:8"])
+}  # the main scene (chord changes every bar, the busiest) for 8 bars
+VARIANTS["house_pad"] = (
+    "house_m",
+    ["scenemute 4 xxx.xxxx"],
+)  # the main scene's pad (T4) alone: knit's cost per
+NAMES_EXTRA = {"house_pad": "pad_alone"}  # voice with little else in the cache
 # K: the main scene on three of the factory kits (tools/gen_kits.py: the new models under the busiest load)
 sys.path.insert(0, str(HERE.parent))
 import gen_kits as GK  # noqa: E402
+
 for _kit in ("Nylon", "Elastane", "Wire"):
     VARIANTS["house_" + _kit.lower()] = ("house_m", GK.xy(_kit).splitlines())
     NAMES_EXTRA["house_" + _kit.lower()] = "main_" + _kit.lower()
 GROUPS["K"] = ["house_nylon", "house_elastane", "house_wire"]
 
-SAMPLES_OF = {"house_acid": "house"}                 # a song of its own file playing another's samples (its bank)
+SAMPLES_OF = {
+    "house_acid": "house"
+}  # a song of its own file playing another's samples (its bank)
 
 
 def root(song):
@@ -54,16 +67,41 @@ def root(song):
     while song in VARIANTS:
         song = VARIANTS[song][0]
     return SAMPLES_OF.get(song, song)
-if os.environ.get("DEMO_GROUPS"):                    # e.g. DEMO_GROUPS="C:jungle,garage,house" (any three songs a group)
-    GROUPS = {g: songs.split(",") for g, songs in (x.split(":") for x in os.environ["DEMO_GROUPS"].split())}
-ORDER = ["jungle", "garage", "hyperpop", "house", "pop", "hiphop", "stress", "ambient"]   # render.sh's: make_banks'
+
+
+if os.environ.get(
+    "DEMO_GROUPS"
+):  # e.g. DEMO_GROUPS="C:jungle,garage,house" (any three songs a group)
+    GROUPS = {
+        g: songs.split(",")
+        for g, songs in (x.split(":") for x in os.environ["DEMO_GROUPS"].split())
+    }
+ORDER = [
+    "jungle",
+    "garage",
+    "hyperpop",
+    "house",
+    "pop",
+    "hiphop",
+    "stress",
+    "ambient",
+]  # render.sh's: make_banks'
 #                                                  noise in the same order; stress and ambient: no samples of their own
 #                                                  (the variants take their song's: not here)
-NAMES = {"jungle": "jungle", "garage": "garage", "hyperpop": "hyperpop", "house": "deep_house", "pop": "pop",
-         "hiphop": "boom_bap", "stress": "stress", "ambient": "ambient",
-         "house_m": "house_main", "house_acid": "acid_house"}
+NAMES = {
+    "jungle": "jungle",
+    "garage": "garage",
+    "hyperpop": "hyperpop",
+    "house": "deep_house",
+    "pop": "pop",
+    "hiphop": "boom_bap",
+    "stress": "stress",
+    "ambient": "ambient",
+    "house_m": "house_main",
+    "house_acid": "acid_house",
+}
 NAMES.update(NAMES_EXTRA)
-SKIP = ("master ", "samples ")                       # the setup's lines the group sets once instead
+SKIP = ("master ", "samples ")  # the setup's lines the group sets once instead
 
 
 def split(song):
@@ -79,8 +117,12 @@ def split(song):
 
 def remap(lines, off):
     """a song's user samples uN to u(N + off): its place in the group's bank"""
-    return [re.sub(r"\bu(\d+)\b", lambda m: f"u{int(m.group(1)) + off}", ln) if ln.startswith("knob ") else ln
-            for ln in lines]
+    return [
+        re.sub(r"\bu(\d+)\b", lambda m: f"u{int(m.group(1)) + off}", ln)
+        if ln.startswith("knob ")
+        else ln
+        for ln in lines
+    ]
 
 
 def live_actions(live):
@@ -104,7 +146,14 @@ def model(song):
     log = ROOT / "build" / "demos" / f"run_{song}" / "log.txt"
     if not log.exists():
         return None
-    return next((parse_stats(ln) for ln in log.read_text().splitlines() if ln.startswith("stats:")), None)
+    return next(
+        (
+            parse_stats(ln)
+            for ln in log.read_text().splitlines()
+            if ln.startswith("stats:")
+        ),
+        None,
+    )
 
 
 # (HOME's list: SELECT 8 rows down to LOAD PROJECT, after the scenes' and the song's rows)
@@ -142,13 +191,21 @@ def project_model(host, out, g, slot, bank, backup):
     """the host's model of what the FM-1 plays: the backup restored, the slot loaded from HOME's list (as
     device_load.py does it), its song from the Song page until it stops; no live gestures"""
     sp = out / f"play_{g}{slot}.xy"
-    sp.write_text(PLAY_SONG.format(bank=bank, backup=backup, turns=slot - 1, slot=slot, ms=150000))
-    r = subprocess.run([str(host), str(sp), str(out / "play")], capture_output=True, text=True,
-                       env={**__import__("os").environ, "LOOM_LOAD": "0"})
+    sp.write_text(
+        PLAY_SONG.format(bank=bank, backup=backup, turns=slot - 1, slot=slot, ms=150000)
+    )
+    r = subprocess.run(
+        [str(host), str(sp), str(out / "play")],
+        capture_output=True,
+        text=True,
+        env={**__import__("os").environ, "SOUNDPLANT_LOAD": "0"},
+    )
     log = r.stdout + r.stderr
     (out / f"play_{g}{slot}.log").write_text(log)
     if r.returncode:
-        sys.exit(f"group {g} slot {slot}: the song did not play and stop in the host (see {out / f'play_{g}{slot}.log'})")
+        sys.exit(
+            f"group {g} slot {slot}: the song did not play and stop in the host (see {out / f'play_{g}{slot}.log'})"
+        )
     for ln in log.splitlines():
         if ln.startswith("stats:"):
             return parse_stats(ln)
@@ -156,71 +213,127 @@ def project_model(host, out, g, slot, bank, backup):
 
 
 def parse_stats(ln):
-    m = re.search(r"([\d.]+) s playing, peak synth voices (\d+) \(of (\d+)\), peak drum voices (\d+), guard trips "
-                  r"(\d+); model load peak (\d+) %, mean (\d+) %", ln)
+    m = re.search(
+        r"([\d.]+) s playing, peak synth voices (\d+) \(of (\d+)\), peak drum voices (\d+), guard trips "
+        r"(\d+); model load peak (\d+) %, mean (\d+) %",
+        ln,
+    )
     if not m:
         return None
-    return {"line": ln, "seconds": float(m.group(1)), "synth_voices": int(m.group(2)), "drum_voices": int(m.group(4)),
-            "guard": int(m.group(5)), "peak": int(m.group(6)), "mean": int(m.group(7))}
+    return {
+        "line": ln,
+        "seconds": float(m.group(1)),
+        "synth_voices": int(m.group(2)),
+        "drum_voices": int(m.group(4)),
+        "guard": int(m.group(5)),
+        "peak": int(m.group(6)),
+        "mean": int(m.group(7)),
+    }
 
 
 def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
     B = Path(sys.argv[1])
-    out = Path(sys.argv[2]) if len(sys.argv) > 2 else ROOT / "build" / "demos" / "device"
+    out = (
+        Path(sys.argv[2]) if len(sys.argv) > 2 else ROOT / "build" / "demos" / "device"
+    )
     out.mkdir(parents=True, exist_ok=True)
-    host = ROOT / "app" / "build" / "host" / "loom_host"
+    host = ROOT / "app" / "build" / "host" / "soundplant_host"
     if not host.exists():
         sys.exit("device_projects: build the host simulator first (./build.sh --host)")
     specs = {}
-    for s in ORDER:                                  # each song's WAVs, as make_banks.py makes them
+    for s in ORDER:  # each song's WAVs, as make_banks.py makes them
         d = ROOT / "build" / "demos" / s
         d.mkdir(parents=True, exist_ok=True)
         specs[s] = MB.BANKS[s](B, d) if s in MB.BANKS else []
     manifest = {"groups": {}}
     for g, songs in GROUPS.items():
         bank = out / f"bank_{g}.bin"
-        roots = list(dict.fromkeys(root(s) for s in songs))   # (a song and its variants share its samples)
-        allspecs = [sp for r in roots for sp in specs.get(r, [])]   # (a song of no bank: none)
-        if not allspecs:                             # (no samples of their own: the breaks pack, which a slice preset
-            allspecs = ["breaks"]                    # finds by name since the breaks left the firmware)
-        at = {}                                      # each root's first user sample's place in the group's bank
+        roots = list(
+            dict.fromkeys(root(s) for s in songs)
+        )  # (a song and its variants share its samples)
+        allspecs = [
+            sp for r in roots for sp in specs.get(r, [])
+        ]  # (a song of no bank: none)
+        if (
+            not allspecs
+        ):  # (no samples of their own: the breaks pack, which a slice preset
+            allspecs = ["breaks"]  # finds by name since the breaks left the firmware)
+        at = {}  # each root's first user sample's place in the group's bank
         for r in roots:
-            at[r] = sum(len(specs.get(x, [])) for x in roots[:roots.index(r)])
+            at[r] = sum(len(specs.get(x, [])) for x in roots[: roots.index(r)])
         print(f"== group {g}: {', '.join(songs)}")
-        r = subprocess.run([sys.executable, str(ROOT / "tools" / "loom_samples.py"), "build", str(bank)] + allspecs)
+        r = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "tools" / "soundplant_samples.py"),
+                "build",
+                str(bank),
+            ]
+            + allspecs
+        )
         if r.returncode:
             sys.exit(f"group {g}: the bank does not fit")
-        script = [f"# group {g}: {' '.join(songs)} (made by tools/demos/device_projects.py)", "master 4096",
-                  f"samples {bank}"]
+        script = [
+            f"# group {g}: {' '.join(songs)} (made by tools/demos/device_projects.py)",
+            "master 4096",
+            f"samples {bank}",
+        ]
         rows = []
         for slot, s in enumerate(songs, 1):
             setup, live = split(s)
-            setup = [ln for ln in setup if ln.strip() and not ln.lstrip().startswith("#") and not ln.startswith(SKIP)]
+            setup = [
+                ln
+                for ln in setup
+                if ln.strip()
+                and not ln.lstrip().startswith("#")
+                and not ln.startswith(SKIP)
+            ]
             if slot > 1:
                 script.append("projnew")
             script += remap(setup, at[root(s)])
             script += [f"projsave {slot} {NAMES.get(s, s)}", "wait 200"]
-            rows.append({"slot": slot, "song": s, "name": NAMES.get(s, s).replace("_", " "), "user_samples_from": at[root(s)] + 1,
-                         "model": model(s), "live": live_actions(live)})
-        script.append(f"backup out:group_{g}.loom8")
+            rows.append(
+                {
+                    "slot": slot,
+                    "song": s,
+                    "name": NAMES.get(s, s).replace("_", " "),
+                    "user_samples_from": at[root(s)] + 1,
+                    "model": model(s),
+                    "live": live_actions(live),
+                }
+            )
+        script.append(f"backup out:group_{g}.soundplant")
         sp = out / f"group_{g}.xy"
         sp.write_text("\n".join(script) + "\n")
-        r = subprocess.run([str(host), str(sp), str(out)], capture_output=True, text=True)
+        r = subprocess.run(
+            [str(host), str(sp), str(out)], capture_output=True, text=True
+        )
         log = r.stdout + r.stderr
         (out / f"group_{g}.log").write_text(log)
         for ln in log.splitlines():
             if ln.startswith(("projsave", "demo", "FAIL", "line ")):
                 print("  " + ln)
-        if r.returncode or not (out / f"group_{g}.loom8").exists():
-            sys.exit(f"group {g}: the host run failed (rc {r.returncode}); see {out / f'group_{g}.log'}")
-        print(f"  backup {out / f'group_{g}.loom8'}, bank {bank}")
+        if r.returncode or not (out / f"group_{g}.soundplant").exists():
+            sys.exit(
+                f"group {g}: the host run failed (rc {r.returncode}); see {out / f'group_{g}.log'}"
+            )
+        print(f"  backup {out / f'group_{g}.soundplant'}, bank {bank}")
         for row in rows:
-            row["project_model"] = project_model(host, out, g, row["slot"], bank, out / f"group_{g}.loom8")
+            row["project_model"] = project_model(
+                host, out, g, row["slot"], bank, out / f"group_{g}.soundplant"
+            )
             pm = row["project_model"]
-            print(f"  slot {row['slot']} {row['song']}: as a project, " + (pm["line"][7:] if pm else "no stats"))
-        manifest["groups"][g] = {"bank": str(bank), "backup": str(out / f"group_{g}.loom8"), "songs": rows}
+            print(
+                f"  slot {row['slot']} {row['song']}: as a project, "
+                + (pm["line"][7:] if pm else "no stats")
+            )
+        manifest["groups"][g] = {
+            "bank": str(bank),
+            "backup": str(out / f"group_{g}.soundplant"),
+            "songs": rows,
+        }
     (out / "manifest.json").write_text(json.dumps(manifest, indent=1) + "\n")
     print(f"manifest {out / 'manifest.json'}")
 

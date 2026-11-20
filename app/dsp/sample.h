@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8 samples: the factory bank compiled into the image (build/gen/samples.h, tools/gen_samples.py, mono IMA
- * ADPCM at 22050 Hz) and the user bank in flash (216 KB over three windows, uploaded over USB with
- * tools/loom_samples.py), mono IMA ADPCM at each sample's own rate (4000..48000 Hz: the tool offers 11025, 16000,
+/* SoundPlant samples: the factory bank compiled into the image (build/gen/samples.h, tools/gen_samples.py, mono IMA
+ * ADPCM at 22050 Hz) and the user bank in flash (180 KB over three windows, uploaded over USB with
+ * tools/soundplant_samples.py), mono IMA ADPCM at each sample's own rate (4000..48000 Hz: the tool offers 11025, 16000,
  * 22050 and 32000), read in place (the user bank through the XIP plaintext window). One index space:
  * 0..SMP_NFACT-1 the factory samples, then SMP_NUSER user slots (empty ones play nothing).
  *
@@ -11,9 +11,9 @@
  * a jump (a loop, a start anywhere) it starts again from the window's checkpoint (33 to SMP_BLK + 1 steps). The
  * format and the user bank's layout: tools/sampleio.py.
  *
- * The user bank's windows (SMP_REG*): the data area from the projects' end to the panel calibration, and
+ * The user bank's windows (SMP_REG*): the data area from the resource region's end to the panel calibration, and
  * fm1-base's two extra windows (plat.h PLAT_XDATA1, PLAT_XDATA0), in that order. An offset in the bank is
- * virtual: it runs through the windows end to end (0 = the header, at 0xC1000). A sample's checkpoints lie
+ * virtual: it runs through the windows end to end (0 = the header, at 0xCA000). A sample's checkpoints lie
  * in one window; its ADPCM may run on from one window into the next (once: smp_t adp2 / split). In the two
  * extra windows no sector holds an update record at 0xF00 (plat.h; tools/sampleio.py keeps "AT" from bytes
  * 0xF06..0xF07, the commit refuses a bank that has it there).
@@ -39,13 +39,13 @@
 #define SMP_NENT (SMP_NUSER + SMP_NFENT)  /* the bank's entries: the user slots and the factory set's */
 #define SMP_NAME 12
 #define SMP_NREG 3                        /* the bank's windows, in the order it fills them */
-#define SMP_REG0 0xC1000u                 /* the data area after the projects, up to the calibration: 108 KB */
-#define SMP_REG0_SIZE 0x1B000u
+#define SMP_REG0 0xCA000u                 /* the data area after the resource region, up to the calibration: 72 KB */
+#define SMP_REG0_SIZE 0x12000u
 #define SMP_REG1 0xE5000u                 /* PLAT_XDATA1: 92 KB */
 #define SMP_REG1_SIZE 0x17000u
 #define SMP_REG2 0x93000u                 /* PLAT_XDATA0: 16 KB */
 #define SMP_REG2_SIZE 0x4000u
-#define SMP_BANK_SIZE (SMP_REG0_SIZE + SMP_REG1_SIZE + SMP_REG2_SIZE)   /* 216 KB */
+#define SMP_BANK_SIZE (SMP_REG0_SIZE + SMP_REG1_SIZE + SMP_REG2_SIZE)   /* 180 KB */
 #define SMP_BANK_BASE SMP_REG0            /* flash offset of the bank's header */
 #define SMP_BANK_HDR 2048u                /* the header; the data follows */
 #define SMP_BANK_MAGIC 0x504D534Cu        /* "LSMP" */

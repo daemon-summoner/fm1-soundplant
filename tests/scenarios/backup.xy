@@ -10,7 +10,7 @@ expect tempo 140
 tap SAVE
 wait 100
 expect dirty 0
-backup out:loom.bkp
+backup out:soundplant.bkp
 spin K1 -40
 wait 40
 expect tempo 100
@@ -22,12 +22,12 @@ expect tempo 100
 listen
 tap PLAY
 wait 200
-restore out:loom.bkp
+restore out:soundplant.bkp
 expect restore_rc 10
 said STOP FIRST
 tap PLAY
 wait 200
-restore out:loom.bkp
+restore out:soundplant.bkp
 expect restore_rc 0
 wait 100
 expect tempo 140

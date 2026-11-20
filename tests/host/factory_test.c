@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 /* The factory set in the user bank (0.8), as the FM-1 has it: sample.c built with SMP_FACT_MOVED (no factory samples
  * in the image), a bank of two user samples and the factory set after them (build/gen/factory_bank.bin:
- * tools/loom_samples.py build, its default). Each factory row plays its entry, the same bytes as the image's until
+ * tools/soundplant_samples.py build, its default). Each factory row plays its entry, the same bytes as the image's until
  * 0.8 (samples.h, built in here for the comparison); user 1 and 2 are the user's two, the factory set's entries no
  * user slots; a bank without the factory set leaves its rows silent (and named). */
 #include <stdio.h>

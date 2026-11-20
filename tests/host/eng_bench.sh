@@ -6,7 +6,7 @@ set -eu
 cd "$(dirname "$0")/../.."
 PY="${PYTHON:-python3}"
 mkdir -p build/gen build/host
-[ -f build/gen/wavetables.h ] || "$PY" tools/gen_wavetables.py build/gen/wavetables.h
+[ -f build/gen/wavetables.bin ] || "$PY" tools/gen_wavetables.py build/gen/wavetables.bin
 [ -f build/gen/samples.h ] || "$PY" tools/gen_samples.py build/gen/samples.h >/dev/null
 "$PY" tools/gen_presets.py build/gen/presets.h
 ${CC:-cc} -O2 -ffp-contract=off -std=gnu99 -Wall -Wextra -Wdouble-promotion -Werror -Wno-unused-function \

@@ -3,7 +3,7 @@
 """tests/fixtures/presets_v8.bkp: a backup (fm1-base's backup format, as the simulator's sim_backup writes it) whose
 only object is a presets object of PRESETS_FORMAT 8 as breaks-out's development builds saved it (the user presets
 without osc 2's fine, then the four user kits): U1 a knit sound (osc 2 at 75, its level 90), K1 "oldkit" (keys 1
-and 2 on models 11 and 25, two of those the development builds had and LOOM-8 no longer does: project.c keys_fix
+and 2 on models 11 and 25, two of those the development builds had and SoundPlant no longer does: project.c keys_fix
 makes them a kick and a snare). tests/scenarios/osc2fine.xy restores it."""
 import struct, zlib, os
 

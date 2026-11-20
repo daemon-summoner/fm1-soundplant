@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdint.h>
 #include "synth.h"
+#include "wt_res.h"                               /* wt_host_init: the wavetable engine's tables */
 #include "drumline.h"
 #include "fastmath.h"
 #include "instr_count.h"                       /* instr_now, ns_now */
@@ -95,6 +96,7 @@ int main(void)
 {
     static const int NV[] = {2, 4, 6, 8, 12, 16};
     int d, i, e;
+    wt_host_init();
     printf("-- the cores' split: the critical path, instructions a sample (fixed k = 8 -> split_at)\n");
     for (e = 0; e < 3; e++) {
         int eng = e == 2 ? EG_RAYON : e ? EG_JACQUARD : EG_KNIT;

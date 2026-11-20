@@ -122,3 +122,12 @@ expect par2.p1 10
 expect lock 1 1 1 p1 2
 expect par11.e1 108
 expect epar11.e1 108
+
+# a format 21 project, from before polish (tests/fixtures/make_v21.xy): the master's EQ page's fourth value there (127, a
+# stray byte) is not trusted: polish starts at its default (40); the rest of the master stays (EQ low 70)
+storeload tests/fixtures/store_v21.bin
+reboot
+wait 400
+expect tempo 99
+expect mst.lo 70
+expect mst.polish 40

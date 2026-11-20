@@ -1,0 +1,11 @@
+# a format 21 project, from before polish (format 22): its master's EQ page held a fourth value nothing read. Here it is 127
+# (a stray byte: the master list's old fourth name, "-", took any value) and the EQ's low is 70, for the migration's test
+# (tests/scenarios/migrate.xy): polish takes its default, the rest of the master stays.
+# Run by a format 21 build (b06215d): its soundplant_host tests/fixtures/make_v21.xy OUT
+wait 300
+bpm 99
+mst lo 70
+mst - 127
+wait 40
+projsave 1 v21_test
+storesave tests/fixtures/store_v21.bin

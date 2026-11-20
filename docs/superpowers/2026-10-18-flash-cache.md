@@ -1,4 +1,4 @@
-# LOOM-8: the flash cache, the biggest cost left (handoff, 2026-10-18)
+# SoundPlant: the flash cache, the biggest cost left (handoff, 2026-10-18)
 
 For a fresh session. State: `main` at 2fa5052 (pushed). Read `2026-10-18-handoff.md` first for the rest.
 
@@ -31,9 +31,9 @@ the cache is still where most of a busy block goes.
 
 The AC79 has ~512 KB of SRAM in one block; fm1-base's linker script `base/device/app.ld` divides it:
 
-| region | address | size | holds | LOOM-8 uses |
+| region | address | size | holds | SoundPlant uses |
 |---|---|---|---|---|
-| RAMTEXT (rwx) | 0x01C00000 | 24 KB | code run from RAM: `.ram_text` (flash driver, ~3 KB), `.c1_text` (core 2's loop), LOOM's `.c1_text.dsp` (effects, master) | 17.6 KB (`app/build/ramtext.bin`), ~6.9 KB free |
+| RAMTEXT (rwx) | 0x01C00000 | 24 KB | code run from RAM: `.ram_text` (flash driver, ~3 KB), `.c1_text` (core 2's loop), SoundPlant's `.c1_text.dsp` (effects, master) | 17.6 KB (`app/build/ramtext.bin`), ~6.9 KB free |
 | gap | 0x01C06000 | 8 KB | "stays for RAM-run debug" | - |
 | RAM (rwx) | 0x01C08000 | 96 KB | .data / .bss | 93.3 KB |
 | POOL (rw) | 0x01C20000 | 336 KB | big buffers: delay and reverb lines, canvas, patterns, sample windows | 332.5 KB, 11.6 KB free |
@@ -43,7 +43,7 @@ XIP (the flash, through the cache) at 0x02000120 holds everything else. The cach
 we have; the SDK's `cpu/wl82/sdk_ld_*.c` mention `CACHE_LINE_COUNT 32` only. Measuring it (or finding it) would tell
 how much of the hot set can stay resident.
 
-## The hot code (sizes from `nm -S --size-sort app/build/loom.elf`, image 434,520 B)
+## The hot code (sizes from `nm -S --size-sort app/build/soundplant.elf`, image 434,520 B)
 
 | function | size | runs |
 |---|---|---|
@@ -65,11 +65,11 @@ engines plus the shared voice path, the drums and the sequencer are well over an
 1. **Move the line: a bigger RAMTEXT.** Take the 8 KB debug gap and some of the pool's free 11.6 KB (or shrink a pool
    buffer) so RAMTEXT becomes ~35-40 KB, and put the per-sample voice path there: `synth_render_on`'s voice loop,
    `voice_samples`, `sample_loop` / `flt_loop` / `out_loop`, and the busiest engines' loops (brocade, tines, voile,
-   weft, slice/sample by the demos' engine shares). This is a base change plus LOOM's placement:
+   weft, slice/sample by the demos' engine shares). This is a base change plus SoundPlant's placement:
    - `base/device/app.ld`: RAMTEXT's length (and RAM / POOL origins if they move); `.ram_text` is copied from the
      flash at boot (`_rt_load`, `fm1_cstart` in base/device/main_fm1.c).
    - the PC guard (`fm1_guard`, `base/bsp/chip/fm1_guard.h`): code may only execute in its window; widen it to the new
-     RAMTEXT. Core 2's start opens the PC limits briefly (`app/cpu1/loom_cpu1.h`).
+     RAMTEXT. Core 2's start opens the PC limits briefly (`app/cpu1/soundplant_cpu1.h`).
    - `tools/size_fns.py`: RAM placement is by function list (RAM_DSP, RAM_INLINE, RAM_UNITS, section `.c1_text.dsp`).
      A direct call cannot reach between the XIP window and RAM (R_PI32V2_LONG_JUMP_23M2: 4 MB), so the RAM set must be
      closed under calls: whatever it calls is inlined into it (RAM_INLINE), and the flash calls in through a pointer
@@ -85,7 +85,7 @@ engines plus the shared voice path, the drums and the sequencer are well over an
    each; per-engine functions (`noinline`), laid out next to each other per engine, would keep one engine's hot code
    contiguous (fewer cache lines, less conflict). Measure code size per engine; `tools/size_fns.py` builds the cold
    code for size (COLD), the DSP at -O2.
-3. **Cache-aware order across the two cores.** The cores share the caches (`app/cpu1/loom_cpu1.h`: "the cores share
+3. **Cache-aware order across the two cores.** The cores share the caches (`app/cpu1/soundplant_cpu1.h`: "the cores share
    the caches"). Grouping by engine is per core; giving each core different engines (or the same engine at the same
    time) changes how they evict each other. Untested.
 

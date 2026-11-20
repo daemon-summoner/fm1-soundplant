@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MPL-2.0
 # Copyright (C) 2026 Charles Vestal
-"""LOOM-8's sample helpers, shared by tools/gen_samples.py (the factory bank compiled into the image) and
-tools/loom_samples.py (the user bank, uploaded over USB): WAV reading, resampling, IMA ADPCM with
+"""SoundPlant's sample helpers, shared by tools/gen_samples.py (the factory bank compiled into the image) and
+tools/soundplant_samples.py (the user bank, uploaded over USB): WAV reading, resampling, IMA ADPCM with
 checkpoints, and the user bank's layout (app/dsp/sample.h).
 
 A sample is mono IMA ADPCM, 4 bits a sample, the low nibble first, from predictor 0 / index 0: the factory's at
@@ -11,8 +11,8 @@ index << 16, one uint32 each, so a voice can start, loop and play backwards from
 the checkpoint before a window of 32 into the voice's cache). A second of sound takes 0.53125 bytes a sample: 11.4 KB
 at 22050 Hz.
 
-The user bank (216 KB): three flash windows (REGIONS), one virtual space through them end to end, offset 0 the
-header (at 0xC1000). The header (2048 bytes): magic "LSMP", version 2, count, flags, data length (from byte 2048),
+The user bank (180 KB): three flash windows (REGIONS), one virtual space through them end to end, offset 0 the
+header (at 0xCA000). The header (2048 bytes): magic "LSMP", version 2, count, flags, data length (from byte 2048),
 CRC-32 of the data, the bank's size it was made for, then from byte 64 up to 44 entries of 40 bytes (32 user
 slots and, since 0.8, the factory set's 12): name (12, NUL-padded), ADPCM offset, checkpoint offset (virtual, from
 the bank's start), samples, loop start, loop end (samples; end 0: none), root note, flags (E_FACTORY: one of the
@@ -23,52 +23,151 @@ order given; 0xFF between. In the two extra windows (fm1-base's PLAT_XDATA1 / 0)
 record's mark, "AT" at bytes 0xF06..0xF07 (the update loader would erase that sector): the layout moves a sample
 on by 4 bytes until none does.
 """
+
 import math
 import re
 import struct
 import zlib
 
-RATE = 22050                    # the factory samples' rate, and a user sample's unless it asks for another
-RATES = (11025, 16000, 22050, 32000)   # what the tool offers (dsp/sample.h: 4000..48000 played)
+RATE = (
+    22050  # the factory samples' rate, and a user sample's unless it asks for another
+)
+RATES = (
+    11025,
+    16000,
+    22050,
+    32000,
+)  # what the tool offers (dsp/sample.h: 4000..48000 played)
 RATE_MIN, RATE_MAX = 4000, 48000
-BLK = 128                       # samples a checkpoint: a bank's since version 3 (0.8); 64 in version 2
+BLK = 128  # samples a checkpoint: a bank's since version 3 (0.8); 64 in version 2
 BLK_V2 = 64
 # the bank's windows (dsp/sample.h SMP_REG*), in the order it fills them: flash offset, size
-REGIONS = [(0xC1000, 0x1B000),  # the data area after the projects, up to the calibration (108 KB)
-           (0xE5000, 0x17000),  # fm1-base's PLAT_XDATA1 (92 KB)
-           (0x93000, 0x4000)]   # fm1-base's PLAT_XDATA0 (16 KB)
-XDATA = (1, 2)                  # the windows where no sector may carry an update record's mark
-REC_MARK = 0xF06                # "AT" there, in a sector: an update record (base/bsp/loader/ldr_core.c)
+REGIONS = [
+    (
+        0xCA000,
+        0x12000,
+    ),  # the data area after the resource region, up to the calibration (72 KB)
+    (0xE5000, 0x17000),  # fm1-base's PLAT_XDATA1 (92 KB)
+    (0x93000, 0x4000),
+]  # fm1-base's PLAT_XDATA0 (16 KB)
+XDATA = (1, 2)  # the windows where no sector may carry an update record's mark
+REC_MARK = (
+    0xF06  # "AT" there, in a sector: an update record (base/bsp/loader/ldr_core.c)
+)
 BANK_SIZE = sum(n for _, n in REGIONS)
 BANK_HDR = 2048
 BANK_MAX_DATA = BANK_SIZE - BANK_HDR
-BANK_N = 32                     # user slots (dsp/sample.h SMP_NUSER)
-NFENT = 12                      # the factory set's entries (SMP_NFENT)
-NENT = BANK_N + NFENT           # the header's entries (SMP_NENT)
-E_FACTORY = 0x01                # an entry's flags: the factory set's (SMP_E_FACTORY)
-BANK_VER = 3                    # 3: a checkpoint every 128 samples; 2 (every 64) still read, and converted
+BANK_N = 32  # user slots (dsp/sample.h SMP_NUSER)
+NFENT = 12  # the factory set's entries (SMP_NFENT)
+NENT = BANK_N + NFENT  # the header's entries (SMP_NENT)
+E_FACTORY = 0x01  # an entry's flags: the factory set's (SMP_E_FACTORY)
+BANK_VER = (
+    3  # 3: a checkpoint every 128 samples; 2 (every 64) still read, and converted
+)
 BANK_VERS = (2, 3)
 ENT0, ENT = 64, 40
-BANK_MAGIC = 0x504D534C         # "LSMP"
+BANK_MAGIC = 0x504D534C  # "LSMP"
 NAME_LEN = 12
-BARS_MAX = 16                   # (dsp/sample.h SMP_BARS_MAX)
+BARS_MAX = 16  # (dsp/sample.h SMP_BARS_MAX)
 
 # IMA ADPCM's step sizes and index changes: the standard's tables (IMA Digital Audio Focus and Technical Working
 # Groups, "Recommended Practices for Enhancing Digital Audio Compatibility in Multimedia Systems", 1992)
 IMA_STEP = [
-    7, 8, 9, 10, 11, 12, 13, 14, 16, 17,
-    19, 21, 23, 25, 28, 31, 34, 37, 41, 45,
-    50, 55, 60, 66, 73, 80, 88, 97, 107, 118,
-    130, 143, 157, 173, 190, 209, 230, 253, 279, 307,
-    337, 371, 408, 449, 494, 544, 598, 658, 724, 796,
-    876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066,
-    2272, 2499, 2749, 3024, 3327, 3660, 4026, 4428, 4871, 5358,
-    5894, 6484, 7132, 7845, 8630, 9493, 10442, 11487, 12635, 13899,
-    15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767]
-IMA_IDX = [-1] * 4 + [2, 4, 6, 8]          # by a code's magnitude bits (0..7)
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    16,
+    17,
+    19,
+    21,
+    23,
+    25,
+    28,
+    31,
+    34,
+    37,
+    41,
+    45,
+    50,
+    55,
+    60,
+    66,
+    73,
+    80,
+    88,
+    97,
+    107,
+    118,
+    130,
+    143,
+    157,
+    173,
+    190,
+    209,
+    230,
+    253,
+    279,
+    307,
+    337,
+    371,
+    408,
+    449,
+    494,
+    544,
+    598,
+    658,
+    724,
+    796,
+    876,
+    963,
+    1060,
+    1166,
+    1282,
+    1411,
+    1552,
+    1707,
+    1878,
+    2066,
+    2272,
+    2499,
+    2749,
+    3024,
+    3327,
+    3660,
+    4026,
+    4428,
+    4871,
+    5358,
+    5894,
+    6484,
+    7132,
+    7845,
+    8630,
+    9493,
+    10442,
+    11487,
+    12635,
+    13899,
+    15289,
+    16818,
+    18500,
+    20350,
+    22385,
+    24623,
+    27086,
+    29794,
+    32767,
+]
+IMA_IDX = [-1] * 4 + [2, 4, 6, 8]  # by a code's magnitude bits (0..7)
 
 
 # ---- WAV in
+
 
 def _riff(d):
     """a RIFF/WAVE file's chunks in order, as (four-letter id, body)"""
@@ -76,20 +175,23 @@ def _riff(d):
         raise ValueError("not a WAV file")
     pos = 12
     while pos + 8 <= len(d):
-        size = int.from_bytes(d[pos + 4:pos + 8], "little")
-        yield bytes(d[pos:pos + 4]), d[pos + 8:pos + 8 + size]
-        pos += 8 + size + (size & 1)          # (a chunk of odd size is padded to even)
+        size = int.from_bytes(d[pos + 4 : pos + 8], "little")
+        yield bytes(d[pos : pos + 4]), d[pos + 8 : pos + 8 + size]
+        pos += 8 + size + (size & 1)  # (a chunk of odd size is padded to even)
 
 
 def _samples(raw, width, floating):
     """interleaved little-endian PCM (or IEEE float) of width bytes a value -> floats, full scale 1.0"""
-    raw = raw[:len(raw) - len(raw) % width]
+    raw = raw[: len(raw) - len(raw) % width]
     if floating:
         return list(memoryview(raw).cast("f" if width == 4 else "d"))
-    if width == 1:                            # (8-bit WAV is unsigned, 128 the middle)
+    if width == 1:  # (8-bit WAV is unsigned, 128 the middle)
         return [(b - 128) / 128 for b in raw]
     if width == 3:
-        return [int.from_bytes(raw[i:i + 3], "little", signed=True) / 8388608 for i in range(0, len(raw), 3)]
+        return [
+            int.from_bytes(raw[i : i + 3], "little", signed=True) / 8388608
+            for i in range(0, len(raw), 3)
+        ]
     scale = {2: 32768, 4: 2147483648}[width]
     return [v / scale for v in memoryview(raw).cast("h" if width == 2 else "i")]
 
@@ -99,24 +201,33 @@ def read_any_wav(path):
     The loop: the first 'smpl' loop (start, end) in samples of the file's rate."""
     found = {}
     for cid, body in _riff(memoryview(path.read_bytes())):
-        found.setdefault(cid, body)           # (the first of each kind)
+        found.setdefault(cid, body)  # (the first of each kind)
     fmt = found.get(b"fmt ")
     if fmt is None:
         raise ValueError("WAV without a fmt chunk")
-    word = lambda b, at, n: int.from_bytes(b[at:at + n], "little")
-    kind, channels, rate, bits = word(fmt, 0, 2), word(fmt, 2, 2), word(fmt, 4, 4), word(fmt, 14, 2)
-    if kind == 0xFFFE and len(fmt) >= 26:     # WAVE_FORMAT_EXTENSIBLE: the real format leads its sub-format GUID
+    word = lambda b, at, n: int.from_bytes(b[at : at + n], "little")
+    kind, channels, rate, bits = (
+        word(fmt, 0, 2),
+        word(fmt, 2, 2),
+        word(fmt, 4, 4),
+        word(fmt, 14, 2),
+    )
+    if (
+        kind == 0xFFFE and len(fmt) >= 26
+    ):  # WAVE_FORMAT_EXTENSIBLE: the real format leads its sub-format GUID
         kind = word(fmt, 24, 2)
     width = bits // 8
     if kind not in (1, 3) or not width or not channels:
         raise ValueError(f"{path}: unsupported WAV format (tag {kind}, {bits} bit)")
     data = found.get(b"data", b"")
-    data = data[:len(data) // (width * channels) * width * channels]
+    data = data[: len(data) // (width * channels) * width * channels]
     v = _samples(bytes(data), width, kind == 3)
     if channels > 1:
-        v = [sum(v[f:f + channels]) / channels for f in range(0, len(v), channels)]
+        v = [sum(v[f : f + channels]) / channels for f in range(0, len(v), channels)]
     loop, smpl = None, found.get(b"smpl")
-    if smpl is not None and len(smpl) >= 52 and word(smpl, 28, 4):   # (its loop count, then the first loop's record)
+    if (
+        smpl is not None and len(smpl) >= 52 and word(smpl, 28, 4)
+    ):  # (its loop count, then the first loop's record)
         loop = (word(smpl, 44, 4), word(smpl, 48, 4))
     return rate, v, loop
 
@@ -126,7 +237,12 @@ def _fir(x, h):
     k = len(h) // 2
     try:
         import numpy as np
-        return list(np.convolve(np.asarray(x, dtype=float), np.asarray(h, dtype=float), mode="same"))
+
+        return list(
+            np.convolve(
+                np.asarray(x, dtype=float), np.asarray(h, dtype=float), mode="same"
+            )
+        )
     except ImportError:
         xp = [0.0] * k + list(x) + [0.0] * k
         return [sum(h[j] * xp[i + j] for j in range(len(h))) for i in range(len(x))]
@@ -137,8 +253,16 @@ def _lowpass(fc, sr, taps=63):
     k = taps // 2
     h = []
     for n in range(-k, k + 1):
-        s = 2.0 * fc / sr if n == 0 else math.sin(2.0 * math.pi * fc / sr * n) / (math.pi * n)
-        w = 0.42 + 0.5 * math.cos(math.pi * n / k) + 0.08 * math.cos(2.0 * math.pi * n / k)
+        s = (
+            2.0 * fc / sr
+            if n == 0
+            else math.sin(2.0 * math.pi * fc / sr * n) / (math.pi * n)
+        )
+        w = (
+            0.42
+            + 0.5 * math.cos(math.pi * n / k)
+            + 0.08 * math.cos(2.0 * math.pi * n / k)
+        )
         h.append(s * w)
     g = sum(h)
     return [v / g for v in h]
@@ -161,7 +285,7 @@ def resample(x, sr, to):
     if np is not None and len(x) > 1:
         a = np.asarray(x, dtype=np.float64)
         if to < sr:
-            fc = 0.45 * to / sr                         # the cut, cycles a sample: 90 % of the new half rate
+            fc = 0.45 * to / sr  # the cut, cycles a sample: 90 % of the new half rate
             half = int(math.ceil(8.0 / fc))
             t = np.arange(-half, half + 1)
             h = 2.0 * fc * np.sinc(2.0 * fc * t) * np.blackman(len(t))
@@ -191,7 +315,7 @@ def to_int16(x, peak_to=30000):
 
 
 def note_from_name(name, default=60):
-    """"C4" / "F#3" / "Bb2" in a file name, C4 = 60, clamped to 0..127: a note letter not inside a word, an optional
+    """ "C4" / "F#3" / "Bb2" in a file name, C4 = 60, clamped to 0..127: a note letter not inside a word, an optional
     sharp or flat, an octave of one digit (maybe negative) not followed by another"""
     for m in re.finditer(r"[A-G][#b]?-?[0-9]", name):
         i, j = m.start(), m.end()
@@ -206,6 +330,7 @@ def note_from_name(name, default=60):
 
 
 # ---- IMA ADPCM with checkpoints
+
 
 def _ima_delta(step, code):
     """the difference a code's three magnitude bits stand for (the standard's: step/8 + step·bits/4, by shifts)"""
@@ -232,7 +357,11 @@ def ima_encode(samples):
             ck.append((pred & 0xFFFF) | idx << 16)
         step, left = IMA_STEP[idx], abs(x - pred)
         code = 8 if x < pred else 0
-        for bit, shift in ((4, 0), (2, 1), (1, 2)):   # the magnitude, a bit at a time from the largest share
+        for bit, shift in (
+            (4, 0),
+            (2, 1),
+            (1, 2),
+        ):  # the magnitude, a bit at a time from the largest share
             if left >= step >> shift:
                 code |= bit
                 left -= step >> shift
@@ -254,7 +383,7 @@ def ima_decode(adp, n):
 def clean_name(name):
     """a name for the screen: lower case, printable, at most 11 characters"""
     s = re.sub(r"[^a-z0-9 _.-]", "", name.lower().replace("_", " ")).strip()
-    return (s or "sample")[:NAME_LEN - 1]
+    return (s or "sample")[: NAME_LEN - 1]
 
 
 def region_starts():
@@ -299,15 +428,15 @@ def _place(blobs, pad):
             r = region_of(v)
             if r >= len(REGIONS):
                 raise ValueError("too long")
-            if v + len(ckb) > starts[r + 1]:            # the checkpoints in one window
+            if v + len(ckb) > starts[r + 1]:  # the checkpoints in one window
                 v = starts[r + 1]
                 continue
             a = v + len(ckb)
             ra = region_of(a) if a < BANK_SIZE else len(REGIONS)
             if ra >= len(REGIONS) or a + len(adpb) > starts[min(ra + 2, len(REGIONS))]:
-                if ra + 1 >= len(REGIONS):              # past the last window
+                if ra + 1 >= len(REGIONS):  # past the last window
                     raise ValueError("too long")
-                v = starts[ra + 1]                      # it would cross two seams: from the next window
+                v = starts[ra + 1]  # it would cross two seams: from the next window
                 continue
             break
         out.append((v, a))
@@ -324,13 +453,14 @@ def _marks(img, end):
     for r in XDATA:
         for sec in range(0, REGIONS[r][1], 0x1000):
             v = starts[r] + sec + REC_MARK
-            if v + 2 <= end and img[v:v + 2] == b"AT":
+            if v + 2 <= end and img[v : v + 2] == b"AT":
                 out.append(v)
     return out
 
 
 class Stored:
     """a sample as a bank stores it (read back from one): its length, checkpoints' bytes and ADPCM, kept as they are"""
+
     def __init__(self, n, ckb, adp):
         self.n, self.ckb, self.adp = n, bytes(ckb), bytes(adp)
 
@@ -345,13 +475,26 @@ def stored_of(img):
     blk = BLK_V2 if struct.unpack_from("<H", img, 4)[0] == 2 else BLK
     for k in range(img[6]):
         o = ENT0 + k * ENT
-        nm, a, c, n, ls, le, root, flags, bars, _, rate, _ = struct.unpack_from("<12sIIIIIBBBBHH", img, o)
-        ckb = img[c:c + (n + blk - 1) // blk * 4]
-        if blk != BLK:                    # a version 2 bank's: every other checkpoint (the same states, none lost)
+        nm, a, c, n, ls, le, root, flags, bars, _, rate, _ = struct.unpack_from(
+            "<12sIIIIIBBBBHH", img, o
+        )
+        ckb = img[c : c + (n + blk - 1) // blk * 4]
+        if (
+            blk != BLK
+        ):  # a version 2 bank's: every other checkpoint (the same states, none lost)
             step = BLK // blk
-            ckb = b"".join(ckb[i:i + 4] for i in range(0, len(ckb), 4 * step))
-        out.append((nm.split(b"\0")[0].decode(errors="replace"), Stored(n, ckb, img[a:a + (n + 1) // 2]),
-                    root, (ls, le) if le > ls else None, bars, rate, flags))
+            ckb = b"".join(ckb[i : i + 4] for i in range(0, len(ckb), 4 * step))
+        out.append(
+            (
+                nm.split(b"\0")[0].decode(errors="replace"),
+                Stored(n, ckb, img[a : a + (n + 1) // 2]),
+                root,
+                (ls, le) if le > ls else None,
+                bars,
+                rate,
+                flags,
+            )
+        )
     return out
 
 
@@ -361,7 +504,9 @@ def user_bank(samples):
     virtual offset 0, ready for the windows), without the padding to BANK_SIZE"""
     own = sum(1 for smp in samples if not (smp[6] if len(smp) > 6 else 0) & E_FACTORY)
     if not 1 <= len(samples) <= NENT or own > BANK_N or len(samples) - own > NFENT:
-        raise ValueError(f"1..{BANK_N} samples in the bank (and the factory set's {NFENT})")
+        raise ValueError(
+            f"1..{BANK_N} samples in the bank (and the factory set's {NFENT})"
+        )
     blobs, meta = [], []
     for name, s, root, loop, *more in samples:
         bars = more[0] if more else 0
@@ -378,41 +523,81 @@ def user_bank(samples):
         else:
             adp, ck = ima_encode(s)
             blobs.append((struct.pack("<%dI" % len(ck), *ck), adp))
-        ls, le = (loop if loop else (0, 0))
+        ls, le = loop if loop else (0, 0)
         le = min(le, len(s))
         if le <= ls:
             ls = le = 0
-        meta.append((clean_name(name), len(s), ls, le, max(0, min(127, root)), flags, bars, rate))
+        meta.append(
+            (
+                clean_name(name),
+                len(s),
+                ls,
+                le,
+                max(0, min(127, root)),
+                flags,
+                bars,
+                rate,
+            )
+        )
     pad = [0] * len(blobs)
     for _ in range(4096):
         try:
             where, end = _place(blobs, pad)
         except ValueError:
             used = BANK_HDR + sum(len(a) + len(b) for a, b in blobs)
-            raise ValueError(f"too long: {used - BANK_HDR} B, the bank holds {BANK_MAX_DATA} B (about "
-                             f"{BANK_MAX_DATA / bytes_per_second(RATE):.1f} s at {RATE} Hz, "
-                             f"{BANK_MAX_DATA / bytes_per_second(11025):.1f} s at 11025 Hz)") from None
-        img = bytearray(b"\xFF" * end)
+            raise ValueError(
+                f"too long: {used - BANK_HDR} B, the bank holds {BANK_MAX_DATA} B (about "
+                f"{BANK_MAX_DATA / bytes_per_second(RATE):.1f} s at {RATE} Hz, "
+                f"{BANK_MAX_DATA / bytes_per_second(11025):.1f} s at 11025 Hz)"
+            ) from None
+        img = bytearray(b"\xff" * end)
         for (ckb, adpb), (c, a) in zip(blobs, where):
-            img[c:c + len(ckb)] = ckb
-            img[a:a + len(adpb)] = adpb
+            img[c : c + len(ckb)] = ckb
+            img[a : a + len(adpb)] = adpb
         marks = _marks(img, end)
         if not marks:
             break
-        for k, (c, a) in enumerate(where):              # move the sample holding the mark on by 4 bytes
+        for k, (c, a) in enumerate(
+            where
+        ):  # move the sample holding the mark on by 4 bytes
             if c <= marks[0] < a + len(blobs[k][1]):
                 pad[k] += 4
                 break
         else:
-            raise ValueError("an update record's mark outside the samples")  # (0xFF between them: never)
+            raise ValueError(
+                "an update record's mark outside the samples"
+            )  # (0xFF between them: never)
     else:
         raise ValueError("could not keep the update record's mark out of the bank")
     data = bytes(img[BANK_HDR:])
-    ents = b"".join(struct.pack("<12sIIIIIBBBBHH", nm.encode().ljust(NAME_LEN, b"\0"), a, c, n, ls, le, root, flags,
-                                bars, 0, rate, 0)
-                    for (nm, n, ls, le, root, flags, bars, rate), (c, a) in zip(meta, where))
-    hdr = struct.pack("<IHBBIII", BANK_MAGIC, BANK_VER, len(meta), 0, len(data), zlib.crc32(data) & 0xFFFFFFFF,
-                      BANK_SIZE)
+    ents = b"".join(
+        struct.pack(
+            "<12sIIIIIBBBBHH",
+            nm.encode().ljust(NAME_LEN, b"\0"),
+            a,
+            c,
+            n,
+            ls,
+            le,
+            root,
+            flags,
+            bars,
+            0,
+            rate,
+            0,
+        )
+        for (nm, n, ls, le, root, flags, bars, rate), (c, a) in zip(meta, where)
+    )
+    hdr = struct.pack(
+        "<IHBBIII",
+        BANK_MAGIC,
+        BANK_VER,
+        len(meta),
+        0,
+        len(data),
+        zlib.crc32(data) & 0xFFFFFFFF,
+        BANK_SIZE,
+    )
     hdr = hdr.ljust(ENT0, b"\0") + ents
     return hdr.ljust(BANK_HDR, b"\0") + data
 

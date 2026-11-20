@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8 drumline (drumline.h): the kit engine's eleven drum models on NDVOICE voices, each key through
+/* SoundPlant drumline (drumline.h): the kit engine's eleven drum models on NDVOICE voices, each key through
  * its own envelope and filter.
  *
  * Ten models are analytic: a few oscillators, a noise source and a filter or two, shaped by exponential

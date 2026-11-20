@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MIT */
-/* The PlayStation's SPU reverb, for LOOM-8's reverb modes. Included by fx.c only (static code, no unit of
+/* The PlayStation's SPU reverb, for SoundPlant's reverb modes. Included by fx.c only (static code, no unit of
  * its own).
  *
  * Ported from schwung-psxverb (src/dsp/psxverb.c), Copyright (c) 2025 Charles Vestal, MIT License (the
@@ -12,7 +12,7 @@
  *   Lout -= vAPF1*[mLAPF1-dAPF1]; [mLAPF1] = Lout; Lout = Lout*vAPF1 + [mLAPF1-dAPF1]     (then APF2)
  *
  * at 22.05 kHz on an int16 work area written with saturation, every address relative to a base that moves
- * one sample a tick. The changes for LOOM-8:
+ * one sample a tick. The changes for SoundPlant:
  *   - the send is mono: one decimator (Lin = Rin), two interpolators;
  *   - the resampling is the SPU's own 39-tap half-band FIR (psx-spx, "Reverb Buffer Resampling"):
  *     psxverb's table has every side tap negative and its interpolator's second phase all zeros, which

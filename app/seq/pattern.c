@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8 pattern store: the plain-data helpers of pattern.h (main loop side; the sequencer only reads). */
+/* SoundPlant pattern store: the plain-data helpers of pattern.h (main loop side; the sequencer only reads). */
 #include "pattern.h"
 
 /* the value a component starts with (the notebook p. 139, 0-based): pulse 4, hold 4, multiply 2, velocity 64,

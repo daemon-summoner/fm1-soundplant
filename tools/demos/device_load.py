@@ -6,15 +6,15 @@
                              [--songs A,B] [--record] [--quiet]
 
 Made for a development build that answers fm1-base's restore question by itself (a TEMPORARY patch in base/: the
-HELLO name says "LOOM-8 DEVTEST"); it refuses to run on any other (the restore would wait for SEL on the FM-1).
+HELLO name says "SoundPlant DEVTEST"); it refuses to run on any other (the restore would wait for SEL on the FM-1).
 What it does:
   1. flashes --devtest PKG (unless --no-flash) and checks the FM-1 says DEVTEST;
-  2. backs up the FM-1's projects and user presets into build/demos/device/before.loom8 (restored at the end,
+  2. backs up the FM-1's projects and user presets into build/demos/device/before.soundplant (restored at the end,
      unless --no-keep; the user sample bank cannot be read back: it is left holding the last group's);
   3. the idle load once with the screen reader polling every 0.5 s and once asked every 5 s (its overhead);
   4. for each group (tools/demos/device_projects.py's: A jungle garage hyperpop, B house pop hiphop, C stress ambient
      hiphop): uploads its
-     sample bank (tools/loom_samples.py's upload, no question on the FM-1), restores its backup (fm1_backup.py),
+     sample bank (tools/soundplant_samples.py's upload, no question on the FM-1), restores its backup (fm1_backup.py),
      then for each slot loads it (HOME, SEL: LOAD PROJECT N), goes to the Song page (HOME, SELECT), PLAY,
      and on Debug reads "audio load N percent, voices N[ of M][, saws N], peak N percent, guard trips N, dropouts
      N" every --every seconds (0.5) until it says "stopped"; the crash log after each song (a new record stops the
@@ -22,8 +22,8 @@ What it does:
   5. a table per song: the load's mean and peak, the most voices, the fewest saws, guard trips and dropouts during
      the song, a crash, against the host's model of the same project (manifest.json's project_model); the
      readings to build/demos/device/load_<song>.csv, the table to build/demos/device/device_load.txt;
-  6. restores before.loom8, flashes --normal PKG (if given) and starts a NEW PROJECT.
---record: each song's USB audio recorded (ffmpeg, the FM-1 as a Mac audio input: FM1_AUDIO, default "LOOM-8 FM-1")
+  6. restores before.soundplant, flashes --normal PKG (if given) and starts a NEW PROJECT.
+--record: each song's USB audio recorded (ffmpeg, the FM-1 as a Mac audio input: FM1_AUDIO, default "SoundPlant FM-1")
 with Setup's USB AUDIO full and MASTER at 0 (the speaker silent), into build/demos/device/rec_<song>.wav and scanned for breaks (tools/demos/glitch_scan.py). --quiet: nothing asked
 while a song plays (the Debug page read once it has played), as a player has it.
 Run tools/demos/device_projects.py first (the banks, backups and manifest). Never switch Setup > CORES meanwhile.
@@ -46,11 +46,11 @@ REMOTE = Path(os.environ.get("FM1_REMOTE", ROOT / "base" / "tools" / "fm1_remote
 sys.path.insert(0, str(REMOTE.parent))
 sys.path.insert(0, str(ROOT / "tools"))
 import fm1_remote as fr  # noqa: E402
-import loom_samples as ls  # noqa: E402
+import soundplant_samples as ls  # noqa: E402
 import perf_read as pr  # noqa: E402
 
 PY = sys.executable
-REC_DEVICE = os.environ.get("FM1_AUDIO", "LOOM-8 FM-1")   # (--record: the FM-1's name as a Mac audio input)
+REC_DEVICE = os.environ.get("FM1_AUDIO", "SoundPlant FM-1")   # (--record: the FM-1's name as a Mac audio input)
 TOOLS = ROOT / "base" / "tools"
 d = None
 
@@ -82,7 +82,7 @@ def run(*cmds):
 
 
 def hello_name():
-    """the HELLO answer's name (the screen reader's: "LOOM-8 DEVTEST")"""
+    """the HELLO answer's name (the screen reader's: "SoundPlant DEVTEST")"""
     for _ in range(4):
         for _ in d.inp.iter_pending():
             pass
@@ -469,7 +469,7 @@ def stages_table(results):
     order = ["jungle", "garage", "hyperpop", "house", "pop", "hiphop"]
     results = sorted([r for r in results if r.get("stages")], key=lambda r: order.index(r["song"]) if r["song"] in order else 99)
     cols = [k for k in pr.STAGES]
-    lines = ["LOOM-8 demo songs on the FM-1: the render's stages, % of the budget, over the song (tools/perf_read.py)",
+    lines = ["SoundPlant demo songs on the FM-1: the render's stages, % of the budget, over the song (tools/perf_read.py)",
              "", f"{'song':<9} " + " ".join(f"{c:>6}" for c in cols)]
     for r in results:
         lines.append(f"{r['song']:<9} " + " ".join(f"{r['stages'][c]:>6.1f}" for c in cols))
@@ -493,7 +493,7 @@ def stages_table(results):
 def table(results, overhead):
     order = ["jungle", "garage", "hyperpop", "house", "pop", "hiphop"]
     results = sorted(results, key=lambda r: order.index(r["song"]) if r["song"] in order else 99)
-    lines = ["LOOM-8 demo songs on the FM-1 (Debug page every ~0.5 s) against the host's model of the same project",
+    lines = ["SoundPlant demo songs on the FM-1 (Debug page every ~0.5 s) against the host's model of the same project",
              f"screen reader idle: polled {overhead['fast_load']} % (peak {overhead['fast_peak']}), "
              f"asked every 5 s {overhead['slow_load']} % (peak {overhead['slow_peak']})" if overhead else "",
              "",
@@ -515,7 +515,7 @@ def table(results, overhead):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--devtest", required=True, help="the auto-restore development package (loom-devtest.fwsc)")
+    ap.add_argument("--devtest", required=True, help="the auto-restore development package (soundplant-devtest.fwsc)")
     ap.add_argument("--normal", help="the normal package, flashed at the end and after a crash")
     ap.add_argument("--groups", default="A,B")
     ap.add_argument("--no-flash", action="store_true", help="the devtest build is on the FM-1 already")
@@ -539,7 +539,7 @@ def main():
     print("  crash log now: " + " | ".join(crash_log()[:2]))
     release_all()
     stop()
-    before = DEV / "before.loom8"
+    before = DEV / "before.soundplant"
     if not a.no_keep and before.exists():
         print(f"  ({before} is there from an earlier run: kept, not taken again)")
     elif not a.no_keep:

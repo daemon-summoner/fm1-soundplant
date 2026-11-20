@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MPL-2.0
-"""LOOM-8's factory drum samples (kick, snare, hat, clap): renders of 9W9, the TR-909 model of the schwung family
+"""SoundPlant's factory drum samples (kick, snare, hat, clap): renders of 9W9, the TR-909 model of the schwung family
 (github.com/athousanddetails/schwung-9W9 by athousanddetails, GPL-3.0: its circuit models and its hat, a sample
 from ER-99; the kick, snare and clap MPL-2.0 by his permission, the hat GPL-3.0: LICENSING.md), each cut where it has
 fallen 60 dB under its peak, its last 10 ms faded (a sample that ends while it still sounds clicks), into

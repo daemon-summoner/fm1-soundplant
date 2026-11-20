@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* The break pack as the host tests' user bank: build/gen/breaks.bin (tools/loom_samples.py build ... breaks, made by
+/* The break pack as the host tests' user bank: build/gen/breaks.bin (tools/soundplant_samples.py build ... breaks, made by
  * the tests' scripts), its windows apart as on the FM-1. Since 0.7 the four breaks are not in the image: the factory
  * rows SMP_BREAK.. are found in the user bank by name (dsp/sample.c), so a test that plays them attaches the pack,
  * as a player who installed it has it. */
@@ -15,7 +15,7 @@ static void breaks_attach(void)
     uint8_t *const dst[SMP_NREG] = {w0, w1, w2};
     FILE *f = fopen("build/gen/breaks.bin", "rb");
     if (!f) {
-        fprintf(stderr, "no build/gen/breaks.bin (tools/loom_samples.py build build/gen/breaks.bin breaks)\n");
+        fprintf(stderr, "no build/gen/breaks.bin (tools/soundplant_samples.py build build/gen/breaks.bin breaks)\n");
         exit(1);
     }
     for (int r = 0; r < SMP_NREG; r++) {
@@ -26,7 +26,7 @@ static void breaks_attach(void)
     fclose(f);
     smp_user_attach(w);
     if (smp_user_scan() != 4) {
-        fprintf(stderr, "build/gen/breaks.bin: not the four breaks\n");
+        fprintf(stderr, "build/gen/breaks.bin: not the four breaks (made for another bank size? delete it: the test scripts build it again)\n");
         exit(1);
     }
 }

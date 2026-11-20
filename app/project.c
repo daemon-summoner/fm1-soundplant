@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8 project: the settings (tempo, tracks' sounds and mix, master), the patterns, lanes, scenes
+/* SoundPlant project: the settings (tempo, tracks' sounds and mix, master), the patterns, lanes, scenes
  * and song, and the user presets; three slots in flash.
  *
  * The settings are one storage object, stored raw (small, validated on load). The patterns, lanes,
@@ -218,7 +218,7 @@ void project_random_sounds(uint32_t seed)
  * takes them (app.h project_device_get / put around the load) */
 #define DEV_BITS (4u | 8u | 16u | 32u | 64u | 128u)   /* rsv[2]: pages.c AUTOSAVE_OFF, LOOP_FREE, CC_OUT_OFF, SCENES_OUT,
                                                         * bt.c BT_AUDIO_ON, BT_MIDI_OFF */
-#define DEV_BITS3 1u                                   /* rsv[3]: pages.c CC_IN_ENDLESS */
+#define DEV_BITS3 3u                                   /* rsv[3]: pages.c CC_IN_ENDLESS, MOTION_STILL */
 static struct { uint8_t theme, bits, bits3, lights, clock, notes, usb; } dev;
 void project_device_get(void)
 {
@@ -303,7 +303,7 @@ void project_defaults(void)
      * of compression */
     for (k = 0; k < NMS; k++)
         proj.master[k] = 64;
-    proj.master[MS_RSV3] = 0;
+    proj.master[MS_POLISH] = POLISH_DEF;
     proj.master[MS_CTYPE] = MC_OFF;
     proj.master[MS_CAMT] = 40;
     proj.master[MS_CMIX] = 127;
@@ -456,8 +456,8 @@ static void patterns_clamp(void)
 
 /* ---- objects -------------------------------------------------------------------------------- */
 
-uint8_t loom_io_buf[PLAT_STORE_MAX] __attribute__((aligned(4))) PLAT_POOL;   /* (lent to a restore: app.h) */
-#define io_buf loom_io_buf
+uint8_t soundplant_io_buf[PLAT_STORE_MAX] __attribute__((aligned(4))) PLAT_POOL;   /* (lent to a restore: app.h) */
+#define io_buf soundplant_io_buf
 
 /* what each object last held on the flash (a hash of its payload), so a save writes only the
  * objects that changed: a save of a tweaked pattern usually erases one or two sectors, not seven */
@@ -511,7 +511,7 @@ static int save_buf(uint32_t obj, uint32_t n)
         return 0;                                    /* the flash already holds exactly this */
     if (store_held)
         return -2;
-    rc = loom_store_save(obj, io_buf, n);
+    rc = soundplant_store_save(obj, io_buf, n);
     slot_known = 0;
     stored_known[obj] = rc == 0;
     stored_hash[obj] = h;
@@ -811,6 +811,9 @@ int project_load(int slot)
                 if (fx_pick_type(proj.trk[t].par[TP_ENGINE] % NFXPICK) == FXT_DELAY)
                     proj.trk[t].par[TP_E1] = OLD_DLY[(proj.trk[t].par[TP_E1] & 127u) >> 4];
         }
+        if (load_format < 22u)                        /* (before 22 the EQ page's fourth value was unused and may hold
+                                                       * anything: polish starts at its default) */
+            proj.master[MS_POLISH] = POLISH_DEF;
         if (load_format < 14u)                        /* (before 14, off (FT_DYNAMIC) sat at 4 and bp12 at 5: swap) */
             for (int t = 0; t < NTRK; t++) {
                 uint8_t ft = proj.trk[t].par[TP_FTYPE];

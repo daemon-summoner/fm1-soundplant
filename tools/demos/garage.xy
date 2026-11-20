@@ -1,4 +1,4 @@
-# LOOM-8 demo: UK garage (2-step), 132 BPM swung, C minor. (tools/demos/render.sh renders it; its bank is
+# SoundPlant demo: UK garage (2-step), 132 BPM swung, C minor. (tools/demos/render.sh renders it; its bank is
 # build/demos/garage.bin: a sung bar made by tools/demos/make_banks.py and the sesame break, private.)
 #   T1 kit: the 2-step (the kick on 1 and the "and" of 3, clap and snare on 2 and 4, shuffled hats and shaker)
 #   T2 weft "denim bass": the bouncing bass, glides by the portamento trick
@@ -317,7 +317,7 @@ knob 4 cut 60
 tap HOME
 turn SELECT 1
 stats reset
-wav loom_demo_garage.wav
+wav soundplant_demo_garage.wav
 tap PLAY
 bars 1
 knob 4 cut 72

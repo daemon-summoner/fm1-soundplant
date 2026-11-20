@@ -9,6 +9,7 @@
 #include <string.h>
 #include <stdint.h>
 #include "synth.h"
+#include "wt_res.h"                               /* wt_host_init: the wavetable engine's tables */
 #include "drumline.h"
 #include "fx.h"
 #include "fastmath.h"
@@ -323,9 +324,12 @@ static void fx_cases(void)
             out(name);
         }
 }
-static void master_case(const char *name, const int *set)
+/* chunk 0: blocks of 256, every fifth one 77 long; chunk c: the block cut into pieces of c frames (the bus gives the same
+ * samples for any cut); key > 0: a kick hit on the pump every key-th block; tone: a 3.4 kHz tone on the melodic group
+ * (the peak polish cuts: noise and a low sine leave it nothing to do) */
+static void master_case(const char *name, const int *set, int chunk, int key, float tone)
 {
-    int b, i;
+    int b, i, o, n, c;
     master_init(ms);
     for (i = 0; set[i] >= 0; i += 2)
         master_set(ms, set[i], set[i + 1]);
@@ -336,9 +340,16 @@ static void master_case(const char *name, const int *set)
         for (i = 0; i < N; i++) {
             P1[i] = g * noise(); P2[i] = g * noise();
             M1[i] = g * fm_sin_turns((float)(b * N + i) * (110.0f / 44100.0f)); M2[i] = g * noise();
+            if (tone != 0.0f)
+                M1[i] += g * tone * fm_sin_turns((float)(b * N + i) * (3400.0f / 44100.0f));
         }
         memset(L, 0, sizeof L); memset(R, 0, sizeof R);    /* (a short block leaves the rest: not the last case's) */
-        master_process(ms, P1, P2, M1, M2, L, R, b % 5 ? N : 77);
+        if (key && b % key == 0)
+            master_key(ms, PB_KICK, 100, 0);
+        n = chunk || b % 5 ? N : 77;
+        c = chunk ? chunk : n;
+        for (o = 0; o < n; o += c)
+            master_process(ms, P1 + o, P2 + o, M1 + o, M2 + o, L + o, R + o, (uint32_t)(n - o < c ? n - o : c));
         hash_buf(L, N); hash_buf(R, N);
     }
     out(name);
@@ -350,14 +361,38 @@ static void master_cases(void)
                                MS_PERC, 80, MS_MEL, 120, MS_LEVEL, 110, -1};
     static const int eq[] = {MS_EQ_LO, 80, MS_COMP, 80, -1};
     static const int lev[] = {MS_PERC, 30, MS_MEL, 127, MS_LEVEL, 127, MS_COMP, 40, -1};
-    master_case("master off", off);
-    master_case("master eq comp levels 127", full);
-    master_case("master eq comp", eq);
-    master_case("master levels comp", lev);
+    static const int pol0[] = {MS_POLISH, 0, MS_LEVEL, 127, -1};
+    static const int pol127[] = {MS_POLISH, 127, MS_LEVEL, 127, -1};
+    static const int tape[] = {MS_CTYPE, MC_TAPE, MS_CAMT, 90, MS_CTONE, 80, MS_CMIX, 100, MS_LEVEL, 110, -1};
+    static const int samp[] = {MS_CTYPE, MC_SAMPLER, MS_CAMT, 90, MS_CTONE, 70, MS_CMIX, 100, MS_LEVEL, 110, -1};
+    static const int pump[] = {MS_PUMP, 100, MS_PUMP_BY, PB_KICK, MS_PUMP_REL, 60, MS_PUMP_ACC, 1, -1};
+    static const int mix[] = {MS_CTYPE, MC_TAPE, MS_CAMT, 90, MS_CMIX, 100, MS_PUMP, 100, MS_PUMP_ACC, 1, MS_COMP, 64,
+                              MS_POLISH, 90, MS_LEVEL, 110, -1};
+    static const int pop[] = {MS_EQ_LO, 70, MS_EQ_HI, 78, MS_COMP, 64, MS_LEVEL, 110, MS_POLISH, 40, -1};
+    static const int chunks[] = {1, 7, 77, 256};
+    char name[48];
+    int k;
+    master_case("master off", off, 0, 0, 0.0f);
+    master_case("master eq comp levels 127", full, 0, 0, 0.0f);
+    master_case("master eq comp", eq, 0, 0, 0.0f);
+    master_case("master levels comp", lev, 0, 0, 0.0f);
+    master_case("master polish 0", pol0, 0, 0, 0.8f);
+    master_case("master polish 127", pol127, 0, 0, 0.8f);
+    master_case("master color tape", tape, 0, 0, 0.0f);
+    master_case("master color sampler", samp, 0, 0, 0.0f);
+    master_case("master pump", pump, 0, 3, 0.0f);
+    master_case("master pop", pop, 0, 0, 0.5f);
+    for (k = 0; k < 4; k++) {
+        snprintf(name, sizeof name, "master pop chunk %d", chunks[k]);
+        master_case(name, pop, chunks[k], 0, 0.5f);
+        snprintf(name, sizeof name, "master tape pump comp chunk %d", chunks[k]);
+        master_case(name, mix, chunks[k], 3, 0.5f);
+    }
 }
 
 int main(void)
 {
+    wt_host_init();
     breaks_attach();                             /* the breaks installed, as a player has them */
     synth_cases();
     drum_cases();

@@ -8,7 +8,7 @@ expect restore_rc 0
 wait 400
 tap EDIT
 expect page Engine
-# K1 (from Loom backward: -8): its key on sophie stays sophie (a format 10 kit: no development build's numbers)
+# K1 (from SoundPlant backward: -8): its key on sophie stays sophie (a format 10 kit: no development build's numbers)
 tap SEL
 row KIT
 turn ALGO -8
@@ -45,7 +45,7 @@ expect ask 0
 reboot
 wait 400
 tap EDIT
-# K8 (its name the track's, as loaded from K4) (from Loom backward: -1), then K1 and K4 still there
+# K8 (its name the track's, as loaded from K4) (from SoundPlant backward: -1), then K1 and K4 still there
 tap SEL
 row KIT
 turn ALGO -1

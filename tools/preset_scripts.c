@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* The factory presets for tools/render_presets.sh: for each preset a script for app/build/host/loom_host that
+/* The factory presets for tools/render_presets.sh: for each preset a script for app/build/host/soundplant_host that
  * loads it onto track 2 of a new project (the default FX I delay and FX II reverb) and plays a short phrase: three notes, then a four-note chord held, then its
  * tail; basses an octave down. And the same phrase through the voices alone (dsp/synth.c, dry, the
  * track's level at 100), its peak, RMS and loudest 100 ms in dBFS into OUTDIR/dry.txt: the levels to balance the presets
@@ -16,6 +16,7 @@
 #include <math.h>
 #include <sys/stat.h>
 #include "synth.h"
+#include "wt_res.h"                               /* wt_host_init: the wavetable engine's tables */
 
 #define N 256
 static uint8_t par[NTRK + 1][NTP];          /* (+ the conductor's row: the shared LFO, off) */
@@ -201,6 +202,7 @@ int main(int argc, char **argv)
     char path[256];
     FILE *lv;
     int k, p;
+    wt_host_init();
     snprintf(path, sizeof path, "%s/dry.txt", dir);
     lv = fopen(path, "w");
     if (!lv)

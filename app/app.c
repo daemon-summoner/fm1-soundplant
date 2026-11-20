@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8 on fm1-base: the app's unity build (compiled into fm1-base's device/unity.c after the platform, and into its
- * simulator host/plat_host.c) and the glue between fm1-base's contract (app.h) and LOOM-8's parts: its drawing
- * (gfx_loom.c), the engine (engine.c; the DSP and the sequencer in dsp/ and seq/, their own -O2 units), the project
+/* SoundPlant on fm1-base: the app's unity build (compiled into fm1-base's device/unity.c after the platform, and into its
+ * simulator host/plat_host.c) and the glue between fm1-base's contract (app.h) and SoundPlant's parts: its drawing
+ * (gfx_soundplant.c), the engine (engine.c; the DSP and the sequencer in dsp/ and seq/, their own -O2 units), the project
  * (project.c), the pages (pages.c), the input (ui.c), the user sample bank over USB (samples.c), and on the FM-1 its
- * platform extras (plat_loom.c: the second core, the profiler's clock, the supplies). */
+ * platform extras (plat_soundplant.c: the second core, the profiler's clock, the supplies). */
 #include "res.c"                                    /* the resource region's sections (fm1-base plat_res) */
-#include "gfx_loom.c"
+#include "gfx_soundplant.c"
 #include "engine.c"
 #include "project.c"
 #include "pages.c"
@@ -13,7 +13,7 @@
 #include "midicc.c"
 #include "samples.c"
 #ifndef PLAT_HOST
-#include "plat_loom.c"
+#include "plat_soundplant.c"
 #else
 static uint32_t render_t0(void);
 static uint32_t render_pct(uint32_t t0, uint32_t n);
@@ -25,8 +25,9 @@ static int load_force = -1;             /* the script's "load N": the guard sees
 #endif
 
 _Static_assert(OBJ_NOBJ == 24 && OBJ_PROJ0 == 2, "the store map lists every object (APP_STORE_MAP)");
-_Static_assert(SMP_REG0 >= 0xC1000u && SMP_REG0 + SMP_REG0_SIZE <= 0xDC000u && SMP_REG0 >= PLAT_DATA_LO,
-               "the user sample bank's first window between the project slots and the panel calibration");
+_Static_assert(SMP_REG0 >= APP_RES_BASE + APP_RES_SECTORS * 0x1000u && SMP_REG0 + SMP_REG0_SIZE <= 0xDC000u &&
+               SMP_REG0 >= PLAT_DATA_LO,
+               "the user sample bank's first window between the resource region and the panel calibration");
 _Static_assert(SMP_REG1 == PLAT_XDATA1_LO && SMP_REG1 + SMP_REG1_SIZE == PLAT_XDATA1_HI &&
                SMP_REG2 == PLAT_XDATA0_LO && SMP_REG2 + SMP_REG2_SIZE == PLAT_XDATA0_HI,
                "the user sample bank's other windows: fm1-base's two extra windows, whole (plat.h)");
@@ -44,8 +45,8 @@ static int store_clear_of_bank(void)
     return 1;
 }
 
-/* the lights: LOOM-8's (the unlit buttons glowing, keys dim, PLAY green or red) on fm1-base's plat_lights */
-void loom_lights(uint32_t buttons, uint32_t keys, int glow, uint32_t dim_keys, int red)
+/* the lights: SoundPlant's (the unlit buttons glowing, keys dim, PLAY green or red) on fm1-base's plat_lights */
+void soundplant_lights(uint32_t buttons, uint32_t keys, int glow, uint32_t dim_keys, int red)
 {
     uint32_t play = 1u << B_PLAY, b = buttons, dim = glow ? ((1u << NB) - 1u) & ~buttons : 0u;
     if (!red) {                                     /* PLAY's green LED, unless recording */
@@ -59,7 +60,7 @@ void loom_lights(uint32_t buttons, uint32_t keys, int glow, uint32_t dim_keys, i
 void app_init(void)
 {
 #ifndef PLAT_HOST
-    plat_loom_init();
+    plat_soundplant_init();
 #endif
     {   /* the user bank, read in place through its windows (none without the flash, or over a store object) */
         const uint8_t *reg[SMP_NREG];
@@ -76,7 +77,8 @@ void app_init(void)
     }
     smp_user_scan();                                /* (an empty or torn bank: no user samples) */
     d909_res_get = res_samples;                     /* the 909 cymbals' samples: the resource region (fm1.toml) */
-    loom_large_load();                              /* the large type faces, from there too */
+    wt_res_get = res_wavetables;                    /* the wavetable engine's tables, from there too */
+    soundplant_large_load();                              /* the large type faces, from there too */
     project_load(project_last_slot());              /* the slot used last; defaults when nothing (or another format) is saved */
     presets_load();
     engine_init(&pats, proj_par);
@@ -156,25 +158,23 @@ void app_say(const char *a, const char *b) { ui_say(a, b); }
 void app_redraw(void) { ui_redraw(); }
 int app_sysex(const uint8_t *p, uint32_t n) { return smp_frame(p, n); }
 
-/* the name over the eight tracks' inks woven as threads, in the default theme (pages.c THEMES[0]) */
+/* the name over the eight tracks' inks woven as threads, in the default theme (prism) */
 void app_splash(void)
 {
-    const theme_t *t = &THEMES[0];
+    const theme_t *t = &THEMES[THEME_PRISM];
     lcd_fill(0, 0, 240, 240, t->bg);
-    cv_begin(240, 96, t->bg);
-    {
-        int32_t w = text_w(&FONT_L, "LOOM-8");
-        cv_text((240 - w) / 2, 0, &FONT_L, "LOOM-8", t->text);
+    for (pic_begin(76, 96, t->bg); pic_next(); pic_send()) {
+        int32_t w = text_w(&FONT_L, "SoundPlant");
+        cv_text((240 - w) / 2, 0, &FONT_L, "SoundPlant", t->text);
         for (int i = 0; i < 8; i++)                  /* the warp: eight threads, each over and under the weft */
             for (int j = 0; j < 12; j++)
                 cv_rect(56 + i * 16, 44 + j * 3, 8, (i + j) & 1 ? 3 : 2, (i + j) & 1 ? t->ink[i] : t->panel2);
         w = text_w(&FONT_S, "a pocket groovebox");
         cv_text((240 - w) / 2, 76, &FONT_S, "a pocket groovebox", t->dim);
     }
-    cv_blit(0, 76);
 }
 
-/* backup and restore over USB (fm1-base's backup.c): the slots and the presets as saved (LOOM-8 saves when asked:
+/* backup and restore over USB (fm1-base's backup.c): the slots and the presets as saved (SoundPlant saves when asked:
  * what is not saved stays so); no saving while a backup streams; a restore: everything from the flash again */
 int app_backup_playing(void) { return seq.playing != 0; }
 void app_backup_flush(void) {}
@@ -191,7 +191,7 @@ void app_backup_restored(void)
 }
 
 #ifdef PLAT_HOST
-#include "host.c"                                   /* the host simulator's part: LOOM-8's checks and commands */
+#include "host.c"                                   /* the host simulator's part: SoundPlant's checks and commands */
 #endif
 
 /* the platform's own code after this (fm1-base's main_fm1.c) draws with its own fonts again */

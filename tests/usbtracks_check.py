@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MPL-2.0
-"""LOOM-8's USB audio input on ten channels, as tests/scenarios/usbtracks.xy recorded it: the master on 1 and 2, the
+"""SoundPlant's USB audio input on ten channels, as tests/scenarios/usbtracks.xy recorded it: the master on 1 and 2, the
 tracks on 3..10. With a beat on T1 and a melody on T2: their channels sound and the other six are silent; T2 panned hard
 left keeps its level in its own channel (before its pan) while the master's right side loses it; T1 muted, its channel
 is silent and T2's unchanged.

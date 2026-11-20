@@ -11,6 +11,7 @@
 #define SYNTH_C "../../app/dsp/synth.c"
 #endif
 #include SYNTH_C
+#include "wt_res.h"                               /* wt_host_init: the wavetable engine's tables */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -93,6 +94,7 @@ int main(int argc, char **argv)
 {
     static const int DEF[] = {EG_KNIT, EG_RAYON, EG_JACQUARD};
     int engines[NENGINE], ne = 0, a, k;
+    wt_host_init();
     for (a = 1; a < argc; a++)
         for (k = 0; k < NENGINE; k++)
             if (!strcmp(argv[a], EG_NAME[k]))

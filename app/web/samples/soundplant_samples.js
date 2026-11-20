@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
-// LOOM-8's user sample bank in the browser: tools/loom_samples.py and tools/sampleio.py (its numpy path) as plain
+// SoundPlant's user sample bank in the browser: tools/soundplant_samples.py and tools/sampleio.py (its numpy path) as plain
 // functions, so the samples page (app/web/samples/index.html) builds the bank the command line builds: the same
 // layout and header byte for byte, the same sound within a rounding (numpy sums a convolution in its own order).
-// tests/host/samples_web.mjs checks it against loom_samples.py. Copyright (C) 2026 Charles Vestal.
+// tests/host/samples_web.mjs checks it against soundplant_samples.py. Copyright (C) 2026 Charles Vestal.
 //
 // Keep the order of operations of sampleio.py when touching these.
 
 export const RATES = [11025, 16000, 22050, 32000];
 export const AUTO = [22050, 16000, 11025];
 export const BLK = 128, BLK_V2 = 64;          // a checkpoint every BLK samples: version 3 banks (0.8); 64 in version 2
-export const REGIONS = [[0xC1000, 0x1B000], [0xE5000, 0x17000], [0x93000, 0x4000]];
+export const REGIONS = [[0xCA000, 0x12000], [0xE5000, 0x17000], [0x93000, 0x4000]];
 const XDATA = [1, 2], REC_MARK = 0xF06;
 export const BANK_SIZE = REGIONS.reduce((a, r) => a + r[1], 0);
 export const BANK_HDR = 2048, BANK_MAX_DATA = BANK_SIZE - BANK_HDR, BANK_N = 32, BANK_VER = 3;
@@ -200,7 +200,7 @@ export function imaDecode(b, n) {
 export function sampleBytes(n) { return Math.ceil(n / BLK) * 4 + Math.floor((Math.floor((n + 1) / 2) + 3) / 4) * 4; }
 export function bytesPerSecond(rate) { return rate * (0.5 + 4.0 / BLK); }
 
-// a file's samples at a rate, ready for the bank (loom_samples.at_rate): {s: Int16Array, loop}
+// a file's samples at a rate, ready for the bank (soundplant_samples.at_rate): {s: Int16Array, loop}
 export function atRate(x, sr, loop, rate) {
   const s = toInt16(emphasis(resample(x, sr, rate)));
   const lp = loop ? [Math.trunc(loop[0] * rate / sr), Math.trunc((loop[1] + 1) * rate / sr)] : null;
@@ -364,7 +364,7 @@ export function parseHeader(hdr) {
   return { count, ver, dataLen: v.getUint32(8, true), crc: v.getUint32(12, true), entries: out };
 }
 
-// loom_samples.pack7: groups of up to 7 bytes, each preceded by their top bits; and back
+// soundplant_samples.pack7: groups of up to 7 bytes, each preceded by their top bits; and back
 export function pack7(b) {
   const out = [];
   for (let i = 0; i < b.length; i += 7) {
@@ -385,7 +385,7 @@ export function unpack7(a) {
   return new Uint8Array(out);
 }
 
-// loom_samples.frames: the upload's frames, [command, args, timeout ms, what]
+// soundplant_samples.frames: the upload's frames, [command, args, timeout ms, what]
 export function* frames(image) {
   yield [11, [0], 10000, "begin"];
   for (let off = BANK_HDR; off < image.length; off += 256)
@@ -395,7 +395,7 @@ export function* frames(image) {
   yield [13, [0], 20000, "end"];
 }
 
-// loom_samples.build: the bank from items in order, each either kept ({name, n, root, loop, bars, rate, ckb, adpcm}:
+// soundplant_samples.build: the bank from items in order, each either kept ({name, n, root, loop, bars, rate, ckb, adpcm}:
 // read back) or new ({name, x, sr, loop (the file's), root, bars, rate: its own or null}); rate: for the new ones that
 // did not choose (null: auto, the highest of AUTO at which all fits). -> {img, chose}; throws TooLong.
 // cache (a Map) keeps each new item's samples at a rate between calls.
@@ -474,14 +474,14 @@ export class Link {
   }
   close() { this.input.onmidimessage = null; }
 }
-// the FM-1 running LOOM-8 among midi's ports (it answers SB_SINFO); null: none
+// the FM-1 running SoundPlant among midi's ports (it answers SB_SINFO); null: none
 export async function findLink(midi, wait = 1000) {
   // the names the backup page and the installer take (Windows may call the port "USB-MIDI", or keep an earlier name,
-  // and names the two ends apart: "LOOM-8 FM-1" in, "MIDIOUT2 (LOOM-8 FM-1)" out); never probe other gear
+  // and names the two ends apart: "SoundPlant FM-1" in, "MIDIOUT2 (SoundPlant FM-1)" out); never probe other gear
   const outs = [...midi.outputs.values()].filter((o) => o.state !== "disconnected");
   const ins = [...midi.inputs.values()].filter((i) => i.state !== "disconnected" &&
-    /loom|fm-?1|felucca|composite|sinco|usb-midi/i.test(i.name || ""))
-    .sort((a, b) => /loom/i.test(b.name) - /loom/i.test(a.name));
+    /soundplant|fm-?1|felucca|composite|sinco|usb-midi/i.test(i.name || ""))
+    .sort((a, b) => /soundplant/i.test(b.name) - /soundplant/i.test(a.name));
   const base = (s) => (s || "").replace(/\s+\d+$/, "").replace(/^MIDI(?:IN|OUT)\d*\s*\((.*)\)$/i, "$1");
   for (const input of ins) {
     const same = outs.filter((o) => base(o.name) === base(input.name));
@@ -509,15 +509,15 @@ export async function readBytes(link, off, n, onPart) {
   }
   return out;
 }
-// the bank's image as the FM-1 holds it (header + data), or null when it holds none; throws on an old LOOM-8
+// the bank's image as the FM-1 holds it (header + data), or null when it holds none; throws on an old SoundPlant
 export async function readBank(link, onPart) {
   const info = await link.req(15, [0]);
-  if (info[0] !== 2) throw new Error("This LOOM-8 is too old for this page. Update it from the install page, then connect again.");
+  if (info[0] !== 2) throw new Error("This SoundPlant is too old for this page. Update it from the install page, then connect again.");
   if (!info[5]) return null;
   let hdr;
   try { hdr = await readBytes(link, 0, HDR_USED); } catch (e) {
     if (/stopped answering/.test(e.message))
-      throw new Error("This LOOM-8 can't send its samples back to the page. Update it from the install page (0.5-beta or later), then connect again.");
+      throw new Error("This SoundPlant can't send its samples back to the page. Update it from the install page (0.5-beta or later), then connect again.");
     throw e;
   }
   const h = parseHeader(hdr);

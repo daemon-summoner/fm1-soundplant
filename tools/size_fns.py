@@ -36,28 +36,30 @@ import sys
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[1]
-SIZE_FILES = ["app/ui.c", "app/pages.c", "app/project.c", "app/lz.c", "app/samples.c", "app/gfx_loom.c", "app/app.c",
-              "app/plat_loom.c", "base/device/panel.c", "base/device/main_fm1.c", "base/device/gfx.c",
+SIZE_FILES = ["app/ui.c", "app/pages.c", "app/project.c", "app/lz.c", "app/samples.c", "app/gfx_soundplant.c", "app/app.c",
+              "app/plat_soundplant.c", "base/device/panel.c", "base/device/main_fm1.c", "base/device/gfx.c",
               "base/device/storage.c", "base/bsp/chip/ota.c", "base/device/announce.c", "base/device/backup.c"]
 # (voice_chunk and voice_subblock left it 2026-11-14: a voice's set-up every 64 / 16 samples, 16 % and 7 % of its time
 # on the FM-1; at -O2 the voices -4 % (pop's both cores 47.1 -> 45.3 %), 2.35 KB of flash)
 # (seq.c's and pattern.c's per-step and per-note code joined 2026-11-14: the six demo songs on the FM-1 the same within
 # noise, mean and slowest block, the sequencer's share of the slowest block too; 3.3 KB of flash)
 COLD = {
-    "dsp/drumline.c": ["start", "knob", "drumline_filter", "drumline_hit", "reso_set", "drumline_init"],
+    "dsp/drumline.c": ["start", "knob", "drumline_filter", "drumline_hit", "reso_set", "drumline_init",
+                       "x_glide", "x_layer"],
     "dsp/fx.c": ["fx_derive", "eq_coefs", "fx_filter", "master_set", "master_init", "comp_coefs",
                  "fx_set", "fx_init", "delay_time", "delay_secs", "fx_delay_halves", "color_coefs", "biq_shelf",
-                 "fx_clear", "master_clear", "coef_ms", "master_pump_ms"],
+                 "fx_clear", "master_clear", "coef_ms", "master_pump_ms", "polish_coefs"],
     "dsp/sample.c": ["smp_user_scan", "fact_init", "smp_bank_crc", "smp_name"],
     "dsp/digisophie.c": [],
-    "dsp/d909.c": ["d909_start", "d9_biquad_set", "d9_shape_prep", "d9_env_exp"],
+    "dsp/d909.c": ["d909_start", "d9_biquad_set", "d9_shape_prep", "d9_env_exp", "d909_res_ok", "pot_exp", "drive_of"],
     "dsp/bass303.c": ["bass303_init", "rat_coeffs", "bq_low_shelf", "bq_lowpass", "bass303_set", "env_tables",
-                      "bass303_note_on"],
+                      "bass303_note_on", "square_set"],
     "dsp/bench.c": [],
     "dsp/synth.c": ["tp_text_i", "tp_text_par", "tp_info_par", "tp_text", "char_picture",
                     "synth_note_off", "synth_duck_trigger", "synth_all_off",
                     "sound_default", "synth_init", "eknob_init", "synth_prepare",
-                    "hz_text", "ms_text", "organ_bars", "synth_cut"],
+                    "hz_text", "ms_text", "organ_bars", "synth_cut", "put_s", "put_i", "put_f1",
+                    "wt_res_ok"],
     "seq/pattern.c": ["pattern_init", "patterns_init", "lane_alloc", "lane_clear", "lane_count", "lane_pool_set",
                       "lane_pool_free", "step_clear_locks", "pattern_clear_locks", "step_set_notes",
                       "step_toggle_note", "kit_set", "kit_toggle", "kit_add", "pattern_woven", "weave_step",
@@ -69,14 +71,14 @@ COLD = {
                   "kit_lanes", "chord_at", "groove_vel", "fill_hit", "rand_wrap", "midi_on", "fill_collect",
                   "brain_chord_of_root", "fire_off", "add_off", "sounding_off", "grid_index", "loop_release",
                   "brain_set_near_notes", "lane_masks_make", "kit_rec_fresh", "tracks_go", "brain_shift", "arp_off",
-                  "bar_len_update"],
+                  "bar_len_update", "chord_word", "brain_set_chord", "brain_set_root_notes"],
 }
 # the two FX slots' and the master's per-sample code, closed under calls (~18 KB; the 24 KB RAMTEXT region holds
 # .ram_text's ~3 KB and the second core's loop besides)
 # the master's per-sample code (in RAM since 2026-10-18; the effects joined it then and left it 2026-10-23: they run on the
 # second core at the block's start, beside the first core's sequencer, where its time hides; their 14 KB went to the
 # kit's voices below, the first core's)
-RAM_DSP = ["master_process", "color_block"]
+RAM_DSP = ["master_process", "color_block", "soft_knee"]
 RAM_INLINE = ["fx_states", "zero16"]
 # and a synth note's start (a drum hit's, with every model's set-up inlined, came to ~15 KB: left out): the code a chord change runs once, cold in the XIP cache when
 # it does (on the FM-1, 2026-10-19: the blocks where notes start took twice the others). RAMTEXT is 32 KB for them

@@ -116,7 +116,7 @@ expect note 2 2 1 68
 # the FM-1's settings (the theme, Setup's list: NOTES here): set on Setup's list, kept when project 1 loads (and over
 # a restart: the load writes them into the slot), and by a new project
 projsave 1
-expect theme 2
+expect theme 3
 tap GLO
 turn SELECT 5
 expect page Setup

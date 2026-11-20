@@ -1,18 +1,18 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* LOOM-8's 909 kit models (drumline.h DM_909KICK .. DM_909CLAP): the circuit models of 9W9, a TR-909 model by
+/* SoundPlant's 909 kit models (drumline.h DM_909KICK .. DM_909CLAP): the circuit models of 9W9, a TR-909 model by
  * athousanddetails (github.com/athousanddetails/schwung-9W9, GPL-3.0-only; itself grown out of ER-99 by Matthew
  * Cieplak, GPL-3.0), through X0X's port to the FM-1 (charlesvestal/fm1-x0x, firmware/src/dsp/drum909.c and
  * drum909_dsp.h): the kick, the snare, the toms (low, mid, high on one model), the rim shot and the hand clap,
- * their fitted constants, pot curves and defaults as 9W9 has them. GPL-3.0-only: LOOM-8 built with it is GPL-3.0 as
+ * their fitted constants, pot curves and defaults as 9W9 has them. GPL-3.0-only: SoundPlant built with it is GPL-3.0 as
  * a whole (LICENSING.md).
  *
- * What differs from X0X's port, for LOOM-8's kit: one voice a hit, in a slot of the drumline's 909 bank (drumline.c
- * d9_slot), not one instance a kit; the knobs read at the hit (each model's pots as LOOM-8 knobs, 0..127, below);
+ * What differs from X0X's port, for SoundPlant's kit: one voice a hit, in a slot of the drumline's 909 bank (drumline.c
+ * d9_slot), not one instance a kit; the knobs read at the hit (each model's pots as SoundPlant knobs, 0..127, below);
  * each voice its own noise (9W9's is one stream for the kit, whose filters it keeps warm between notes: here a hit's
  * filters start from rest); tanh from a table of half X0X's points. The level and the accent are 9W9's defaults (its
  * Level pot's, its kit Accent 2): the velocity, the key's volume and the kit's trim are the drumline's.
  *
- * The knobs (d909_start's k[], 0..1; a list knob as its index / 127), 9W9's pots in LOOM-8's order:
+ * The knobs (d909_start's k[], 0..1; a list knob as its index / 127), 9W9's pots in SoundPlant's order:
  *   kick   pitch (9W9's Pitch, 0.43 .. 4.7 x), decay (100 .. 4000 ms), attack (the beater's click), sweep (9W9's Tune:
  *          the pitch drop's time, 6 .. 32 ms); depth (the drop), drive (0.85 .. 12), shape (the 7 distortions)
  *   snare  pitch (130 .. 320 Hz), decay (120 .. 800 ms), snappy (the wires), tone (the wires' decay, 300 .. 4000 ms);

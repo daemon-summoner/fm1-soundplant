@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8 on the FM-1: its platform extras beyond fm1-base's plat.h (app.h), on felucca-bsp's helpers (the second
+/* SoundPlant on the FM-1: its platform extras beyond fm1-base's plat.h (app.h), on felucca-bsp's helpers (the second
  * core is fm1-base's: fm1.toml cpu2 = true, plat_cpu2_*). Part
  * of the app's unity build (app.c), compiled inside fm1-base's (device/unity.c: after the platform, before its
  * main_fm1.c); the simulator's are in host.c. */
@@ -39,10 +39,10 @@ int plat_last_crash(uint32_t v[5])                   /* fm1_crash (.noinit): a w
 /* the copy before the current one (storage.c keeps it while it can: the pool's next older): a stream torn across
  * objects falls back to the save before (project.c load_stream). fm1-base's storage.c, in the same unit */
 int plat_store_load_prev(uint32_t obj, void *dst, uint32_t max) { return flash_ok ? st_load_prev(obj, dst, max) : -1; }
-int loom_store_save(uint32_t obj, const void *src, uint32_t len) { return plat_store_save(obj, src, len); }
+int soundplant_store_save(uint32_t obj, const void *src, uint32_t len) { return plat_store_save(obj, src, len); }
 
 /* boot (app_init): the profiler's clock, the supplies */
-static void plat_loom_init(void)
+static void plat_soundplant_init(void)
 {
     vdc14_level = (uint8_t)fm1_vdc14();
     sysvdd_level = (uint8_t)fm1_sysvdd();

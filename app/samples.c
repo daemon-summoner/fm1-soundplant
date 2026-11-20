@@ -1,18 +1,18 @@
 /* SPDX-License-Identifier: MPL-2.0
  * Copyright (C) 2026 Charles Vestal */
-/* LOOM-8's user sample bank over USB-MIDI SysEx (tools/loom_samples.py): F0 7D 46 4C cmd args.. F7, the
+/* SoundPlant's user sample bank over USB-MIDI SysEx (tools/soundplant_samples.py): F0 7D 46 4C cmd args.. F7, the
  * the framing X0X's and Felucca's editors also speak, 7-bit bytes, data packed 7 to 8 (a byte of high bits, then up
  * to seven bytes).
- * One bank (slot 0), 216 KB over three flash windows (dsp/sample.h SMP_REG*); an offset is virtual, through the
- * windows end to end: a 2048-byte header (at 0xC1000), then the data.
- *   INFO        1                    -> "LOOM-8 <version>", 0 0 0 0 0 0
+ * One bank (slot 0), 180 KB over three flash windows (dsp/sample.h SMP_REG*); an offset is virtual, through the
+ * windows end to end: a 2048-byte header (at 0xCA000), then the data.
+ *   INFO        1                    -> "SoundPlant <version>", 0 0 0 0 0 0
  *   SMP_BEGIN  11 slot               -> slot, rc     the bank's user samples vanish, its first sector is erased
  *   SMP_WRITE  12 slot off3 data     -> slot, off3, rc    256 bytes (packed) at off (>= 2048, 256-aligned) of the
  *                                       bank; a 4 KB boundary (a sector of a window) is erased first
  *   SMP_END    13 slot               -> slot, rc     the header staged by SMP_HDR checked (its CRC against the
  *                                       data in flash; no update record in the extra windows), written last:
  *                                       the commit
- *   SMP_ERASE  14 slot               -> slot, rc     the whole bank erased (54 sectors: a few seconds)
+ *   SMP_ERASE  14 slot               -> slot, rc     the whole bank erased (45 sectors: a few seconds)
  *   SMP_INFO   15 [from]             -> 2, size KB (2 bytes, 7 bits each, low first), used KB (2), count, from, k,
  *                                       then samples from .. from + k - 1: name (0-terminated), rate (3), length
  *                                       in samples (3); k at most SB_INFO_K (ask again from from + k)
@@ -196,7 +196,7 @@ static int smp_frame(const uint8_t *p, uint32_t n)
     rp_start(cmd);
     switch (cmd) {
     case SB_INFO: {
-        const char *nm = "LOOM-8 " APP_VERSION;
+        const char *nm = "SoundPlant " APP_VERSION;
         for (i = 0; nm[i] && i < 24u; i++)
             rp_byte((uint8_t)nm[i]);
         rp_byte(0);

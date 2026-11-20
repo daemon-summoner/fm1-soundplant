@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* LOOM-8's 909 kit models: 9W9's TR-909 circuit models (athousanddetails, GPL-3.0-only) through X0X's port
+/* SoundPlant's 909 kit models: 9W9's TR-909 circuit models (athousanddetails, GPL-3.0-only) through X0X's port
  * (drum909.c, drum909_dsp.h): see d909.h. The circuits, constants and per-trigger pinning are 9W9's as X0X has them;
  * the building blocks below are drum909_dsp.h's (its envelopes re-anchored once a call, its biquads, the triangle on
  * a uint32 phase, the distortions), its tanh table at half X0X's resolution. */

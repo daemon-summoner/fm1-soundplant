@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: MIT */
-/* LOOM-8's two Braids engines: cane (the physical models) and voile (the voices). (gingham, the toys and chips, went
+/* SoundPlant's two Braids engines: cane (the physical models) and voile (the voices). (gingham, the toys and chips, went
  * 2026-10-19.) Included by synth.c only (static code on its voice_t, no unit of its own).
  *
  * Ported from Mutable Instruments Braids (github.com/pichenettes/eurorack, braids/digital_oscillator.cc,
  * macro_oscillator.cc and the tables braids/resources/ makes), Copyright 2012 Emilie Gillet, MIT License
  * (the licence text: LICENSING.md); the port Copyright (c) 2026 Charles Vestal, MIT. Braids is fixed point at
- * 96 kHz (some models at half that); here every model is float at LOOM-8's 44.1 kHz: the delay lines' lengths
+ * 96 kHz (some models at half that); here every model is float at SoundPlant's 44.1 kHz: the delay lines' lengths
  * from the period in samples at 44.1 kHz, the one-poles and resonators moved to the same cutoff (a pole p at
  * 96 kHz is p^(96/44.1) here), the envelopes and decays in seconds, the oscillators' increments in turns of
  * 44.1 kHz. What each knob does is Braids': E2 is its TIMBRE, E3 its COLOR; E1 picks the model (Braids' shape)
- * and E4 is LOOM-8's own (cane: damp, voile: breath).
+ * and E4 is SoundPlant's own (cane: damp, voile: breath).
  *
  *   cane    pluck  PLUK: a Karplus-Strong string read at the note's rate from a line of one period (Braids'
  *                  stretched, randomised averaging); timbre the decay, color the pluck's width; damp softens
@@ -39,7 +39,7 @@
  *   - the bell tuned as a church bell is (2026-10-19): Braids' hum sat at -10 semitones and its prime 1.4 flat, which
  *     against the in-tune octave (+12) read as out of tune; now the hum -12, the prime on the note, the minor third
  *     +3 (Braids'), the fifth +7 (Braids' +9.2), the octave and the upper partials as Braids has them
- *   - one note a voice: Braids' three overlapping plucked strings are LOOM-8's voices; the waveguides keep one
+ *   - one note a voice: Braids' three overlapping plucked strings are SoundPlant's voices; the waveguides keep one
  *     model's lines in one of CN_SLOTS slots (int16, CN_LEN a slot: RAM, beside synth_t; synth.c gives a slot
  *     to a cane note and keeps cane to CN_SLOTS voices). Below the lines' reach (bow under ~37 Hz, flute under
  *     ~62 Hz) the line plays an octave up, as Braids' does;
@@ -60,8 +60,8 @@
  *     (x 0.8 .. 1.2) instead; its DC blocker at 0.995 (Braids' 0.99 at 96 kHz is a 150 Hz high-pass in the
  *     loop: it led the pitch 60 cents at middle C), and the output's DC out;
  *   - choir: all five formants at one gain, as Braids' (its code reads the first formant's amplitude for each);
- *   - whisper: the buzz under the noise is LOOM-8's (breath, 127 = Braids' TWNQ);
- *   - Braids' parameter interpolation and its sync input are not here (LOOM-8's knobs move once a chunk). */
+ *   - whisper: the buzz under the noise is SoundPlant's (breath, 127 = Braids' TWNQ);
+ *   - Braids' parameter interpolation and its sync input are not here (SoundPlant's knobs move once a chunk). */
 
 /* ------------------------------------------------------------- cane ---- */
 enum { CN_PLUCK, CN_BOW, CN_REED, CN_FLUTE, CN_BELL, CN_DRUM };
@@ -93,7 +93,7 @@ static const uint16_t DRUM_DS[6] = {65083, 64715, 64715, 64715, 64715, 62312};
 #define PT_S 44
 #define PT_D 55
 #define PT_K 66                                  /* (the frequency and knobs they were made from: 4) */
-/* the outputs' gains: each model's raw note near LOOM-8's engines' (a cycle peaking near 1; the pluck raised
+/* the outputs' gains: each model's raw note near SoundPlant's engines' (a cycle peaking near 1; the pluck raised
  * 2026-10-19: its decaying phrases sat ~6 dB under the bank, its attack's peak now ~2.9 at the knobs' corners) */
 static const float CN_GAIN[NCANE] = {4.2f, 2.7f, 1.45f, 0.8f, 2.0f, 1.2f};
 

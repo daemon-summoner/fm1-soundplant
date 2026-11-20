@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: MPL-2.0
-# LOOM-8's demo songs, rendered in the host simulator: each tools/demos/<song>.xy played from its song page, as a
+# SoundPlant's demo songs, rendered in the host simulator: each tools/demos/<song>.xy played from its song page, as a
 # player would make it on the FM-1 (its own sample bank, its tracks, scenes, song, locks and throws), to a WAV, then
 # AAC (.m4a). For private listening: the banks hold classic breaks and must never be committed, published or put on
 # a site (they are made under build/demos/, git-ignored; the m4a files go to OUT). The mixdown is the simulator's
@@ -10,7 +10,7 @@
 #
 # STEMS=1: also, per song, into build/demos/run_<song>/stems/: each track alone with its FX returns (T1.wav ..), the
 # tracks without the FX (dry.wav), and the mix taken before the master's stages (raw: the groups summed; eq;
-# comp: no limiter) (app/host.c LOOM_SOLO, LOOM_MST), as the host writes them: 6 dB under the codec's full scale and
+# comp: no limiter) (app/host.c SOUNDPLANT_SOLO, SOUNDPLANT_MST), as the host writes them: 6 dB under the codec's full scale and
 # unlimited, so they add up to raw.wav.
 # BREAKS: the breakbeat samples' folder (default ../../schwung-breakbeat/samples from fm1-xy, as fm1-parent has
 # it). PYTHON: a Python with numpy and scipy (default /opt/homebrew/bin/python3.14, else python3). Builds the host
@@ -25,7 +25,7 @@ if [ -z "${PYTHON:-}" ]; then
     if [ -x /opt/homebrew/bin/python3.14 ]; then PYTHON=/opt/homebrew/bin/python3.14; else PYTHON=python3; fi
 fi
 export PYTHON
-export LOOM_LOAD="${LOOM_LOAD:-0}"   # the overload guard fed 0 %, not this computer's timing: the same render every time
+export SOUNDPLANT_LOAD="${SOUNDPLANT_LOAD:-0}"   # the overload guard fed 0 %, not this computer's timing: the same render every time
 BREAKS="${BREAKS:-}"
 if [ -z "$BREAKS" ]; then
     for d in ../../schwung-breakbeat/samples ../schwung-breakbeat/samples "$HOME/github/fm1-parent/schwung-breakbeat/samples"; do
@@ -49,34 +49,34 @@ for s in $SONGS; do
     rm -rf "$d" && mkdir -p "$d"
     echo "== $s"
     rc=0
-    app/build/host/loom_host "tools/demos/$s.xy" "$d" > "$d/log.txt" 2>&1 || rc=$?
-    # the simulator's layout audit (gfx_loom.c): none of the songs' screens is flagged; a LAYOUT line is printed
+    app/build/host/soundplant_host "tools/demos/$s.xy" "$d" > "$d/log.txt" 2>&1 || rc=$?
+    # the simulator's layout audit (gfx_soundplant.c): none of the songs' screens is flagged; a LAYOUT line is printed
     # below as a note, not a failure (the audio is still good)
-    if [ $rc -ne 0 ] && { grep -qE '^(FAIL|demo: |line [0-9]+: unknown)' "$d/log.txt" || [ ! -f "$d/loom_demo_$s.wav" ]; }; then
+    if [ $rc -ne 0 ] && { grep -qE '^(FAIL|demo: |line [0-9]+: unknown)' "$d/log.txt" || [ ! -f "$d/soundplant_demo_$s.wav" ]; }; then
         tail -20 "$d/log.txt"
         exit 1
     fi
     grep -E '^(stats|demo|LAYOUT)' "$d/log.txt" || true
-    "$PYTHON" tools/demos/analyze.py --master "$d/loom_demo_$s.wav" "$d/mix_$s.wav"
+    "$PYTHON" tools/demos/analyze.py --master "$d/soundplant_demo_$s.wav" "$d/mix_$s.wav"
     if [ "${STEMS:-0}" = 1 ]; then
         mkdir -p "$d/stems"
         stem() {   # NAME VAR=VALUE ...
             n=$1; shift
             mkdir -p "$d/stems/.$n"
-            env "$@" app/build/host/loom_host "tools/demos/$s.xy" "$d/stems/.$n" > /dev/null 2>&1
-            mv "$d/stems/.$n/loom_demo_$s.wav" "$d/stems/$n.wav" && rm -rf "$d/stems/.$n"
+            env "$@" app/build/host/soundplant_host "tools/demos/$s.xy" "$d/stems/.$n" > /dev/null 2>&1
+            mv "$d/stems/.$n/soundplant_demo_$s.wav" "$d/stems/$n.wav" && rm -rf "$d/stems/.$n"
         }
-        for t in 1 2 3 4 5 6 7 8; do stem "T$t" LOOM_MST=raw LOOM_SOLO="$t,fx1,fx2" & done
-        stem dry LOOM_MST=raw LOOM_SOLO=1,2,3,4,5,6,7,8 &
-        for m in raw eq comp; do stem "$m" LOOM_MST=$m & done
+        for t in 1 2 3 4 5 6 7 8; do stem "T$t" SOUNDPLANT_MST=raw SOUNDPLANT_SOLO="$t,fx1,fx2" & done
+        stem dry SOUNDPLANT_MST=raw SOUNDPLANT_SOLO=1,2,3,4,5,6,7,8 &
+        for m in raw eq comp; do stem "$m" SOUNDPLANT_MST=$m & done
         wait
         echo "   stems: $d/stems/"
     fi
     "$PYTHON" tools/demos/analyze.py "$d/mix_$s.wav"
     if command -v afconvert >/dev/null 2>&1; then
-        afconvert -f m4af -d aac -b 128000 "$d/mix_$s.wav" "$OUT/loom_demo_$s.m4a"
+        afconvert -f m4af -d aac -b 128000 "$d/mix_$s.wav" "$OUT/soundplant_demo_$s.m4a"
     else
-        ffmpeg -loglevel error -y -i "$d/mix_$s.wav" -c:a aac -b:a 128k "$OUT/loom_demo_$s.m4a"
+        ffmpeg -loglevel error -y -i "$d/mix_$s.wav" -c:a aac -b:a 128k "$OUT/soundplant_demo_$s.m4a"
     fi
-    ls -l "$OUT/loom_demo_$s.m4a" | awk '{printf "   %s: %.2f MB\n", $NF, $5 / 1048576}'
+    ls -l "$OUT/soundplant_demo_$s.m4a" | awk '{printf "   %s: %.2f MB\n", $NF, $5 / 1048576}'
 done

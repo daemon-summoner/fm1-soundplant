@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8's Bluetooth: audio out to headphones and speakers (plat_bta_*), and the Bluetooth MIDI device it connects
+/* SoundPlant's Bluetooth: audio out to headphones and speakers (plat_bta_*), and the Bluetooth MIDI device it connects
  * to (fm1-base's lib/btdev.h). Setup shows both; GLO's SEL list has BT AUDIO (on or off) and AUDIO DEVICE and MIDI
  * DEVICE, whose SEL opens the list of devices (pages.c list_bt_audio, list_bt_dev; ui.c bt_poll scans while a list is up and says what happened).
  * Whether MIDI and audio are on are the project's BT_MIDI_OFF and BT_AUDIO_ON bits, carried from project to project as the theme is: at power-on
- * LOOM-8 switches Bluetooth MIDI off again (once the radio is up) when it was off, and connects the last audio
+ * SoundPlant switches Bluetooth MIDI off again (once the radio is up) when it was off, and connects the last audio
  * device again when audio was on. Included by pages.c, after its string helpers. */
 
 #define BT_AUDIO_ON 64u                              /* proj.rsv[2]: Bluetooth audio on (the last device at power-on) */

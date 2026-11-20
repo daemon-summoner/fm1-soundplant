@@ -13,6 +13,7 @@
 #include <time.h>
 #include "instr_count.h"                       /* instr_now, ns_now */
 #include "synth.h"
+#include "wt_res.h"                               /* wt_host_init: the wavetable engine's tables */
 int synth_sizeof(void);
 
 static int bad;
@@ -139,6 +140,7 @@ static float buf[N * 200];
 int main(void)
 {
     int e, m, n, b, k;
+    wt_host_init();
     printf("synth_t %d bytes of %d\n", synth_sizeof(), SYNTH_BYTES);
 
     /* bounded and finite: every model, knobs at corners and the middle, notes 24..108 */

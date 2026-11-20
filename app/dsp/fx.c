@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8 effects (fx.h): the send slots and the master section.
+/* SoundPlant effects (fx.h): the send slots and the master section.
  *
  * Send slots: each takes a mono send and adds a stereo return. The reverb is 9W9's (X0X's fxbus.c):
  * four int16 combs with damping in the loop and two allpasses a side, the right side reading the
@@ -29,8 +29,9 @@
  *
  * Master: the two groups' levels, a 3-band EQ (RBJ shelves and a peak; all three at 64 a true bypass), X0X's bus compressor behind its one-knob macro with X0X's PUMP in its gain
  * (a hit of the pump's source ducks the whole mix: the sequencer keys it, so it needs no detector and a
- * muted track keys it too; at 0 the stage is as before, sample for sample), the master level and X0X's
- * lookahead limiter.
+ * muted track keys it too; at 0 the stage is as before, sample for sample), polish (a de-harsh band on the
+ * 2 .. 5 kHz range: it cuts a peak that stands out of its neighbours; at 0 it is not run), the master level and
+ * a true-peak lookahead limiter (-1 dBTP).
  *
  * Everything here runs in the audio interrupt; fx_set / master_set write plain words from the main
  * loop. Float, fastmath.h; stack locals stay small (a 32-sample block). */
@@ -961,7 +962,7 @@ int fx_awake(const fxslot_t *f)
 /* the master's knob names, short enough for the knob strip: percussion, melodic, compressor
  * and pump are perc, mel, comp, pump; then the out page's list */
 const char *const MC_NAME[NMC] = {"off", "tape", "sampler"};
-const char *const MS_NAME[NMS] = {"low", "mid", "high", "-", "color", "amount", "tone", "mix",
+const char *const MS_NAME[NMS] = {"low", "mid", "high", "polish", "color", "amount", "tone", "mix",
                                   "drums", "melodic", "comp", "pump", "pump by", "release", "accent", "level"};
 
 typedef struct { float b0, b1, b2, a1, a2; } biq_t;
@@ -978,17 +979,58 @@ struct master {
     /* compressor (X0X's master.c) */
     float thr_db, slope, knee, a_att, a_rel, makeup, gr, ms, a_det, want, g_lin, g_step, gr_view;
     uint8_t cr;
+    /* polish: a de-harsh band. The 2 .. 5 kHz band (an SVF band-pass at 3.5 kHz, Q 1.2: unity at its centre) of both sides
+     * is cut by how far the band's level on the mid stands over the louder of its two neighbours (the same band-pass at
+     * 1.2 kHz and at 9 kHz): a peak sticking out of the spectrum, not a tilt or a roll-off (those never put the band over
+     * its louder neighbour). Excess past PS_T dB is cut at PS_SLOPE x the knob, up to PS_CAP. Levels are read ahead of the
+     * cut, every MST_CR samples */
+#define PS_K 0.833333333f                     /* the band-passes: 1 / Q, and the TPT state-variable filters' a1 .. a3 */
+#define PS_A1 0.783067062f                    /* 3.5 kHz */
+#define PS_A2 0.199393375f
+#define PS_A3 0.0507717919f
+#define PS_LA1 0.926994123f                   /* 1.2 kHz, the lower neighbour */
+#define PS_LA2 0.0794381691f
+#define PS_LA3 0.00680740315f
+#define PS_HA1 0.45894181f                    /* 9 kHz, the upper neighbour */
+#define PS_HA2 0.342517175f
+#define PS_HA3 0.255627211f
+#define PS_EA 0.002265f                       /* the energies' one-pole: 10 ms */
+#define PS_T 2.0f                             /* the excess a band carries unharmed, dB (pink noise reads up to 1, white and a
+                                               * tilt under 0) */
+#define PS_SLOPE 1.5f                         /* dB of cut per dB of excess at the knob's top */
+#define PS_CAP 9.0f                           /* the deepest cut, dB */
+#define PS_IDLE_DB 0.003f                     /* a cut under this is gone (-72 dB of the band): a stage at 0 stops there */
+#define PS_FLOOR 1e-4f                        /* the mix's energy under which nothing is judged (-40 dB re 1.0) */
+#define PS_SHARE 3.16e-3f                     /* nor a band under this share of the mix (-25 dB): its level is no peak */
+    float ps_i1[2], ps_i2[2];                 /* the band-pass's states, a side */
+    float pn_i[4];                            /* the neighbours' (on the mid): lower i1, i2, upper i1, i2 */
+    float pe[4];                              /* the energies: the band's, the lower neighbour's, the upper's, the mix's */
+    float po_db, po_g, po_step, po_f;         /* the cut (dB, smoothed), its gain (ramped over MST_CR samples), dB per dB of excess */
+    float po_att, po_rel;                     /* the cut's attack and release, as coefficients of MST_CR samples */
+    uint8_t po_on, po_run, po_cr;               /* the knob is not 0, the stage runs (a cut releasing after the knob went to 0 too), the decision's count */
     /* PUMP (X0X's): its depth (dB), its envelope (dB) and the target it rises to; the rise and the release
      * as coefficients of MST_CR samples (it moves where the gain is computed) */
     float pump_db, pump, pump_tgt, a_up, a_down, pump_view;
     float pg, pg_step;                /* its gain on the groups, ramped as a linear gain over MST_CR samples */
     uint8_t pcr, duck_mel;            /* (the countdown); duck_mel: a kit's hit keyed it, the melodic group ducks alone */
 #define MST_CR 8                              /* (the gain computed every 8 samples, ramped between: 5.5 kHz) */
-    /* limiter (X0X's) */
-#define MST_LA 64
-    float env, gain, inv_env;
+    /* limiter: a true-peak lookahead brickwall. The bus runs MST_LA samples through la / la_r while a 2x detector reads
+     * the newest eight of them; the gain is held, followed and smoothed over MST_LW samples (see master_process) */
+#define MST_CEIL 0.861f                       /* the detector's ceiling: -1 dBTP (0.89125) less 0.3 dB, the reach its 8 taps fall short on
+                                               * broadband sound by */
+#define MST_LA 64                             /* the line: the audio's delay, samples (a power of 2) */
+#define MST_LW 54                             /* the gain's smoothing window: its attack ramp takes this many samples */
+#define MST_LB 68                             /* the hold's bucket: a peak's reduction holds MST_LB + 1 .. 2 * MST_LB samples */
+#define MST_LQ 0.40f                          /* a side at or under this for 8 samples: the 2x read cannot reach MST_CEIL (2.1464 x) */
+#define MST_RF 7.5557e-4f                     /* the release's two rates a sample: 30 ms (a short peak) ... */
+#define MST_RS 9.0678e-5f                     /* ... 250 ms (reduction that has lasted) */
+#define MST_LD_UP 1.5117e-4f                  /* how long it has lasted (ld, 0 .. 1): 150 ms to rise, ... */
+#define MST_LD_DN 7.5586e-5f                  /* ... 300 ms to forget, the reduction under 0.97 */
     float la[MST_LA], la_r[MST_LA];
-    int32_t la_pos, hold;
+    float lf, ld, hold_cur, hold_prev;        /* the followed gain; how long it has been reducing; the hold's two buckets */
+    int32_t la_pos, hold_n, gsum;             /* gsum: the last MST_LW of gring, summed */
+    uint16_t gring[MST_LA];                   /* the followed gain a sample, Q15 rounded down */
+    uint8_t quiet;                            /* samples since a side read over MST_LQ (8: the detector's window is quiet) */
     /* color (fx.h): the type running, its numbers (master_set), its states; the tape's wow line, a side */
 #define MC_LINE 128
 #define MC_DELAY 64.0f                        /* the wow's centre, samples (1.5 ms: the mix that late while tape is on) */
@@ -1061,6 +1103,27 @@ static void eq_coefs(master_t *m)
                 m->eqs[1][b] = rest;
             }
         m->eq_on = on;
+    }
+}
+
+/* polish's numbers from its knob; turned on with the stage at rest it starts from nothing. At 0 the stage runs on until
+ * its cut has released (master_process), then the bus passes bit for bit */
+static void polish_coefs(master_t *m)
+{
+    m->po_f = (float)m->pot[MS_POLISH] * (PS_SLOPE / 127.0f);
+    m->po_att = coef_ms(4.0f / (float)MST_CR);
+    m->po_rel = coef_ms(80.0f / (float)MST_CR);
+    m->po_on = m->pot[MS_POLISH] != 0;
+    if (m->po_on && !m->po_run) {
+        int k;
+        for (k = 0; k < 2; k++)
+            m->ps_i1[k] = m->ps_i2[k] = 0.0f;
+        for (k = 0; k < 4; k++)
+            m->pn_i[k] = m->pe[k] = 0.0f;
+        m->po_db = m->po_step = 0.0f;
+        m->po_g = 1.0f;
+        m->po_cr = 0;
+        m->po_run = 1;
     }
 }
 
@@ -1192,18 +1255,22 @@ static inline void color_block(master_t *m, float *l, float *r, uint32_t n)
 
 void master_init(master_t *m)
 {
-    static const uint8_t DEF[NMS] = {64, 64, 64, 0, MC_OFF, 40, 64, 127, 100, 100, 0, 0, PB_KICK, MS_PUMP_REL_DEF, 1, 100};
+    static const uint8_t DEF[NMS] = {64, 64, 64, POLISH_DEF, MC_OFF, 40, 64, 127, 100, 100, 0, 0, PB_KICK, MS_PUMP_REL_DEF, 1, 100};
     uint32_t i;
     uint8_t *z = (uint8_t *)m;
     for (i = 0; i < sizeof *m; i++)
         z[i] = 0;
     for (i = 0; i < NMS; i++)
         m->pot[i] = DEF[i];
-    m->gain = 1.0f;
+    m->lf = m->hold_cur = m->hold_prev = 1.0f;   /* (the limiter at rest: no reduction anywhere in its window) */
+    m->gsum = MST_LW << 15;
+    for (i = 0; i < MST_LA; i++)
+        m->gring[i] = 1u << 15;
     m->pg = 1.0f;                                /* (the pump's gain: none ducked) */
     m->gp = m->gp_c = m->gm = m->gm_c = MST_HEADROOM;
     m->glev = m->lev_c = 1.0f;
     eq_coefs(m);
+    polish_coefs(m);
     comp_coefs(m);
     color_coefs(m);
 }
@@ -1226,8 +1293,8 @@ void master_set(master_t *m, int p, int v)
     m->pot[p] = (uint8_t)(v < 0 ? 0 : v > master_max(p) ? master_max(p) : v);
     if (p <= MS_EQ_HI)
         eq_coefs(m);
-    else if (p == MS_RSV3)
-        return;                                           /* (the blend's, gone) */
+    else if (p == MS_POLISH)
+        polish_coefs(m);
     else if (p <= MS_CMIX)
         color_coefs(m);
     else if (p == MS_PERC)
@@ -1265,10 +1332,18 @@ static inline float gr_of(const master_t *m, float lv)       /* the static curve
     over += h;
     return m->slope * over * over / (2.0f * m->knee);
 }
+/* the output's knee above 0.89 (a = |s|): only samples past it take the call, and one copy serves every use in the RAM code */
+static __attribute__((noinline)) float soft_knee(float a)
+{
+    return 0.89f + 0.11f * fm_tanhf((a - 0.89f) * 9.0f);
+}
 static inline float soft_ceiling(float s)
 {
-    if (s > 0.89f || s < -0.89f)
-        s = s > 0.0f ? 0.89f + 0.11f * fm_tanhf((s - 0.89f) * 9.0f) : -0.89f - 0.11f * fm_tanhf((-s - 0.89f) * 9.0f);
+    const float a = fm_fabsf(s);
+    if (a > 0.89f) {
+        const float r = soft_knee(a);
+        return s > 0.0f ? r : -r;
+    }
     return s;
 }
 static inline float glide1(float cur, float tgt)             /* a level knob: ~10 ms, then exact */
@@ -1280,7 +1355,7 @@ static inline float glide1(float cur, float tgt)             /* a level knob: ~1
 }
 
 #ifdef PLAT_HOST
-int fx_host_stage = 9;                        /* the host's taps (host.c LOOM_MST): 0 the groups only, 1 + EQ, 2 + color,
+int fx_host_stage = 9;                        /* the host's taps (host.c SOUNDPLANT_MST): 0 the groups only, 1 + EQ, 2 + color,
                                                * 3 + comp and level, else all (the limiter) */
 #define STAGE(k) (fx_host_stage >= (k))
 #else
@@ -1305,6 +1380,33 @@ static inline void biq_block(const biq_t *q, biqs_t *st, float *x, uint32_t n)
     st->x2 = x2;
     st->y1 = y1;
     st->y2 = y2;
+}
+/* the limiter's 2x detector on one side: its newest eight samples w0 .. w7 (w7 = cur, the others the line's last seven),
+ * the sample before the middle (w3) and the point halfway between it and w4 (Kaiser-windowed sinc, beta 3.5, symmetric
+ * taps: the least-squares fit to a half-sample delay over 0 .. 0.9 of Nyquist, DC gain 1, absolute sum 2.1464). A peak
+ * between the two reads at most cos(pi f / 2 fs) low: 0.7 dB at 11 kHz, 1.9 dB at 18 kHz, 3 dB at Nyquist */
+static inline float mst_side(const float *r, int32_t pos, float cur)
+{
+    const float u0 = -0.0730419571f, u1 = 0.117495717f, u2 = -0.21359511f, u3 = 0.66914135f;
+    const float w0 = r[(pos - 7) & (MST_LA - 1)], w1 = r[(pos - 6) & (MST_LA - 1)], w2 = r[(pos - 5) & (MST_LA - 1)],
+                w3 = r[(pos - 4) & (MST_LA - 1)], w4 = r[(pos - 3) & (MST_LA - 1)], w5 = r[(pos - 2) & (MST_LA - 1)],
+                w6 = r[(pos - 1) & (MST_LA - 1)], w7 = cur;
+    const float y2 = u0 * (w0 + w7) + u1 * (w1 + w6) + u2 * (w2 + w5) + u3 * (w3 + w4);
+    return fm_maxf(fm_fabsf(w3), fm_fabsf(y2));
+}
+/* the gain the sample at the window's middle needs: the ceiling over the larger side's true peak (1 when it reads under) */
+static inline float mst_req(const float *la, const float *la_r, int32_t pos, float s, float sr)
+{
+    const float tp = fm_maxf(mst_side(la, pos, s), mst_side(la_r, pos, sr));
+    return tp > MST_CEIL ? MST_CEIL / tp : 1.0f;
+}
+/* one step of a TPT state-variable filter (states i1, i2), its band-pass output (unity at the centre) */
+static inline float ps_bp(float x, float *i1, float *i2, float a1, float a2, float a3)
+{
+    const float v3 = x - *i2, v1 = a1 * *i1 + a2 * v3, v2 = *i2 + a2 * *i1 + a3 * v3;
+    *i1 = 2.0f * v1 - *i1;
+    *i2 = 2.0f * v2 - *i2;
+    return PS_K * v1;
 }
 void master_process(master_t *m, float *perc_l, float *perc_r, float *mel_l, float *mel_r, float *out_l,
                     float *out_r, uint32_t n)
@@ -1363,10 +1465,20 @@ void master_process(master_t *m, float *perc_l, float *perc_r, float *mel_l, flo
         const float glev = m->glev, a_det = m->a_det, a_att = m->a_att, a_rel = m->a_rel, slope = m->slope;
         const float makeup = m->makeup;
         float ms = m->ms, want = m->want, gr = m->gr;
-        float g_lin = m->g_lin, g_step = m->g_step, env = m->env, inv_env = m->inv_env, gain = m->gain;
+        float g_lin = m->g_lin, g_step = m->g_step;
+        int po_run = m->po_run;
+        const float po_f = m->po_f, po_att = m->po_att, po_rel = m->po_rel;
+        float i1l = m->ps_i1[0], i1r = m->ps_i1[1], i2l = m->ps_i2[0], i2r = m->ps_i2[1];
+        float lo1 = m->pn_i[0], lo2 = m->pn_i[1], hi1 = m->pn_i[2], hi2 = m->pn_i[3];
+        float pe_b = m->pe[0], pe_l = m->pe[1], pe_h = m->pe[2], pe_f = m->pe[3];
+        float po_db = m->po_db, po_g = m->po_g, po_step = m->po_step;
+        int po_cr = m->po_cr;
+        float lf = m->lf, ld = m->ld, hold_cur = m->hold_cur, hold_prev = m->hold_prev;
         float *la = m->la, *la_r = m->la_r;
-        int32_t la_pos = m->la_pos, hold = m->hold;
-        int cr = m->cr;
+        uint16_t *gring = m->gring;
+        int32_t la_pos = m->la_pos, hold_n = m->hold_n, gsum = m->gsum;
+        int cr = m->cr, quiet = m->quiet;
+        int rest = hold_cur == 1.0f && hold_prev == 1.0f && gsum == (MST_LW << 15);   /* (the limiter's window holds no reduction) */
         for (i = 0; i < n; i++) {
             float s = mel_l[i], sr = mel_r[i];
             lev = glide1(lev, glev);
@@ -1391,32 +1503,95 @@ void master_process(master_t *m, float *perc_l, float *perc_r, float *mel_l, flo
                 s *= g_lin;
                 sr *= g_lin;
             }
+            if (po_run && STAGE(3)) {
+                const float bl = ps_bp(s, &i1l, &i2l, PS_A1, PS_A2, PS_A3), br = ps_bp(sr, &i1r, &i2r, PS_A1, PS_A2, PS_A3);
+                const float mid = 0.5f * (s + sr), bm = 0.5f * (bl + br);
+                const float nl = ps_bp(mid, &lo1, &lo2, PS_LA1, PS_LA2, PS_LA3);
+                const float nh = ps_bp(mid, &hi1, &hi2, PS_HA1, PS_HA2, PS_HA3);
+                pe_b += (bm * bm - pe_b) * PS_EA;
+                pe_l += (nl * nl - pe_l) * PS_EA;
+                pe_h += (nh * nh - pe_h) * PS_EA;
+                pe_f += (0.5f * (s * s + sr * sr) - pe_f) * PS_EA;
+                if (po_cr == 0) {
+                    float over = 0.0f, want;
+                    if (!(pe_b + pe_l + pe_h + pe_f < 1e12f))     /* (a sample far off the bus's scale squares to inf, then NaN: start again) */
+                        pe_b = pe_l = pe_h = pe_f = 0.0f;
+                    if (pe_f > PS_FLOOR && pe_b > PS_SHARE * pe_f)
+                        over = 3.0103f * fm_log2f((pe_b + 1e-12f) / (fm_maxf(pe_l, pe_h) + 1e-12f)) - PS_T;
+                    want = fm_minf(fm_maxf(over * po_f, 0.0f), PS_CAP);
+                    po_db = fm_flush(want > po_db ? po_att * po_db + (1.0f - po_att) * want
+                                                  : po_rel * po_db + (1.0f - po_rel) * want);
+                    po_run = m->po_on || po_db > PS_IDLE_DB;
+                    po_step = (fm_db2lin(-po_db) - po_g) * (1.0f / MST_CR);
+                    po_cr = MST_CR;
+                    i1l = fm_flush(i1l);
+                    i1r = fm_flush(i1r);
+                    i2l = fm_flush(i2l);
+                    i2r = fm_flush(i2r);
+                    lo1 = fm_flush(lo1);
+                    lo2 = fm_flush(lo2);
+                    hi1 = fm_flush(hi1);
+                    hi2 = fm_flush(hi2);
+                    pe_b = fm_flush(pe_b);
+                    pe_l = fm_flush(pe_l);
+                    pe_h = fm_flush(pe_h);
+                    pe_f = fm_flush(pe_f);
+                }
+                po_cr--;
+                po_g += po_step;
+                s += bl * (po_g - 1.0f);
+                sr += br * (po_g - 1.0f);
+            }
             s *= lev;
             sr *= lev;
-            {   /* X0X's limiter: a peak is seen MST_LA samples before it comes out of the line; the gain
-                 * eases down over those samples and holds for them */
-                float a = fm_maxf(fm_fabsf(s), fm_fabsf(sr)), d, dr, w;
-                if (a >= env) {
-                    float r = 1.0f / fm_maxf(a, 0.8f);                   /* safe on its own: a clamp inside
-                                                                          * the branch is folded away */
-                    env = a;
-                    hold = MST_LA;
-                    inv_env = a > 0.8f ? r : 0.0f;
-                } else if (hold) {
-                    hold--;
+            {   /* the limiter. A peak is read MST_LA samples before its audio leaves the line (the detector's window
+                 * adds 4 of them): the requirement of each sample (ceiling over its true peak) is held for its
+                 * bucket and the next, the gain follows it (down at once, up at the program's release), and the gain
+                 * the audio gets is that followed gain averaged over MST_LW samples: a ramp that is whole before the
+                 * peak's samples (the line's last 8) come out, and holds till they have. Nothing here ever raises a
+                 * gain above the held requirement, so the box average cannot pass it. */
+                float a = fm_maxf(fm_fabsf(s), fm_fabsf(sr)), d, dr, g;
+                quiet = a > MST_LQ ? 0 : quiet < 8 ? quiet + 1 : 8;
+                if (rest && quiet == 8) {         /* (the limiter at rest and nothing to read: every step below would leave
+                                                   * it as it is but for the hold's count, the program's memory and the ring) */
+                    if (++hold_n >= MST_LB)
+                        hold_n = 0;
+                    ld = fm_flush(ld - ld * MST_LD_DN);
+                    gring[la_pos] = 32768u;
+                    g = 1.0f;
                 } else {
-                    env *= 0.99985f;
-                    inv_env *= 1.0001500225f;
+                    float req = 1.0f, h;
+                    int32_t fq;
+                    if (quiet < 8)                /* (eight quiet samples in a row: no point between them reads over) */
+                        req = mst_req(la, la_r, la_pos, s, sr);
+                    hold_cur = fm_minf(hold_cur, req);
+                    h = fm_minf(hold_cur, hold_prev);
+                    if (++hold_n >= MST_LB) {
+                        hold_prev = hold_cur;
+                        hold_cur = 1.0f;
+                        hold_n = 0;
+                    }
+                    if (h < lf) {
+                        lf = h;
+                    } else {
+                        lf += (h - lf) * (MST_RF + (MST_RS - MST_RF) * ld) + 1.5e-6f;   /* (the last: it arrives) */
+                        if (lf > h)
+                            lf = h;
+                    }
+                    ld = fm_flush(lf < 0.97f ? ld + (1.0f - ld) * MST_LD_UP : ld - ld * MST_LD_DN);
+                    fq = (int32_t)(lf * 32768.0f);                /* (rounded down: never above the followed gain) */
+                    gsum += fq - (int32_t)gring[(la_pos - MST_LW) & (MST_LA - 1)];
+                    gring[la_pos] = (uint16_t)fq;
+                    g = gsum == (MST_LW << 15) ? 1.0f : (float)gsum * (1.0f / (float)(MST_LW << 15));
+                    rest = hold_cur == 1.0f && hold_prev == 1.0f && gsum == (MST_LW << 15);
                 }
-                w = env > 0.8f ? 0.8f * inv_env : 1.0f;
-                gain += (w - gain) * (w < gain ? (5.0f / MST_LA) : 0.002f);
                 d = la[la_pos];
                 dr = la_r[la_pos];
                 la[la_pos] = s;
                 la_r[la_pos] = sr;
                 la_pos = (la_pos + 1) & (MST_LA - 1);
-                out_l[i] = soft_ceiling(d * gain);
-                out_r[i] = soft_ceiling(dr * gain);
+                out_l[i] = soft_ceiling(d * g);
+                out_r[i] = soft_ceiling(dr * g);
 #ifdef PLAT_HOST
                 if (!STAGE(4)) {                  /* (a tap before the limiter: the bus as it comes, unlimited) */
                     out_l[i] = d;
@@ -1430,11 +1605,31 @@ void master_process(master_t *m, float *perc_l, float *perc_r, float *mel_l, flo
         m->gr = gr;
         m->g_lin = g_lin;
         m->g_step = g_step;
-        m->env = env;
-        m->inv_env = inv_env;
-        m->gain = gain;
+        m->ps_i1[0] = i1l;
+        m->ps_i1[1] = i1r;
+        m->ps_i2[0] = i2l;
+        m->ps_i2[1] = i2r;
+        m->pn_i[0] = lo1;
+        m->pn_i[1] = lo2;
+        m->pn_i[2] = hi1;
+        m->pn_i[3] = hi2;
+        m->pe[0] = pe_b;
+        m->pe[1] = pe_l;
+        m->pe[2] = pe_h;
+        m->pe[3] = pe_f;
+        m->po_db = po_db;
+        m->po_g = po_g;
+        m->po_step = po_step;
+        m->po_run = (uint8_t)po_run;
+        m->po_cr = (uint8_t)po_cr;
+        m->lf = lf;
+        m->ld = ld;
+        m->hold_cur = hold_cur;
+        m->hold_prev = hold_prev;
+        m->hold_n = hold_n;
+        m->gsum = gsum;
         m->la_pos = la_pos;
-        m->hold = hold;
+        m->quiet = (uint8_t)quiet;
         m->cr = (uint8_t)cr;
     }
     m->gp_c = gp;

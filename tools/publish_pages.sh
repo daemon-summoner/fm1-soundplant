@@ -9,7 +9,7 @@ set -e
 cd "$(dirname "$0")/.."
 V="${1:?usage: tools/publish_pages.sh VERSION}"
 PY="${PYTHON:-python3}"
-PKG="app/build/loom-$V.fwsc"
+PKG="app/build/soundplant-$V.fwsc"
 [ -f "$PKG" ] || { echo "no $PKG: run ./build.sh --release $V first"; exit 1; }
 PYTHON="$PY" sh build.sh --web --release "$V"
 node tests/host/emu_test.mjs app/build/emu/app.wasm
@@ -19,7 +19,7 @@ if [ -n "${SITE_PASSWORD:-}" ]; then
     SALT="$(openssl rand -hex 16)"
     (cd build/pages && find . -name '*.html' | while read -r f; do
         STATICRYPT_PASSWORD="$SITE_PASSWORD" npx --yes staticrypt@3 "$f" -c false -s "$SALT" --short --remember 0 \
-            --template-title "LOOM-8" --template-instructions "LOOM-8 is not out yet: the password, please." \
+            --template-title "SoundPlant" --template-instructions "SoundPlant is not out yet: the password, please." \
             --template-button "OPEN" --template-color-primary "#c8306f" --template-color-secondary "#f4f3f1" \
             -d "$(dirname "$f")" >/dev/null
     done)
@@ -31,7 +31,7 @@ cd build/pages
 rm -rf .git
 git init -q -b gh-pages
 git add -A
-git commit -q -m "Site for LOOM-8 $V (from $SHA)"
+git commit -q -m "Site for SoundPlant $V (from $SHA)"
 git push -q -f "$REMOTE" gh-pages
 rm -rf .git
 # ask GitHub Pages to build it now: a push alone has left the first deploy stuck on "building"

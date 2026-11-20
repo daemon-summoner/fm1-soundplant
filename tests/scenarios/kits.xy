@@ -1,5 +1,5 @@
-# kits (a kit track's SELECT list on Engine): KIT loads a factory kit (Loom, tools/gen_kits.py's) or a user
-# kit (K1..K8, the list's last eight: turned to from Loom backward, -8 .. -1);
+# kits (a kit track's SELECT list on Engine): KIT loads a factory kit (SoundPlant, tools/gen_kits.py's) or a user
+# kit (K1..K8, the list's last eight: turned to from SoundPlant backward, -8 .. -1);
 # SAVE KIT keeps the track's kit in a user slot (asking before replacing one), in flash with the user presets: a
 # restart keeps it, and loading a kit keeps the track's mix
 wait 300
@@ -28,7 +28,7 @@ tap SEL
 wait 40
 said KIT SAVED
 expect ask 0
-# Loom, then K1 back
+# SoundPlant, then K1 back
 tap SEL
 row KIT
 turn ALGO -1

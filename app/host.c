@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8 in fm1-base's host simulator (base/host/plat_host.c, which has the common commands): LOOM-8's platform
+/* SoundPlant in fm1-base's host simulator (base/host/plat_host.c, which has the common commands): SoundPlant's platform
  * extras as the simulator has them, its checks and its commands. Included by app.c, inside plat_host.c (its statics:
  * now_ms, enc_acc, store, run_ms ...). Tracks, patterns, steps and scenes count from 1 in a script, as the screen
  * shows them; "expect step" reports the playhead 0-based (eng_step).
@@ -19,9 +19,9 @@
  *   storesave FILE, storeload FILE   the simulated flash's store to a file, and back (an old build's projects)
  *   cores N                      the second core on (1) or off (0): its job then runs in place
  *   passkey N                    a Bluetooth pairing waits for code N (the header shows it; -1 none)
- *   samples FILE                 the user sample bank from FILE (an image from tools/loom_samples.py build), as an
+ *   samples FILE                 the user sample bank from FILE (an image from tools/soundplant_samples.py build), as an
  *                                upload would leave it (empty at boot)
- *   upload FILE                  an upload's SysEx frames (tools/loom_samples.py syx), each through samples.c as from
+ *   upload FILE                  an upload's SysEx frames (tools/soundplant_samples.py syx), each through samples.c as from
  *                                USB; a frame not answered, or answered with an error, fails the run
  *   expect WHAT VALUE            besides fm1-base's: playing, scene, mute (the tracks' bits), songpos, used (the scenes' bits), voices, drumhits (the kit's hits),
  *                                guard, cores, dirty, ask, mem (the last save's
@@ -33,19 +33,21 @@
  *                                pump's duck now, tenths of a dB); and with more words: step T VALUE, page NAME, comp T S VALUE (prints
  *                                both components; checks the first), note T PAT S VALUE
  * The demos' stems and taps (tools/demos/render.sh --stems), from the environment:
- *   LOOM_SOLO=1,3,fx1,fx2        only these tracks (dry and their sends) and FX returns sound
- *   LOOM_MST=raw|eq|comp         the master's output taken after that stage (raw: the groups summed, the level;
- *                                comp: the compressor and the level, no limiter); unset: all of it
- *   LOOM_LOAD=N                  the overload guard sees N % (the host's own timing, which varies with what else
+ *   SOUNDPLANT_SOLO=1,3,fx1,fx2        only these tracks (dry and their sends) and FX returns sound
+ *   SOUNDPLANT_MST=raw|eq|comp         the master's output taken after that stage (raw: the groups summed, the level;
+ *                                comp: the compressor, polish and the level, no limiter); unset: all of it
+ *   SOUNDPLANT_LOAD=N                  the overload guard sees N % (the host's own timing, which varies with what else
  *                                runs, out of the result: render.sh sets 0)
- *   LOOM_MSTSET=comp=0,pump=0    master knobs held at these values whatever the script sets (at each "mst" and at
+ *   SOUNDPLANT_HASH=1                  at exit, the FNV-1a of every output word the engine made: "hash <16 hex digits>"
+ *                                (bit-exact proof for a change that must not move a sample; with SOUNDPLANT_LOAD=0)
+ *   SOUNDPLANT_MSTSET=comp=0,pump=0    master knobs held at these values whatever the script sets (at each "mst" and at
  *                                "stats reset", which every song has before its "wav")
- * LOOM_THEME=N: the screenshots in theme N (ui.c). The layout audit (gfx_loom.c): its findings fail the run. */
+ * SOUNDPLANT_THEME=N: the screenshots in theme N (ui.c). The layout audit (gfx_soundplant.c): its findings fail the run. */
 #include <time.h>
 
 static float meter_avg, meter_peak, host_load;      /* the last "meter", the model's load now (below) */
 
-/* ---- LOOM-8's platform extras (app.h), simulated */
+/* ---- SoundPlant's platform extras (app.h), for the host */
 static uint32_t cpu_peak;
 uint32_t plat_cpu_peak_pct(void)
 {
@@ -53,13 +55,13 @@ uint32_t plat_cpu_peak_pct(void)
     cpu_peak = 0;
     return p;
 }
-/* the work of each block in executed instructions (LOOM_WORK=1: macOS's count, proc_pid_rusage, less the count's
- * own cost), in the FM-1's timer ticks at LOOM_WORK_K ticks an instruction (default 0.226: the house demos' mean
+/* the work of each block in executed instructions (SOUNDPLANT_WORK=1: macOS's count, proc_pid_rusage, less the count's
+ * own cost), in the FM-1's timer ticks at SOUNDPLANT_WORK_K ticks an instruction (default 0.226: the house demos' mean
  * loads on the FM-1, 2026-10-22). The second core's job runs inline here and its queue hands it every
  * item, so the two cores are modelled as sharing the block evenly: the load is half the work. The profiler (eng_prof)
- * counts in the same ticks with LOOM_WORK=2 (each timer's read is a system call whose cost varies: the blocks' totals
- * then vary by ~10 %; with 1 the timers read nothing), and the overload guard and the note-start check see this load (LOOM_LOAD still wins). "work" prints and resets: the mean, the worst and how many blocks went over 92 and 100 %;
- * LOOM_WORK_LOG=FILE every block: s, load %, core 1's job %, voices, the sixteenth (step_tick), then the stages % (seq synth0 synth1 drum fx mst
+ * counts in the same ticks with SOUNDPLANT_WORK=2 (each timer's read is a system call whose cost varies: the blocks' totals
+ * then vary by ~10 %; with 1 the timers read nothing), and the overload guard and the note-start check see this load (SOUNDPLANT_LOAD still wins). "work" prints and resets: the mean, the worst and how many blocks went over 92 and 100 %;
+ * SOUNDPLANT_WORK_LOG=FILE every block: s, load %, core 1's job %, voices, the sixteenth (step_tick), then the stages % (seq synth0 synth1 drum fx mst
  * mix prep note out step comp locks notes fire fxj), then each voice's % and synth_vinfo (VOICE%:INFO), then | and each kit key's rendering and
  * hits % (R/H) */
 #if !defined(PLAT_WEB)
@@ -94,7 +96,7 @@ static void host_midi_out(uint32_t pkt)                   /* MIDI out from the r
 static int work_enabled(void)
 {
     if (work_on < 0) {
-        const char *e = getenv("LOOM_WORK"), *k = getenv("LOOM_WORK_K"), *lg = getenv("LOOM_WORK_LOG");
+        const char *e = getenv("SOUNDPLANT_WORK"), *k = getenv("SOUNDPLANT_WORK_K"), *lg = getenv("SOUNDPLANT_WORK_LOG");
         work_on = e && *e && *e != '0';
         work_fine = work_on && atoi(e) >= 2;          /* 2: the stages and the voices timed too (noisier) */
         if (k && atof(k) > 0.0)
@@ -172,7 +174,7 @@ static void work_print(void)
 }
 /* seqbench: a copy of the sequencer as it plays now, run on through BARS bars with every note going nowhere (no
  * engine, no MIDI, no log), its instructions counted per call: each sixteenth's cost (the calls that fired it),
- * averaged over the bars, in the FM-1's ticks (LOOM_WORK_K) and as a share of a 256-sample block. FILE: each call
+ * averaged over the bars, in the FM-1's ticks (SOUNDPLANT_WORK_K) and as a share of a 256-sample block. FILE: each call
  * (its sixteenth, its instructions). The sequencer only reads the patterns while it plays (no recording here) */
 static void sb_note_on(void *x, int t, int n, int v, int g, uint32_t tag) { (void)x; (void)t; (void)n; (void)v; (void)g; (void)tag; }
 static void sb_note_off(void *x, int t, uint32_t tag) { (void)x; (void)t; (void)tag; }
@@ -199,7 +201,7 @@ static void seq_bench(int bars, const char *file)
     uint64_t ov;
     FILE *f = file ? fopen(file, "w") : 0;
     if (!work_enabled()) {
-        printf("seqbench: LOOM_WORK=1 needed\n");
+        printf("seqbench: SOUNDPLANT_WORK=1 needed\n");
         return;
     }
     if (!seq.playing) {
@@ -299,9 +301,9 @@ static uint32_t render_pct(uint32_t t0, uint32_t n)   /* the block's share of it
         cpu_peak = pct;
     return pct;
 }
-uint32_t plat_cycles(void)   /* the profiler's clock: nanoseconds / 10 here (LOOM_WORK: the FM-1's ticks, modelled) */
+uint32_t plat_cycles(void)   /* the profiler's clock: nanoseconds / 10 here (SOUNDPLANT_WORK: the FM-1's ticks, modelled) */
 {
-    if (work_enabled())                              /* (LOOM_WORK=1: the blocks alone; their timers read nothing) */
+    if (work_enabled())                              /* (SOUNDPLANT_WORK=1: the blocks alone; their timers read nothing) */
         return work_fine ? (uint32_t)((double)host_instr() * work_k) : 0u;
     return render_t0();
 }   /* the profiler's clock: nanoseconds / 10 here */
@@ -309,7 +311,7 @@ uint32_t plat_cycles(void)   /* the profiler's clock: nanoseconds / 10 here (LOO
 /* the store's copy before the current one (storage.c keeps two on the FM-1): kept here beside fm1-base's store */
 static uint8_t store_prev[OBJ_NOBJ][PLAT_STORE_MAX];
 static int store_prev_len[OBJ_NOBJ] = {[0 ... OBJ_NOBJ - 1] = -1};
-int loom_store_save(uint32_t obj, const void *src, uint32_t len)
+int soundplant_store_save(uint32_t obj, const void *src, uint32_t len)
 {
     int n = obj < OBJ_NOBJ ? plat_store_size(obj) : -1, rc;
     if (n > 0) {
@@ -412,9 +414,9 @@ static void steps_print(int t, int p)
 static int isnum(const char *s);
 static int ieq(const char *a, const char *b);
 static int param_of(const char *s);
-static const char *const MN[NMS] = {"lo", "mid", "hi", "-", "color", "camount", "ctone", "cmix", "perc", "mel",
+static const char *const MN[NMS] = {"lo", "mid", "hi", "polish", "color", "camount", "ctone", "cmix", "perc", "mel",
                                     "comp", "pump", "pumpby", "release", "accent", "level"};
-/* fm1-base's expect, for LOOM-8's own state with one value */
+/* fm1-base's expect, for SoundPlant's own state with one value */
 int app_expect(const char *what, int *got)
 {
     if (!strcmp(what, "playing"))
@@ -447,6 +449,8 @@ int app_expect(const char *what, int *got)
         *got = pats.song.slot[(atoi(what + 6) - 1) & (NSONG - 1)].scene + 1;
     else if (!strcmp(what, "theme"))              /* the theme (THEME_*) */
         *got = theme_ix();
+    else if (!strcmp(what, "still"))              /* Setup's MOTION on still (1) or smooth (0) */
+        *got = (proj.rsv[3] & MOTION_STILL) != 0;
     else if (!strcmp(what, "listopen"))             /* a SEL list up */
         *got = lst.open;
     else if (!strcmp(what, "slot_reads"))           /* project_exists's reads of the flash so far */
@@ -1001,14 +1005,19 @@ static int mst_value(int k, const char *v)
         host_die("not a master value", v);
     return clampi(atoi(v), 0, master_max(k));
 }
-static void host_env(void)                          /* LOOM_SOLO, LOOM_MST (once) */
+extern uint64_t eng_host_hash;
+static void hash_print(void)
+{
+    printf("hash %016llx\n", (unsigned long long)eng_host_hash);
+}
+static void host_env(void)                          /* SOUNDPLANT_SOLO, SOUNDPLANT_MST (once) */
 {
     static int done;
     const char *e;
     if (done)
         return;
     done = 1;
-    if ((e = getenv("LOOM_SOLO")) && *e) {
+    if ((e = getenv("SOUNDPLANT_SOLO")) && *e) {
         char b[128], *p;
         uint16_t m = 0;
         snprintf(b, sizeof b, "%s", e);
@@ -1017,20 +1026,22 @@ static void host_env(void)                          /* LOOM_SOLO, LOOM_MST (once
                             : atoi(p) >= 1 && atoi(p) <= 8 ? 1u << (atoi(p) - 1) : 0u);
         synth_host_solo = m;
     }
-    if ((e = getenv("LOOM_LOOKAHEAD")) && *e)       /* the sequencer a block ahead (engine.c), or live as before */
+    if ((e = getenv("SOUNDPLANT_HASH")) && *e)
+        atexit(hash_print);
+    if ((e = getenv("SOUNDPLANT_LOOKAHEAD")) && *e)       /* the sequencer a block ahead (engine.c), or live as before */
         engine_lookahead(atoi(e) != 0);
-    if ((e = getenv("LOOM_LOAD")) && *e)            /* the guard's input fixed (a script's "load N" still wins) */
+    if ((e = getenv("SOUNDPLANT_LOAD")) && *e)            /* the guard's input fixed (a script's "load N" still wins) */
         load_force = atoi(e);
 #ifdef GFX_AUDIT
-    if ((e = getenv("LOOM_MARGIN")) && *e)          /* the layout audit's margin check: labels N px apart (gfx_loom.c) */
+    if ((e = getenv("SOUNDPLANT_MARGIN")) && *e)          /* the layout audit's margin check: labels N px apart (gfx_soundplant.c) */
         ga_margin = atoi(e);
 #endif
-    if ((e = getenv("LOOM_MST")) && *e)
+    if ((e = getenv("SOUNDPLANT_MST")) && *e)
         fx_host_stage = !strcmp(e, "raw") ? 0 : !strcmp(e, "eq") ? 1 : !strcmp(e, "comp") ? 3 : 9;
 }
-static void mst_override(void)                      /* LOOM_MSTSET: knobs held where it says */
+static void mst_override(void)                      /* SOUNDPLANT_MSTSET: knobs held where it says */
 {
-    const char *e = getenv("LOOM_MSTSET");
+    const char *e = getenv("SOUNDPLANT_MSTSET");
     char b[256], *p;
     if (!e || !*e)
         return;
@@ -1379,9 +1390,9 @@ static int song_cmd(const char *cmd)
                 run_ms(1);
         }
     }
-    else if (!strcmp(cmd, "work"))                     /* work: the blocks' work since the last (LOOM_WORK=1) */
+    else if (!strcmp(cmd, "work"))                     /* work: the blocks' work since the last (SOUNDPLANT_WORK=1) */
         work_print();
-    else if (!strcmp(cmd, "seqbench"))                 /* seqbench BARS [FILE]: the sequencer alone (LOOM_WORK=1) */
+    else if (!strcmp(cmd, "seqbench"))                 /* seqbench BARS [FILE]: the sequencer alone (SOUNDPLANT_WORK=1) */
         seq_bench(n > 1 ? atoi(w[1]) : 64, n > 2 ? w[2] : 0);
     else if (!strcmp(cmd, "seqfire"))                  /* seqfire N [SIXTEENTH]: one firing call, replayed N times */
         seq_fire(n > 1 ? atoi(w[1]) : 1000, n > 2 ? atoi(w[2]) : 1);
@@ -1496,7 +1507,7 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
             host_fails++;
         } else
             printf("  ok readback %s: %u bytes\n", a, (unsigned)nb);
-    } else if (!strcmp(cmd, "upload")) {            /* upload FILE: the SysEx frames of an upload (tools/loom_samples.py
+    } else if (!strcmp(cmd, "upload")) {            /* upload FILE: the SysEx frames of an upload (tools/soundplant_samples.py
                                                      * syx), each through samples.c as from USB, its answer checked */
         static uint8_t fr[2048];
         FILE *uf = fopen(a, "rb");
@@ -1718,13 +1729,65 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
 
 void app_speak_dump(void) { speak_dump(); }
 void app_host_reboot(void) { memset(&proj, 0, sizeof proj); }   /* what RAM forgets (the flash keeps the rest) */
+#ifdef GFX_AUDIT
+/* the palette audit, over every theme: the text, the dim text, the red and each track's ink read on the ground (WCAG
+ * contrast 4.5), the text and the dim text on the panel too; the inks keep apart from each other (CIE76 distance 25) and
+ * from the red (17; 40 where the theme glows: its inks are the vivid ones). Findings print as "PALETTE ..." */
+#define PAL_CONTRAST 4.5
+#define PAL_INK_APART 25.0
+static unsigned pal_reads(const char *theme, const char *what, uint16_t c, uint16_t on)
+{
+    double r = ga_contrast(c, on);
+    if (r >= PAL_CONTRAST)
+        return 0;
+    printf("PALETTE %s: %s reads at %.1f:1, under %.1f:1\n", theme, what, r, PAL_CONTRAST);
+    return 1;
+}
+static unsigned palette_findings(void)
+{
+    unsigned n = 0;
+    for (unsigned t = 0; t < NTHEMES; t++) {
+        const theme_t *h = &THEMES[t];
+        const double rec_apart = h->glow ? 40.0 : 17.0;
+        n += pal_reads(h->name, "text", h->text, h->bg) + pal_reads(h->name, "dim", h->dim, h->bg) +
+             pal_reads(h->name, "rec", h->rec, h->bg) + pal_reads(h->name, "text on the panel", h->text, h->panel) +
+             pal_reads(h->name, "dim on the panel", h->dim, h->panel);
+        for (int i = 0; i < NTRK; i++) {
+            char what[12];
+            snprintf(what, sizeof what, "ink T%d", i + 1);
+            n += pal_reads(h->name, what, h->ink[i], h->bg);
+        }
+        for (int i = 0; i < NTRK; i++) {
+            double d = ga_delta_e(h->ink[i], h->rec);
+            if (d < rec_apart) {
+                printf("PALETTE %s: ink T%d is %.1f from the red, under %.0f\n", h->name, i + 1, d, rec_apart);
+                n++;
+            }
+            for (int j = i + 1; j < NTRK; j++) {
+                d = ga_delta_e(h->ink[i], h->ink[j]);
+                if (d < PAL_INK_APART) {
+                    printf("PALETTE %s: inks T%d and T%d are %.1f apart, under %.0f\n", h->name, i + 1, j + 1, d, PAL_INK_APART);
+                    n++;
+                }
+            }
+        }
+    }
+    return n;
+}
+#endif
 int app_host_fails(void)
 {
     if (msg_too_wide)                               /* a hint row or a message that did not fit at its size (pages.c) */
         printf("HINTS: %d too wide\n", msg_too_wide);
     host_fails += msg_too_wide != 0;
 #ifdef GFX_AUDIT
-    if (ga_findings)                                /* the layout audit (gfx_loom.c): labels must not clip, touch or overlap */
+    {
+        unsigned pal = palette_findings();
+        if (pal)
+            printf("PALETTE: %u findings\n", pal);
+        host_fails += pal != 0;
+    }
+    if (ga_findings)                                /* the layout audit (gfx_soundplant.c): labels must not clip, touch or overlap */
         printf("LAYOUT: %u findings\n", (unsigned)ga_findings);
     return host_fails + (ga_findings != 0);
 #else

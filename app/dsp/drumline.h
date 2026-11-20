@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8 drumline: the kit engine, a drum synth with eleven keys on the black keys, each a model
+/* SoundPlant drumline: the kit engine, a drum synth with eleven keys on the black keys, each a model
  * instance with the model's own four knobs, random, pan, volume and a play mode, its own envelope
  * (attack, hold, decay, lag) and its own filter (low-pass, high-pass or band-pass, cutoff, resonance,
  * the envelope's reach, drive) (synth.h TP_DRUM(key, DP_*)). Eleven models (DP_MODEL, DM_*): kick, snare,
@@ -101,5 +101,5 @@ int drumline_voices(const drumline_t *d);              /* the voices sounding (t
 extern volatile uint8_t drumline_hitv[DL_NSOUND];      /* the last hit of each sound, 255 = full (UI lets it fall) */
 #ifdef PLAT_HOST
 extern uint32_t (*drumline_host_clock)(void);    /* the simulator's profiler: each key's time rendering [0] and starting */
-extern uint32_t drumline_host_cost[DL_NSOUND][2];   /* [1] its hits, in the clock's units (app/host.c LOOM_WORK) */
+extern uint32_t drumline_host_cost[DL_NSOUND][2];   /* [1] its hits, in the clock's units (app/host.c SOUNDPLANT_WORK) */
 #endif

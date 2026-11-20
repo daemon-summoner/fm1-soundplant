@@ -4,11 +4,11 @@
   tools/demos/analyze.py WAV ...                 the numbers
   tools/demos/analyze.py --master IN.wav OUT.wav  the simulator's output made a mixdown: +6 dB (the FM-1's codec
                                                   keeps 6 dB of headroom, Felucca's -6 dBFS ceiling: the host writes
-                                                  what the codec gets, so LOOM-8's full scale is at -6 dBFS there)
+                                                  what the codec gets, so SoundPlant's full scale is at -6 dBFS there)
 
 Per file: length, peak (dBFS), samples at full scale (clipping), integrated loudness (LUFS, by ffmpeg's ebur128
 when it is there; else an unweighted RMS), the share of the time the master limiter is at work (the output
-within 0.5 dB of its ceiling, -1.9 dBFS: LOOM-8's limiter holds peaks at 0.8), and gaps: stretches of 250 ms or
+within 0.5 dB of its ceiling, -1.9 dBFS: SoundPlant's limiter holds peaks at 0.8), and gaps: stretches of 250 ms or
 more under -50 dBFS (the silence a song did not mean to have; the tail after the end is reported apart).
 Needs numpy and scipy.
 """

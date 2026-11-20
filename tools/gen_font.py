@@ -3,9 +3,9 @@
 # Copyright (C) 2026 Charles Vestal. The rendering of the faces (FONTSETS, upscale, render_bdf, render, the header) is
 # fm1-base's tools/gen_font.py, Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments, under MPL-2.0
 # as there (felucca-bsp#4)
-"""LOOM-8's fonts as a C header (its own compact format: fm1-base's faces, in base/assets/fonts), the app's drawing's
-(app/gfx_loom.c; fm1-base's own screens keep fm1-base's fonts):
-  tools/gen_font.py OUT.h        LFONT_XS .. LFONT_L, of type loom_font_t
+"""SoundPlant's fonts as a C header (its own compact format: fm1-base's faces, in base/assets/fonts), the app's drawing's
+(app/gfx_soundplant.c; fm1-base's own screens keep fm1-base's fonts):
+  tools/gen_font.py OUT.h        LFONT_XS .. LFONT_L, of type soundplant_font_t
 
   XS / S / B / M / L: Terminus 12, 16, 16 bold, 24 bold, 32 bold (BDF, SIL OFL 1.1); see SIZES. TTF fonts also work through render()
 (anti-aliased, tabular figures via the OpenType `tnum` feature).
@@ -211,7 +211,7 @@ def unpack(nib, n, runs):
 
 
 # large type (Setup > SEL > LARGE TYPE): the faces the large roles add, kept in the resource region (tools/gen_res.py,
-# app/gfx_loom.c loom_large_load), not in the image; the values use L, the units and the two-line labels S
+# app/gfx_soundplant.c soundplant_large_load), not in the image; the values use L, the units and the two-line labels S
 LARGE = [("L18", "BarlowSemiCondensed-SemiBold.ttf", 18, 1, False, 32, 126),    # XS's role: labels, pads
          ("L20", "BarlowSemiCondensed-Medium.ttf", 20, 1, False, 32, 126),      # S's: the path line, captions
          ("L20B", "BarlowSemiCondensed-Bold.ttf", 20, 1, False, 32, 126)]      # B's: the header, step numbers
@@ -221,7 +221,7 @@ LARGE = [("L18", "BarlowSemiCondensed-SemiBold.ttf", 18, 1, False, 32, 126),    
 # canonical Huffman codes, the one for the alpha after a 0, after a 15, after anything else (a glyph starts after a 0),
 # bits from the high one down, each glyph padded to a byte. The data starts with the three codes (HUF_SZ bytes each: the
 # count of codes of each length 1..HUF_LEN, then the alphas in code order, padded to 16); the offsets count from the
-# data's start. fm1-base's font_pack (base/tools/gen_font.py) for its own faces; app/gfx_loom.c loom_alpha decodes it
+# data's start. fm1-base's font_pack (base/tools/gen_font.py) for its own faces; app/gfx_soundplant.c soundplant_alpha decodes it
 HUF_LEN = 12
 HUF_SZ = HUF_LEN + 16
 
@@ -295,7 +295,7 @@ def huff_face(cells):
 
 
 def huff_unpack(data, off, n):
-    """loom_alpha's decoder, for the check: n pixels of the glyph at off"""
+    """soundplant_alpha's decoder, for the check: n pixels of the glyph at off"""
     out, bit, prev = [], off * 8, 0
     while len(out) < n:
         t = data[HUF_SZ * ctx_of(prev):]
@@ -344,7 +344,7 @@ def face(name, ttf, px, scale, pixel, first, last, huff=False):
 
 
 def blob(entries=LARGE):
-    """the faces as the resource region holds them (little-endian, read in place by app/gfx_loom.c loom_large_load):
+    """the faces as the resource region holds them (little-endian, read in place by app/gfx_soundplant.c soundplant_large_load):
     u16 count, u16 0, u32 offset of each face (from the blob's start); each face 4-aligned: u8 h, pad, first, last,
     rle, 3 x 0, u32 offsets (from the face's start) of its advances (u8 a glyph), ink boxes (4 x u8), glyph offsets
     (u16, 2-aligned) and nibbles"""
@@ -383,7 +383,7 @@ def main(out):
         lines.append(f"static const uint8_t LFONT_{name}_ADV[{len(adv)}] = {{" + ", ".join(map(str, adv)) + "};")
         lines.append(f"static const uint8_t LFONT_{name}_BOX[{len(adv)}][4] = {{" +
                      ", ".join("{%d,%d,%d,%d}" % b for b in boxes) + "};")
-        lines.append(f"static const loom_font_t LFONT_{name} = {{ {h}, {pad}, {first}, {last}, {runs}, "
+        lines.append(f"static const soundplant_font_t LFONT_{name} = {{ {h}, {pad}, {first}, {last}, {runs}, "
                      f"LFONT_{name}_ADV, LFONT_{name}_BOX, LFONT_{name}_OFF, LFONT_{name}_DATA }};")
         lines.append("")
         size = len(data) + 2 * len(offs) + 5 * len(adv)

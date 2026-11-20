@@ -14,6 +14,7 @@
 #define SYNTH_C "../../app/dsp/synth.c"     /* (another synth.c to measure: -DSYNTH_C='"path"') */
 #endif
 #include SYNTH_C
+#include "wt_res.h"                               /* wt_host_init: the wavetable engine's tables */
 #include "instr_count.h"                       /* instr_now, ns_now */
 static double now_ns(void) { return (double)ns_now(); }
 
@@ -67,6 +68,7 @@ int main(int argc, char **argv)
 {
     int save = argc > 1 && !strcmp(argv[1], "save"), e, md, nt, ks, rep;
     FILE *ref;
+    wt_host_init();
     if (argc > 1 && !strcmp(argv[argc - 1], "novib"))
         vib_amt = 0.0f;
     ref = fopen(vib_amt > 0.0f ? "build/host/braids_bench.ref" : "build/host/braids_bench_novib.ref", save ? "wb" : "rb");

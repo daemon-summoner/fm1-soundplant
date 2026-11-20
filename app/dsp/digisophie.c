@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 /* digisophie's Sophie core, vendored unchanged from github.com/soejrd/digisophie (sophie.c, commit fee5f51),
  * MIT, Copyright (c) 2026 Matt Estela: a fixed-point adaptation of Sophie (github.com/mestela/schwung-sophie, MIT)
- * for the Digitakt. LOOM-8's clang model (drumline.c) runs it with the kit key's envelope and filter.
+ * for the Digitakt. SoundPlant's clang model (drumline.c) runs it with the kit key's envelope and filter.
  * (Only the include names changed: digisophie.h, digisophie_sin.inc.) */
 /* SPDX-License-Identifier: MIT
  *

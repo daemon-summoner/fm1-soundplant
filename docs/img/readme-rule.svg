@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 40" width="1200" height="40" role="img" aria-labelledby="ti de">
+<title id="ti">A spectrum rule</title>
+<desc id="de">A thin rule in the eight track colours; a pulse of light travels along it, spreads and fades.</desc>
+<defs><clipPath id="cp"><rect width="1200" height="40" rx="20"/></clipPath>
+<linearGradient id="rg1" x1="40" y1="0" x2="1160" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4081"/><stop offset="0.143" stop-color="#ff911e"/><stop offset="0.286" stop-color="#ffe628"/><stop offset="0.429" stop-color="#3cff78"/><stop offset="0.571" stop-color="#00e1ff"/><stop offset="0.714" stop-color="#3c78ff"/><stop offset="0.857" stop-color="#a05cff"/><stop offset="1" stop-color="#eb40ff"/></linearGradient>
+<radialGradient id="hg2"><stop offset="0" stop-color="#ffffff"/><stop offset="0.35" stop-color="#ffffff" stop-opacity="0.55"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+<clipPath id="rcrg1"><rect x="32" y="6" width="1136" height="28"/></clipPath>
+</defs>
+<g clip-path="url(#cp)">
+<rect width="1200" height="40" fill="#06070f"/>
+<g transform="translate(600 20)"><g><animateTransform attributeName="transform" type="scale" dur="3.6s" fill="freeze" calcMode="linear" keyTimes="0;0.0556;0.0602;0.0648;0.0694;0.0741;0.0787;0.088;0.1111;0.125;0.1389;0.1481;0.1574;0.1667;0.1759;0.1852;0.1944;0.2037;0.2176;0.2315;0.2454;0.2685;0.2963;0.3287;0.375;0.4907;1" values="0.001 1;0.001 1;0.007 1;0.024 1;0.05 1;0.081 1;0.117 1;0.198 1;0.409 1;0.523 1;0.621 1;0.677 1;0.726 1;0.769 1;0.806 1;0.837 1;0.864 1;0.887 1;0.914 1;0.936 1;0.952 1;0.97 1;0.984 1;0.992 1;0.997 1;1 1;1 1"/><g transform="translate(-600 -20)">
+<line x1="40" y1="20" x2="1160" y2="20" stroke="url(#rg1)" stroke-width="11" stroke-linecap="round" opacity=".16"/>
+<line x1="40" y1="27" x2="1160" y2="27" stroke="url(#rg1)" stroke-width="1" opacity=".3"/>
+<line x1="40" y1="20" x2="1160" y2="20" stroke="url(#rg1)" stroke-width="3" stroke-linecap="round"/>
+<g clip-path="url(#rcrg1)"><ellipse cx="-150.0" cy="20" rx="62.4" ry="9" fill="url(#hg2)" opacity="0">
+<animate attributeName="cx" dur="6s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.3056;0.3083;0.5;0.9028;0.9056;1" values="990;-146.7;-150;-150;1348.3;1341.3;990"/>
+<animate attributeName="rx" dur="6s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.0333;0.0694;0.1056;0.1444;0.1833;0.2222;0.2639;0.3056;0.3083;0.5;0.5028;0.5056;0.5111;0.5167;0.5194;0.525;0.5333;0.5417;0.55;0.5611;0.5722;0.5833;0.5944;0.6083;0.6222;0.6361;0.65;0.6639;0.6806;0.6972;0.7139;0.7333;0.7528;0.7722;0.7917;0.8111;0.8333;0.8556;0.8778;0.9;0.925;0.95;0.975;1" values="328;338.4;349.2;359.8;370.8;381.6;392;402.9;413.4;62.4;62.4;66.9;71;78.7;85.7;89;95.3;104;112;119.4;128.7;137.4;145.5;153.2;162.4;171;179.2;187.1;194.6;203.3;211.6;219.6;228.6;237.3;245.6;253.7;261.5;270.2;278.6;286.8;294.7;303.4;311.8;320;328"/>
+<animate attributeName="opacity" dur="6s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.3056;0.3083;0.4972;0.5;0.5083;0.5167;0.5278;0.5417;0.5778;0.625;0.6778;0.7417;0.9028;0.9056;1" values="0.069;0.029;0;0;1;0.894;0.819;0.744;0.673;0.548;0.441;0.358;0.285;0.169;0.092;0.069"/>
+</ellipse></g>
+<circle cx="40" cy="20" r="4.5" fill="#ff4081" opacity=".5"/>
+<circle cx="40" cy="20" r="6" fill="#fff" opacity="0"><animate attributeName="opacity" dur="6s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.1528;0.25;0.3056;0.3083;0.5167;0.5222;0.5278;0.5333;0.5417;0.5444;0.5472;0.55;0.5556;0.5694;0.5778;0.5861;0.6;1" values="0;0;0.05;0.02;0;0;0.02;0.11;0.31;0.71;0.81;0.87;0.89;0.82;0.38;0.19;0.08;0.01;0"/></circle>
+<circle cx="200" cy="20" r="4.5" fill="#ff911e" opacity=".5"/>
+<circle cx="200" cy="20" r="6" fill="#fff" opacity="0"><animate attributeName="opacity" dur="6s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.1167;0.2056;0.3083;0.55;0.5583;0.5639;0.5694;0.5833;0.5917;0.6;0.6194;0.6278;0.6389;0.65;1" values="0;0;0.05;0;0;0.04;0.1;0.21;0.6;0.71;0.65;0.26;0.14;0.05;0.02;0"/></circle>
+<circle cx="360" cy="20" r="4.5" fill="#ffe628" opacity=".5"/>
+<circle cx="360" cy="20" r="6" fill="#fff" opacity="0"><animate attributeName="opacity" dur="6s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.0806;0.1639;0.2778;0.5833;0.6;0.6083;0.625;0.6306;0.6361;0.6444;0.6639;0.675;0.6972;1" values="0;0.01;0.06;0;0;0.07;0.19;0.51;0.57;0.59;0.53;0.25;0.12;0.02;0"/></circle>
+<circle cx="520" cy="20" r="4.5" fill="#3cff78" opacity=".5"/>
+<circle cx="520" cy="20" r="6" fill="#fff" opacity="0"><animate attributeName="opacity" dur="6s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.1222;0.2361;0.6194;0.6389;0.6472;0.6667;0.6778;0.6889;0.7194;0.7444;1" values="0;0.07;0;0;0.07;0.16;0.43;0.5;0.45;0.12;0.02;0"/></circle>
+<circle cx="680" cy="20" r="4.5" fill="#00e1ff" opacity=".5"/>
+<circle cx="680" cy="20" r="6" fill="#fff" opacity="0"><animate attributeName="opacity" dur="6s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.0778;0.1917;0.6556;0.6778;0.7083;0.7222;0.7333;0.7667;0.7917;1" values="0.01;0.08;0;0;0.07;0.37;0.43;0.38;0.1;0.02;0.01"/></circle>
+<circle cx="840" cy="20" r="4.5" fill="#3c78ff" opacity=".5"/>
+<circle cx="840" cy="20" r="6" fill="#fff" opacity="0"><animate attributeName="opacity" dur="6s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.0417;0.1083;0.1583;0.6917;0.7167;0.75;0.7639;0.7778;0.8139;0.8389;0.9444;1" values="0.05;0.09;0.02;0;0;0.06;0.32;0.37;0.32;0.08;0.02;0;0.05"/></circle>
+<circle cx="1000" cy="20" r="4.5" fill="#a05cff" opacity=".5"/>
+<circle cx="1000" cy="20" r="6" fill="#fff" opacity="0"><animate attributeName="opacity" dur="6s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.0611;0.1056;0.725;0.7556;0.7917;0.8056;0.8194;0.8583;0.8833;0.9222;1" values="0.1;0.02;0;0;0.05;0.28;0.32;0.29;0.08;0.02;0.01;0.1"/></circle>
+<circle cx="1160" cy="20" r="4.5" fill="#eb40ff" opacity=".5"/>
+<circle cx="1160" cy="20" r="6" fill="#fff" opacity="0"><animate attributeName="opacity" dur="6s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.0722;0.7639;0.7944;0.8333;0.85;0.8667;0.9056;0.95;1" values="0.04;0;0;0.04;0.24;0.28;0.24;0.04;0.11;0.04"/></circle>
+</g></g></g>
+</g>
+<rect x=".5" y=".5" width="1199" height="39" rx="20" fill="none" stroke="#242850"/>
+</svg>

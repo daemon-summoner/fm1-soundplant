@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8's hardware profiler (a dev build only: XY_BENCH=1 ./build.sh; tools/hw_bench.py): small kernels, the
+/* SoundPlant's hardware profiler (a dev build only: XY_BENCH=1 ./build.sh; tools/hw_bench.py): small kernels, the
  * building blocks of a voice or an effect (oscillators, filters, curves, delay lines, a reverb), each run over a
  * block of samples on the FM-1 and on the host, so a new engine or effect can be costed from its parts before it
  * is written. The code-size kernels ("code N") spread the same work over N distinct copies of a function, to see
@@ -10,7 +10,7 @@
 #pragma once
 #include <stdint.h>
 #ifndef XY_BENCH
-#include "loom_build.h"                 /* XY_BENCH (tools/gen_build.py; the host's bench defines it itself) */
+#include "soundplant_build.h"                 /* XY_BENCH (tools/gen_build.py; the host's bench defines it itself) */
 #endif
 
 #define BENCH_N 256                     /* samples a run (a block) */

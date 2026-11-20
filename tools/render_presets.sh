@@ -14,16 +14,23 @@ CC="${CC:-cc}"
 PY="${PYTHON:-python3}"
 OUT=build/presets
 ROLES=
-if [ "${1:-}" = --roles ]; then OUT=build/presets-roles; ROLES=--roles; fi
+if [ "${1:-}" = --roles ]; then
+	OUT=build/presets-roles
+	ROLES=--roles
+fi
 PYTHON="$PY" sh build.sh --host >/dev/null
 mkdir -p "$OUT"
 rm -f "$OUT"/*.wav "$OUT"/*.xy "$OUT"/dry/*.wav
-mkdir -p build/host
-$CC -O2 -std=c99 -DPLAT_HOST -Iapp/dsp -Iapp -Ibase/include -Iapp/build/gen -o build/host/preset_scripts \
-    tools/preset_scripts.c app/dsp/synth.c app/dsp/drumline.c app/dsp/d909.c app/dsp/digisophie.c app/dsp/sample.c app/dsp/bass303.c -lm
+mkdir -p build/host build/gen
+[ -f build/gen/wavetables.bin ] || "$PY" tools/gen_wavetables.py build/gen/wavetables.bin >/dev/null
+$CC -O2 -std=c99 -DPLAT_HOST -Iapp/dsp -Iapp -Ibase/include -Iapp/build/gen -Itests/host -o build/host/preset_scripts \
+	tools/preset_scripts.c app/dsp/synth.c app/dsp/drumline.c app/dsp/d909.c app/dsp/digisophie.c app/dsp/sample.c app/dsp/bass303.c -lm
 names=$(build/host/preset_scripts "$OUT" $ROLES)
 for n in $names; do
-    app/build/host/loom_host "$OUT/$n.xy" "$OUT" >/dev/null || { echo "render failed: $n"; exit 1; }
+	app/build/host/soundplant_host "$OUT/$n.xy" "$OUT" >/dev/null || {
+		echo "render failed: $n"
+		exit 1
+	}
 done
 "$PY" tools/preset_levels.py "$OUT" $names
 echo "presets: $OUT/index.html, $OUT/levels.txt"

@@ -4,9 +4,11 @@
  * on the beat at 120 BPM (time 1/4 = 0.5 s, dotted 1/8 = 0.375 s) and ping-pongs; the delay and the reverb
  * return only the wet (plain send / return); the delay's tone brightens its repeats, the plate's damp darkens
  * its tail; the reverbs decay (the SPU modes too, each, and grow with size); the lofi's width spreads the
- * sides; the master is bit-transparent with the EQ flat (apart from the
- * limiter's 64-sample lookahead), its limiter never passes 1.0, its compressor pulls loud input down, its
- * EQ moves the bands; its PUMP ducks by its depth on its source's hits and swells back with the release (at 0
+ * sides; the master is bit-transparent with the EQ flat and polish off (apart from the limiter's 64-sample
+ * lookahead), its limiter holds the true peak (a 16x oracle meter) at the ceiling, gives the same samples
+ * for any chunking and is exactly unity below the ceiling, its compressor pulls loud input down, its
+ * EQ moves the bands; its polish cuts a peak in the 2 .. 5 kHz band and leaves tilts, roll-offs and balanced
+ * material alone; its PUMP ducks by its depth on its source's hits and swells back with the release (at 0
  * it changes nothing, sample for sample; accented hits deeper); and the cost of each in instructions a sample (macOS: proc_pid_rusage). Each effect's
  * burst at its defaults is written to build/host/fx_<name>.wav for inspection (nothing here plays audio).
  *   tests/host/fx_test.sh */
@@ -31,7 +33,9 @@ static uint8_t fxb[FXSLOT_BYTES] __attribute__((aligned(8)));
 static uint8_t msb[MASTER_BYTES] __attribute__((aligned(8)));
 static fxslot_t *fx = (fxslot_t *)fxb;
 static master_t *ms = (master_t *)msb;
-#define MS_INIT() master_init(ms)
+/* a master at its defaults but for polish, which is off: the mechanics tests below read the bus's levels and its
+ * bit-exactness, and a default-on polish would trim their noise; polish has its own tests */
+#define MS_INIT() do { master_init(ms); master_set(ms, MS_POLISH, 0); } while (0)
 
 static uint32_t rng = 12345;
 static float noise(void)
@@ -218,6 +222,162 @@ static float trace_min(const float *g, int a, int b)
     for (; a < b; a++)
         m = fm_minf(m, g[a]);
     return m;
+}
+
+/* The true-peak meter the limiter is held to: x interpolated 16x (a 64-tap Blackman-Harris windowed sinc, far
+ * longer and finer than the limiter's own 2x detector), the largest |value| of it and of x itself. The first and
+ * last 32 samples are not read. */
+#define OV 16
+#define OT 64
+static float ov_h[OV][OT];
+static void ov_init(void)
+{
+    const float pi = 3.14159265f;
+    int p, k;
+    for (p = 1; p < OV; p++)
+        for (k = 0; k < OT; k++) {
+            float d = (float)(k - (OT / 2 - 1)) - (float)p * (1.0f / OV), u = d * (1.0f / (OT / 2));
+            float w = 0.35875f + 0.48829f * fm_cosf(pi * u) + 0.14128f * fm_cosf(2.0f * pi * u) + 0.01168f * fm_cosf(3.0f * pi * u);
+            ov_h[p][k] = fm_sinf(pi * d) / (pi * d) * w;
+        }
+}
+static float tp_meter(const float *x, int n)
+{
+    float pk = 0.0f;
+    int i, p, k;
+    for (i = OT / 2; i < n - OT / 2; i++) {
+        pk = fm_maxf(pk, fm_fabsf(x[i]));
+        for (p = 1; p < OV; p++) {
+            float y = 0.0f;
+            for (k = 0; k < OT; k++)
+                y += x[i + k - (OT / 2 - 1)] * ov_h[p][k];
+            pk = fm_maxf(pk, fm_fabsf(y));
+        }
+    }
+    return pk;
+}
+
+/* a stereo signal through the master (the groups at unity, no melodic group), in chunks of `chunk` samples */
+#define NS 24000
+static void run_master(const float *il, const float *ir, float *ol, float *orr, int n, int chunk)
+{
+    static float pl[256], pr[256], zl[256], zr[256];
+    int i, j;
+    for (i = 0; i < n; i += chunk) {
+        int c = n - i < chunk ? n - i : chunk;
+        for (j = 0; j < c; j++) {
+            pl[j] = il[i + j];
+            pr[j] = ir[i + j];
+            zl[j] = zr[j] = 0.0f;
+        }
+        master_process(ms, pl, pr, zl, zr, ol + i, orr + i, (uint32_t)c);
+    }
+}
+
+/* the output's level over the input's (64 samples earlier) across the 10 ms from sample a */
+static float rms_ratio(const float *in, const float *out, int a)
+{
+    float e_in = 0.0f, e_out = 0.0f;
+    int j;
+    for (j = a; j < a + 441; j++) {
+        e_in += in[j - 64] * in[j - 64];
+        e_out += out[j] * out[j];
+    }
+    return fm_sqrtf(e_out / e_in);
+}
+
+/* the limiter's test signals: each loud enough to need limiting, each with inter-sample peaks over its samples */
+enum { SG_QUARTER, SG_NEAR_NYQ, SG_CLIPPED, SG_NOISE_BURSTS, SG_DRUMS, NSG };
+static const char *const SG_NAME[NSG] = {"fs/4 sine at 45 deg", "17.6 kHz burst", "hard-clipped 2 kHz", "noise bursts",
+                                         "kick + hats + bass"};
+static void sig_fill(int kind, float *l, float *r, int n)
+{
+    float ph = 0.0f, hat_prev = 0.0f;
+    int i;
+    rng = 4242;
+    for (i = 0; i < n; i++) {
+        float v = 0.0f, w = 0.0f;
+        switch (kind) {
+        case SG_QUARTER:                         /* amplitude 1.0: its samples all read 0.707, its peaks 1.0 */
+            v = i >= 800 ? fm_sin_turns(0.25f * (float)i + 0.125f) : 0.0f;
+            w = 0.1f * noise();
+            break;
+        case SG_NEAR_NYQ:                        /* 0.8 of Nyquist: the 2x grid's own limit shows */
+            v = i >= 800 && i < 1300 ? 1.1f * fm_sin_turns(0.4f * (float)(i - 800) + 0.3f) : 0.0f;
+            w = -v;
+            break;
+        case SG_CLIPPED:
+            v = fm_clampf(3.0f * fm_sin_turns(0.0476f * (float)i), -1.15f, 1.15f);
+            w = 0.5f * v;
+            break;
+        case SG_NOISE_BURSTS:
+            v = (i % 1300) < 300 ? noise() : 0.0f;
+            w = (i % 1700) < 400 ? noise() : 0.0f;
+            break;
+        default: {                               /* 5512 samples a beat: a kick, 1/2-beat hats, a 55 Hz bass */
+            float tk = (float)(i % 5512) / SR, th = (float)(i % 2756) / SR, hat = noise() * fm_expf(-th * 50.0f);
+            ph += (50.0f + 100.0f * fm_expf(-tk * 33.0f)) * (1.0f / SR);
+            if (ph >= 1.0f)
+                ph -= 1.0f;
+            v = 1.3f * fm_sin_turns(ph) * fm_expf(-tk * 8.0f) + 0.7f * (hat - hat_prev) + 0.6f * fm_sin_turns((float)i * (55.0f / SR));
+            hat_prev = hat;
+            w = 0.8f * v + 0.2f * noise() * fm_expf(-th * 50.0f);
+        }
+        }
+        l[i] = v;
+        r[i] = w;
+    }
+}
+
+/* polish's test signals and meter. pink_fill: pink noise (Kellet's filter on the test noise), mono, with a 3.5 kHz sine
+ * at tone_db (0.5 x 10^(db/20)) on top (tone_db < -90: none), all times `scale`: kept low enough that the limiter is idle */
+static void pink_fill(float *l, float *r, int n, float tone_db, float scale)
+{
+    float b0 = 0.0f, b1 = 0.0f, b2 = 0.0f, p1 = 0.0f, p2 = 0.0f;
+    const float tone = tone_db < -90.0f ? 0.0f : 0.5f * fm_db2lin(tone_db);
+    int i;
+    rng = 777;
+    for (i = 0; i < n; i++) {
+        float w = 0.3f * noise(), v;
+        b0 = 0.99886f * b0 + w * 0.0555179f;
+        b1 = 0.99332f * b1 + w * 0.0750759f;
+        b2 = 0.96900f * b2 + w * 0.1538520f;
+        p1 = 0.86650f * p1 + w * 0.3104856f;
+        p2 = 0.55000f * p2 + w * 0.5329522f;
+        v = (b0 + b1 + b2 + p1 + p2 + w * 0.5362f + tone * fm_sin_turns((float)i * (3500.0f / SR))) * scale;
+        l[i] = r[i] = v;
+    }
+}
+/* the energy of x[a..n) through a 3.5 kHz band-pass, Q 1.2 (the polish band) */
+static float band_energy(const float *x, int a, int n)
+{
+    const float w0 = 2.0f * 3.14159265f * 3500.0f / SR, al = fm_sinf(w0) / 2.4f, g = al / (1.0f + al),
+                c = -2.0f * fm_cosf(w0) / (1.0f + al), d = (1.0f - al) / (1.0f + al);
+    float x1 = 0.0f, x2 = 0.0f, y1 = 0.0f, y2 = 0.0f, e = 0.0f;
+    int i;
+    for (i = 0; i < n; i++) {
+        const float y = g * (x[i] - x2) - c * y1 - d * y2;
+        x2 = x1;
+        x1 = x[i];
+        y2 = y1;
+        y1 = y;
+        if (i >= a)
+            e += y * y;
+    }
+    return e;
+}
+/* the band's level out of polish at `amount` against polish off, dB, over x[a..n), on the signal (tl, tr); `off` is
+ * the polish-off output the caller keeps (sized NP) */
+#define NP (2 * SR)
+static float polish_cut(const float *tl, const float *tr, int amount, int chunk, float *ol_on, float *or_on)
+{
+    static float ol_off[NP], or_off[NP];
+    MS_INIT();
+    run_master(tl, tr, ol_off, or_off, NP, BLK);
+    MS_INIT();
+    master_set(ms, MS_POLISH, amount);
+    run_master(tl, tr, ol_on, or_on, NP, chunk);
+    return db(fm_sqrtf(band_energy(ol_on, SR, NP) / (band_energy(ol_off, SR, NP) + 1e-20f)));
 }
 
 int main(void)
@@ -532,7 +692,8 @@ int main(void)
         memset(hist_r, 0, sizeof hist_r);
         for (b = 0; b < 200; b++) {
             for (i = 0; i < BLK; i++) {
-                pl[i] = 0.3f * noise(); pr[i] = 0.3f * noise(); mll[i] = 0.3f * noise(); mlr[i] = 0.3f * noise();
+                pl[i] = 0.2f * noise(); pr[i] = 0.2f * noise(); mll[i] = 0.2f * noise(); mlr[i] = 0.2f * noise();   /* (a side's
+                                                 * sum at most 0.4: under the limiter's ceiling on any 2x read) */
                 hist_l[(n + i) % (BLK * 4)] = pl[i] + mll[i];
                 hist_r[(n + i) % (BLK * 4)] = pr[i] + mlr[i];
             }
@@ -594,6 +755,271 @@ int main(void)
             }
             snprintf(name, sizeof name, "limiter on a 4x signal: peak %.3f, no NaN", (double)pk);
             check(name, ok && pk <= 1.0f);
+        }
+        {   /* the true-peak limiter: what comes out never reads over -1 dBTP on the 16x meter (0.1 dB allowed; 0.5 dB
+             * for full-scale white noise and near Nyquist, 0.75 dB for hats: the 2x detector reads a peak between its two
+             * points low by up to cos(pi f / 2 fs), 3 dB at Nyquist), and it limits to the ceiling rather than muting */
+            static float tl[NS], tr[NS], ol3[NS], or3[NS];
+            const float ceil_lin = 0.89125f;
+            ov_init();
+            for (t = 0; t < NSG; t++) {
+                float tin, tout;
+                sig_fill(t, tl, tr, NS);
+                MS_INIT();
+                run_master(tl, tr, ol3, or3, NS, BLK);
+                tin = fm_maxf(tp_meter(tl, NS), tp_meter(tr, NS));
+                tout = fm_maxf(tp_meter(ol3, NS), tp_meter(or3, NS));
+                snprintf(name, sizeof name, "  true peak, %-20s %5.2f -> %5.2f dBTP", SG_NAME[t], (double)db(tin), (double)db(tout));
+                check(name, tin > 1.0f && tout <= ceil_lin * (t == SG_DRUMS ? 1.0902f : t == SG_NEAR_NYQ || t == SG_NOISE_BURSTS ? 1.0593f : 1.0116f) && tout > 0.8f);
+            }
+        }
+        {   /* the gain moves in a ramp, never a step: a 200 Hz sine at 1.0 jumps to 3.0 at sample 5000 and is limited
+             * down to 0.3. The gain is the output over the input 64 samples before it, read where both are well off
+             * zero; it ramps before the loud samples come out, over the quieter ones still in the line */
+            static float tl[NS], tr[NS], ol3[NS], or3[NS];
+            float step = 0.0f, g_lo = 9.0f;
+            for (i = 0; i < 8000; i++)
+                tl[i] = tr[i] = (i < 5000 ? 1.0f : 3.0f) * fm_sin_turns((float)i * (200.0f / SR));
+            MS_INIT();
+            run_master(tl, tr, ol3, or3, 8000, BLK);
+            for (i = 4100; i < 8000; i++) {
+                float a = tl[i - 64], a1 = tl[i - 65];
+                if (fm_fabsf(a) > 0.5f && fm_fabsf(a1) > 0.5f) {
+                    float g = ol3[i] / a, g1 = ol3[i - 1] / a1;
+                    step = fm_maxf(step, fm_fabsf(g - g1));
+                    g_lo = fm_minf(g_lo, g);
+                }
+            }
+            snprintf(name, sizeof name, "  the gain ramps: its largest step %.4f a sample, down to %.2f", (double)step, (double)g_lo);
+            check(name, step < 0.02f && g_lo < 0.34f && g_lo > 0.25f);
+        }
+        {   /* the release follows the program: a 5 ms burst is let go of within 0.3 s; after 0.5 s of limiting the gain
+             * has not snapped back 0.1 s later (no pumping) and is back within 2 s */
+            static float tl[3 * SR], tr[3 * SR], ol3[3 * SR], or3[3 * SR];
+            float r_short = 0.0f, r_long_a = 0.0f, r_long_b = 0.0f;
+            for (int c = 0; c < 2; c++) {
+                int len = c ? SR / 2 : 220;
+                for (i = 0; i < 3 * SR; i++)
+                    tl[i] = tr[i] = (i < len ? 2.0f : 0.1f) * fm_sin_turns((float)i * (200.0f / SR));
+                MS_INIT();
+                run_master(tl, tr, ol3, or3, 3 * SR, BLK);
+                if (!c)
+                    r_short = rms_ratio(tl, ol3, len + (int)(0.3f * SR));
+                else {
+                    r_long_a = rms_ratio(tl, ol3, len + (int)(0.1f * SR));
+                    r_long_b = rms_ratio(tl, ol3, len + 2 * SR);
+                }
+            }
+            snprintf(name, sizeof name, "  release: 5 ms burst back to %.3f at 0.3 s; 0.5 s burst %.2f at 0.1 s, %.3f at 2 s",
+                     (double)r_short, (double)r_long_a, (double)r_long_b);
+            check(name, r_short > 0.97f && r_long_a < 0.9f && r_long_b > 0.97f);
+        }
+        {   /* however the samples are cut into blocks the output is the same, to the bit */
+            static float tl[NS], tr[NS], ol3[NS], or3[NS], ol4[NS], or4[NS];
+            static const int chunk[4] = {1, 7, 100, 256};
+            int same = 1;
+            sig_fill(SG_DRUMS, tl, tr, NS);
+            MS_INIT();
+            master_set(ms, MS_COMP, 60);
+            run_master(tl, tr, ol3, or3, NS, BLK);
+            for (int c = 0; c < 4; c++) {
+                MS_INIT();
+                master_set(ms, MS_COMP, 60);
+                run_master(tl, tr, ol4, or4, NS, chunk[c]);
+                same &= memcmp(ol3, ol4, sizeof ol3) == 0 && memcmp(or3, or4, sizeof or3) == 0;
+            }
+            check("  the same output in blocks of 1, 7, 100, 256 as in 64 (bit for bit)", same);
+        }
+        {   /* the quiet skip holds to its bound: eight samples that alternate as a sinc does between its 4th and 5th (the
+             * worst case for the 8-tap detector: 2.15x their level) read 0.86 at 0.40, under the ceiling, and pass as
+             * they are; at 0.44 they read 0.94 and are limited */
+            static float tl[NS], tr[NS], ol3[NS], or3[NS];
+            static const float sg[8] = {-1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, -1.0f};
+            static const float amp[2] = {0.40f, 0.44f};
+            const float ceil_lin = 0.89125f;
+            for (int c = 0; c < 2; c++) {
+                float tin, tout;
+                for (i = 0; i < NS; i++)
+                    tl[i] = tr[i] = 0.0f;
+                for (i = 0; i < 8; i++)
+                    tl[1000 + i] = tr[1000 + i] = amp[c] * sg[i];
+                MS_INIT();
+                run_master(tl, tr, ol3, or3, NS, BLK);
+                tin = tp_meter(tl, NS);
+                tout = fm_maxf(tp_meter(ol3, NS), tp_meter(or3, NS));
+                snprintf(name, sizeof name, "  worst-case burst at %.2f: %.2f -> %.2f dBTP", (double)amp[c], (double)db(tin), (double)db(tout));
+                check(name, c == 0 ? tin < ceil_lin && tout > 0.99f * tin : tin > ceil_lin * 1.03f && tout <= ceil_lin * 1.0116f);
+            }
+        }
+        {   /* master_clear leaves a master that has limited hard and taken a burst far off the bus's scale as a new one */
+            static float tl[NS], tr[NS], ol3[NS], or3[NS], ol4[NS], or4[NS];
+            sig_fill(SG_DRUMS, tl, tr, NS);
+            for (i = 500; i < 600; i++)
+                tl[i] = tr[i] = 1.0e6f;
+            MS_INIT();
+            run_master(tl, tr, ol3, or3, NS, BLK);
+            master_clear(ms);
+            sig_fill(SG_QUARTER, tl, tr, NS);
+            run_master(tl, tr, ol3, or3, NS, BLK);
+            MS_INIT();
+            run_master(tl, tr, ol4, or4, NS, BLK);
+            check("  master_clear after hard limiting and a 1e6 burst: as a new master (bit for bit)",
+                  memcmp(ol3, ol4, sizeof ol3) == 0 && memcmp(or3, or4, sizeof or3) == 0);
+        }
+        {   /* polish: a de-harsh band. The 2 .. 5 kHz band is cut when it stands over its two neighbours (a peak sticking
+             * out of the spectrum), by how far, at the knob's say; balanced material, roll-offs and tilts are left alone,
+             * the stage never boosts, at 0 it is not there, and its output does not depend on the block size */
+            static float tl[NP], tr[NP], ol3[NP], or3[NP], ol4[NP], or4[NP], ol5[NP], or5[NP];
+            static const int chunk[4] = {1, 7, 100, 256};
+            float c127, c40, c20, pk_off = 0.0f;
+            int same = 1, flat = 1, k;
+            pink_fill(tl, tr, NP, 6.0f, 0.25f);                       /* a 3.5 kHz tone 6 dB over pink noise */
+            MS_INIT();
+            run_master(tl, tr, ol4, or4, NP, BLK);
+            pk_off = fm_maxf(tp_meter(ol4, NP), tp_meter(or4, NP));
+            snprintf(name, sizeof name, "  polish: the signals leave the limiter idle (the polish-off peak %.2f)", (double)pk_off);
+            check(name, pk_off < 0.8f);
+            c127 = polish_cut(tl, tr, 127, BLK, ol3, or3);
+            c40 = polish_cut(tl, tr, POLISH_DEF, BLK, ol5, or5);
+            c20 = polish_cut(tl, tr, 20, BLK, ol5, or5);
+            snprintf(name, sizeof name, "  polish: a tone 6 dB over pink: the band %.1f dB at 127, %.1f at %d, %.1f at 20", (double)c127,
+                     (double)c40, POLISH_DEF, (double)c20);
+            check(name, c127 < -6.0f && c127 > -10.0f && c40 < -1.5f && c40 > -4.5f && c20 < -0.5f && c20 > c40 && c40 > c127);
+            for (k = 0; k < 4; k++) {
+                polish_cut(tl, tr, 127, chunk[k], ol4, or4);
+                same &= memcmp(ol3, ol4, sizeof ol3) == 0 && memcmp(or3, or4, sizeof or3) == 0;
+            }
+            check("  polish: the same output in blocks of 1, 7, 100, 256 as in 64 (bit for bit)", same);
+            master_init(ms);                                           /* a master as it starts: polish on by default */
+            run_master(tl, tr, ol4, or4, NP, BLK);
+            MS_INIT();
+            run_master(tl, tr, ol5, or5, NP, BLK);
+            c40 = db(fm_sqrtf(band_energy(ol4, SR, NP) / (band_energy(ol5, SR, NP) + 1e-20f)));
+            snprintf(name, sizeof name, "  polish: on at the master's start (the same tone: the band %.1f dB)", (double)c40);
+            check(name, c40 < -1.5f && c40 > -4.5f);
+            {   /* at 0 the stage releases its cut and stops: once the cut is gone (0.85 s on) a stretch run with polish on,
+                 * then off, comes out as one that never had it, bit for bit */
+                static float ol6[NP], or6[NP];
+                const int gone = NP / 2 + SR * 17 / 20;
+                MS_INIT();
+                run_master(tl, tr, ol6, or6, NP, BLK);
+                MS_INIT();
+                master_set(ms, MS_POLISH, 127);
+                run_master(tl, tr, ol4, or4, NP / 2, BLK);
+                master_set(ms, MS_POLISH, 0);
+                run_master(tl + NP / 2, tr + NP / 2, ol4 + NP / 2, or4 + NP / 2, NP / 2, BLK);
+                snprintf(name, sizeof name, "  polish: at 0 the bus passes bit for bit (the tail of a stretch it was on for)");
+                check(name, memcmp(ol4 + gone, ol6 + gone, (NP - gone) * sizeof(float)) == 0 &&
+                            memcmp(or4 + gone, or6 + gone, (NP - gone) * sizeof(float)) == 0);
+            }
+            {   /* a cut in force when the knob reaches 0 is let go over the release, not dropped: the band does not step, and
+                 * where the stage stops does not depend on the block size */
+                const int sw = NP / 2, w = 512;
+                float step;
+                int same6 = 1;
+                MS_INIT();
+                master_set(ms, MS_POLISH, 127);
+                run_master(tl, tr, ol4, or4, sw, BLK);
+                master_set(ms, MS_POLISH, 0);
+                run_master(tl + sw, tr + sw, ol4 + sw, or4 + sw, NP - sw, BLK);
+                step = db(fm_sqrtf(band_energy(ol4 + sw, 0, w) / (band_energy(ol4 + sw - w, 0, w) + 1e-20f)));
+                snprintf(name, sizeof name, "  polish: to 0 with the band cut %.1f dB: the band steps %+.1f dB, not back up", (double)c127,
+                         (double)step);
+                check(name, fm_fabsf(step) < 2.0f);
+                for (k = 0; k < 4; k++) {
+                    MS_INIT();
+                    master_set(ms, MS_POLISH, 127);
+                    run_master(tl, tr, ol5, or5, sw, chunk[k]);
+                    master_set(ms, MS_POLISH, 0);
+                    run_master(tl + sw, tr + sw, ol5 + sw, or5 + sw, NP - sw, chunk[k]);
+                    same6 &= memcmp(ol4, ol5, sizeof ol4) == 0 && memcmp(or4, or5, sizeof or4) == 0;
+                }
+                check("  polish: the release to 0 gives the same output in blocks of 1, 7, 100, 256 as in 64 (bit for bit)", same6);
+            }
+            {   /* turning it on starts it from nothing: a master that ran it hot on a loud tone, and sat at 0 through some
+                 * silence (long enough for its cut to let go), comes back as one that was never on, whatever the stage's
+                 * states were when it stopped */
+                static float ol6[NP], or6[NP];
+                const int ta = SR / 4, tz = ta + 40000, te = tz + 8192;
+                int w;
+                pink_fill(tl, tr, NP, 6.0f, 0.25f);
+                for (i = ta; i < tz; i++)
+                    tl[i] = tr[i] = 0.0f;
+                for (w = 0; w < 2; w++) {                              /* w 0: on through the tone, w 1: never */
+                    float *oa = w ? ol6 : ol4, *ob = w ? or6 : or4;
+                    MS_INIT();
+                    master_set(ms, MS_POLISH, w ? 0 : 127);
+                    run_master(tl, tr, oa, ob, ta, BLK);
+                    master_set(ms, MS_POLISH, 0);
+                    run_master(tl + ta, tr + ta, oa + ta, ob + ta, tz - ta, BLK);
+                    master_set(ms, MS_POLISH, 127);
+                    run_master(tl + tz, tr + tz, oa + tz, ob + tz, te - tz, BLK);
+                }
+                check("  polish: on again after a hot stretch: as if it had never run (bit for bit)",
+                      memcmp(ol4 + tz, ol6 + tz, (te - tz) * sizeof(float)) == 0 &&
+                      memcmp(or4 + tz, or6 + tz, (te - tz) * sizeof(float)) == 0);
+            }
+            {   /* a burst far off the bus's scale (its square overflows) does not leave the detector dead: the tone is cut
+                 * as it was, read before the limiter (which would spend seconds letting go of such a burst) */
+                pink_fill(tl, tr, NP, 6.0f, 0.25f);
+                for (i = 100; i < 164; i++)
+                    tl[i] = tr[i] = 1.0e20f;
+                fx_host_stage = 3;
+                c127 = polish_cut(tl, tr, 127, BLK, ol3, or3);
+                fx_host_stage = 9;
+                snprintf(name, sizeof name, "  polish: after a 1e20 burst the tone is still cut: the band %.1f dB at 127", (double)c127);
+                check(name, c127 < -6.0f && c127 > -10.0f);
+            }
+            for (t = 0; t < 8; t++) {                                  /* what it leaves alone, at the knob's top */
+                static const char *const nm[8] = {"pink noise", "white noise", "pink + tone 18 dB under", "kick + hats + bass",
+                                                  "a 1 kHz sine", "pink rolled off over 6 kHz", "sub bass + a faint tone",
+                                                  "a tone over pink, -50 dBFS"};
+                int a;
+                if (t == 0)
+                    pink_fill(tl, tr, NP, -99.0f, 0.25f);
+                else if (t == 1) {
+                    rng = 99;
+                    for (a = 0; a < NP; a++)
+                        tl[a] = tr[a] = 0.25f * noise();
+                } else if (t == 2)
+                    pink_fill(tl, tr, NP, -18.0f, 0.25f);
+                else if (t == 3) {
+                    sig_fill(SG_DRUMS, tl, tr, NS);
+                    for (a = 0; a < NP; a++) {
+                        tl[a] = tl[a % NS] * 0.3f;
+                        tr[a] = tr[a % NS] * 0.3f;
+                    }
+                } else if (t == 4)
+                    for (a = 0; a < NP; a++)
+                        tl[a] = tr[a] = 0.4f * fm_sin_turns((float)a * (1000.0f / SR));
+                else if (t == 6)                                       /* a 20 Hz sine and a 3.5 kHz tone 30 dB under it: a peak
+                                                                        * in the spectrum, but a thousandth of the mix */
+                    for (a = 0; a < NP; a++)
+                        tl[a] = tr[a] = 0.4f * fm_sin_turns((float)a * (20.0f / SR)) + 0.0126f * fm_sin_turns((float)a * (3500.0f / SR));
+                else if (t == 7)                                       /* the 6 dB tone over pink, far under the floor */
+                    pink_fill(tl, tr, NP, 6.0f, 0.003f);
+                else {                                                 /* four one-pole low-passes at 6 kHz */
+                    float lp[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+                    pink_fill(tl, tr, NP, -99.0f, 0.6f);
+                    for (a = 0; a < NP; a++) {
+                        float v = tl[a];
+                        for (k = 0; k < 4; k++) {
+                            lp[k] += (v - lp[k]) * 0.575f;
+                            v = lp[k];
+                        }
+                        tl[a] = tr[a] = v;
+                    }
+                }
+                c127 = polish_cut(tl, tr, 127, BLK, ol3, or3);
+                snprintf(name, sizeof name, "  polish at 127 leaves %-24s alone: its band %+.2f dB", nm[t], (double)c127);
+                check(name, c127 > -0.5f && c127 < 0.05f);
+            }
+            for (i = 0; i < NP; i++)
+                tl[i] = tr[i] = 0.0f;
+            c127 = polish_cut(tl, tr, 127, BLK, ol3, or3);
+            for (i = 0; i < NP; i++)
+                flat &= ol3[i] == 0.0f && or3[i] == 0.0f;
+            check("  polish on silence: silence", flat);
         }
         MS_INIT();
         {   /* the compressor at 100: a loud sine is pulled down, the meter shows it */
@@ -891,6 +1317,15 @@ int main(void)
             master_process(ms, p1, p2, m1, m2, a, c, 256);
         di = instr_now() - i0;
         printf("  master all  %5.0f  (EQ, compressor, limiter)\n", (double)di / (20.0 * 256.0));
+        master_set(ms, MS_POLISH, POLISH_DEF);
+        for (b = 0; b < 10; b++)
+            master_process(ms, p1, p2, m1, m2, a, c, 256);
+        i0 = instr_now();
+        for (b = 0; b < 20; b++)
+            master_process(ms, p1, p2, m1, m2, a, c, 256);
+        di = instr_now() - i0;
+        printf("  master +pol %5.0f  (all, and polish on)\n", (double)di / (20.0 * 256.0));
+        master_set(ms, MS_POLISH, 0);
         master_set(ms, MS_PUMP, 64);
         for (b = 0; b < 10; b++)
             master_process(ms, p1, p2, m1, m2, a, c, 256);
@@ -902,6 +1337,21 @@ int main(void)
         }
         di = instr_now() - i0;
         printf("  master pump %5.0f  (all, and the pump pumping)\n", (double)di / (20.0 * 256.0));
+        MS_INIT();
+        master_set(ms, MS_EQ_LO, 80);
+        master_set(ms, MS_COMP, 80);
+        master_set(ms, MS_POLISH, POLISH_DEF);
+        for (i = 0; i < 256; i++) {           /* (a bus well under the limiter's reach: its detector never runs) */
+            p1[i] = p2[i] = 0.05f * noise();
+            m1[i] = m2[i] = 0.05f * noise();
+        }
+        for (b = 0; b < 10; b++)
+            master_process(ms, p1, p2, m1, m2, a, c, 256);
+        i0 = instr_now();
+        for (b = 0; b < 20; b++)
+            master_process(ms, p1, p2, m1, m2, a, c, 256);
+        di = instr_now() - i0;
+        printf("  master rest %5.0f  (all and polish, a quiet bus: the limiter at rest)\n", (double)di / (20.0 * 256.0));
     }
     {   /* the engine runs the chorus, the delay and the plate a block behind (fx_process_lag): their output must be
          * where it was, but for the lines' rounding (a noise burst, then its tail; the send a block late) */

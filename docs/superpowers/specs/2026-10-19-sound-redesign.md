@@ -1,4 +1,4 @@
-# LOOM-8's sound, again (2026-10-19)
+# SoundPlant's sound, again (2026-10-19)
 
 The complaint (Charles): the engines and presets all sound somewhat the same, and harsh. "Less engines, more
 presets, that are good and varied." Part 1 is what we measured and heard; part 2 what was decided; part 3 the plan;
@@ -106,7 +106,7 @@ the kit. Cut: weft, stack, sync, swarm, gingham, brocade (into analog); voile by
   440 KB; eng_run 23.3 -> 15.1 KB (cane and voile's Braids code most of it), voice_chunk 20.1 -> 18.7 KB, the hot
   path ~87 -> ~79 KB. Left: voile by ear; voice_chunk; the demos and the manual on the new engines.
 - **Code budget**: `eng_run` (all engines) <= ~10 KB, `voice_chunk` slimmed; the hot path toward the ~32 KB cache.
-  Measured with llvm-nm on `app/build/loom.elf` and the profiler's code curve.
+  Measured with llvm-nm on `app/build/soundplant.elf` and the profiler's code curve.
 - **Every FM path** gets an index envelope and keyscale (orbit has them now; tines has a fixed decay).
 
 ### 3.4 The presets

@@ -1,4 +1,4 @@
-# LOOM-8 demo: hyperpop, 160 BPM, A minor (F G Am Em). (tools/demos/render.sh renders it; its bank is
+# SoundPlant demo: hyperpop, 160 BPM, A minor (F G Am Em). (tools/demos/render.sh renders it; its bank is
 # build/demos/hyperpop.bin: a bar sung high and tuned hard, and an 808, both made by tools/demos/make_banks.py.)
 #   T1 kit: kick, clap and snare, metallic hats with rolls (multiply), the fm drum as a metallic hit, the
 #      kit's bus compressed and driven hard
@@ -402,7 +402,7 @@ knob 4 cut 64
 tap HOME
 turn SELECT 1
 stats reset
-wav loom_demo_hyperpop.wav
+wav soundplant_demo_hyperpop.wav
 tap PLAY
 # intro 4: the voice opening
 bars 1

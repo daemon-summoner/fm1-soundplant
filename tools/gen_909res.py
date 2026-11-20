@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MPL-2.0
-"""LOOM-8's resource region (fm1-base's device/res.c; fm1.toml resources): the 909 cymbals, ER-99's hat, ride and
+"""SoundPlant's resource region (fm1-base's device/res.c; fm1.toml resources): the 909 cymbals, ER-99's hat, ride and
 crash samples as 9W9 ships them (app/samples/909/: hh.wav, ride.wav, crash.wav, GPL-3.0), 44.1 kHz, block companded
 to 5 bits a sample: blocks of 32 samples, each an exponent byte (the block's step, 2^(e/2)) and the 32 codes, 5 bits
 each, packed low bit first into 20 bytes (21 bytes a block). On the sample's peak the step is the smallest that

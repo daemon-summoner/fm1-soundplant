@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MPL-2.0
 """tests/fixtures/presets_v10.bkp: a backup (fm1-base's backup format, as the simulator's sim_backup writes it) whose
-only object is a presets object of PRESETS_FORMAT 10, as LOOM-8 saved it before user kits went from four to eight: the
+only object is a presets object of PRESETS_FORMAT 10, as SoundPlant saved it before user kits went from four to eight: the
 user presets (none), then four user kits: K1 "first" (key 1 on sophie, model 20: a model of format 10's, kept), K4
 "fourth" (key 1 on the x kick, model 11). tests/scenarios/kits8.xy restores it."""
 import struct, zlib, os

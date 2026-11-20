@@ -1,4 +1,4 @@
-# LOOM-8 load test: the worst case a song can ask for, not music. Every track busy at once on the dearest presets
+# SoundPlant load test: the worst case a song can ask for, not music. Every track busy at once on the dearest presets
 # (tools/preset_prof.py's sweep: knit's unisons, rayon's pads, bellows' rotor, voile, a slice on every sixteenth),
 # chords overlapping so the sixteen voices stay full and the guard has to choose, both effects sent hard (the delay,
 # the lush reverb) and the master pumping. What it checks: on the FM-1, no dropouts and no crash while the guard
@@ -103,7 +103,7 @@ songloop 0
 tap HOME
 turn SELECT 1
 stats reset
-wav loom_demo_stress.wav
+wav soundplant_demo_stress.wav
 tap PLAY
 bars 8
 wait 4000

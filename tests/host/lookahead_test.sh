@@ -8,14 +8,14 @@
 # recording is there to compare). Needs the host simulator (./build.sh --host).
 set -eu
 cd "$(dirname "$0")/../.."
-H=app/build/host/loom_host
+H=app/build/host/soundplant_host
 D=build/host/lookahead
 rm -rf "$D" && mkdir -p "$D/off" "$D/on" "$D/norec"
 for m in off on norec; do
     v=0; [ $m = on ] && v=1
     sed "s|^projsave 1 la_test|projsave 1 la_test\nstoresave $D/$m/store.bin|" tests/host/lookahead_rec.xy > "$D/$m/run.xy"
     [ $m = norec ] && sed -i.bak "s/^press REC$/wait 1/; s/^release REC$/wait 1/" "$D/$m/run.xy"
-    LOOM_LOAD=0 LOOM_LOOKAHEAD=$v "$H" "$D/$m/run.xy" "$D/$m" > "$D/$m/log.txt" 2>&1 || { tail -5 "$D/$m/log.txt"; exit 1; }
+    SOUNDPLANT_LOAD=0 SOUNDPLANT_LOOKAHEAD=$v "$H" "$D/$m/run.xy" "$D/$m" > "$D/$m/log.txt" 2>&1 || { tail -5 "$D/$m/log.txt"; exit 1; }
 done
 bad=0
 if cmp -s "$D/off/store.bin" "$D/on/store.bin"; then echo "  ok   what was recorded: the same project, byte for byte"

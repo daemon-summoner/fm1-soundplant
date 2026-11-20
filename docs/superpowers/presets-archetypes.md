@@ -1,6 +1,6 @@
-# LOOM-8's presets: the classic sounds behind them
+# SoundPlant's presets: the classic sounds behind them
 
-LOOM-8 has 224 factory presets, sixteen for each engine. This note says what each engine does well, which
+SoundPlant has 224 factory presets, sixteen for each engine. This note says what each engine does well, which
 classic sounds it can make, and how the presets are told apart. The presets themselves are in
 `app/dsp/synth.c` (PRESETS[]), with a comment above each engine naming each preset's inspiration. Those
 names appear only in the comments. No preset is named after a product or a trademark.

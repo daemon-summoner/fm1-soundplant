@@ -1,4 +1,4 @@
-# LOOM-8 demo: the weave's four rules, heard. A beat on T1; on T2 (felt piano) pattern A (a rising arpeggio, then
+# SoundPlant demo: the weave's four rules, heard. A beat on T1; on T2 (felt piano) pattern A (a rising arpeggio, then
 # a falling one) and pattern B (a syncopated line, other notes); then A woven with B: by bars (bar 1 A's, bar 2
 # B's), by steps (odd steps A's, even B's), A's rhythm with B's notes, B's rhythm with A's notes. Two bars each, a
 # scene each, the song plays them in turn. Factory sounds only (nothing private). Renders build/demos/weave/.

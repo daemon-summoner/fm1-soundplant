@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8's hardware profiler's kernels: see bench.h. Each kernel is the per-sample code of one building block, written
+/* SoundPlant's hardware profiler's kernels: see bench.h. Each kernel is the per-sample code of one building block, written
  * as synth.c and fx.c write theirs (the TPT state-variable filter, the PolyBLEP, soft3, int16 delay lines in the
  * pool), so its cost is what that block costs in a voice or an effect. The reverb is a Dattorro plate (Dattorro,
  * "Effect Design, Part 1", JAES 1997) with its delays scaled down to fit the bench's line: a delay's cost does not

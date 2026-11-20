@@ -104,7 +104,7 @@ int main(void)
         fprintf(stderr, "fx_render: no " DIR "\n");
         return 1;
     }
-    fprintf(idx, "LOOM-8 effect renders (tests/host/fx_render.c, tools/fx_renders.sh): 44.1 kHz, 16-bit stereo, 6 s each.\n");
+    fprintf(idx, "SoundPlant effect renders (tests/host/fx_render.c, tools/fx_renders.sh): 44.1 kHz, 16-bit stereo, 6 s each.\n");
     fprintf(idx, "\nThe reverb's modes on FX II, on a dry phrase (8 plucked notes in 1.5 s, then the tail): the dry, and the\n"
                  "return at 0.7 under it. The SPU modes at their defaults (size 127 = the console's delays, decay 64 = its own\n"
                  "feedback, tone flat, damp 0):\n");

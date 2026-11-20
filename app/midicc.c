@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8's MIDI CC map: a CC on channel 1-8 (a track), 12-16 (the instrument track selected, inst_trk), 9 / 10
+/* SoundPlant's MIDI CC map: a CC on channel 1-8 (a track), 12-16 (the instrument track selected, inst_trk), 9 / 10
  * (FX I / II) or 11 (the master) sets a parameter as its knob would, scaled onto the parameter's range; a track's CC
  * is also recorded into its own lane while recording. Channel 11's Program Change and notes 36-67 pick scenes 1-32.
  * The other way: a mapped value changed by hand (a knob, a SEL list row) goes out as its CC, with CC OUT on; a scene
@@ -25,7 +25,7 @@ static const struct { uint8_t cc, par, fx1; } CC_FX[] = {
     {75, TP_FENV, 0}, {93, TP_SEND2, 1}};
 /* the master */
 static const struct { uint8_t cc, m; } CC_MST[] = {
-    {7, MS_LEVEL},  {16, MS_EQ_LO}, {17, MS_EQ_MID}, {18, MS_EQ_HI}, {20, MS_CTYPE}, {21, MS_CAMT},     {22, MS_CTONE},
+    {7, MS_LEVEL},  {16, MS_EQ_LO}, {17, MS_EQ_MID}, {18, MS_EQ_HI}, {19, MS_POLISH}, {20, MS_CTYPE}, {21, MS_CAMT},     {22, MS_CTONE},
     {23, MS_CMIX},  {24, MS_PERC},  {25, MS_MEL},    {26, MS_COMP},  {27, MS_PUMP},  {28, MS_PUMP_REL}};
 
 static int cc_to(int v, int lo, int hi) { return lo + (v * (hi - lo) + 63) / 127; }   /* 0..127 onto lo..hi */

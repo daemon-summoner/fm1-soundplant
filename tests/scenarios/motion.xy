@@ -1,0 +1,113 @@
+# Motion: the screen moves while something glides and does nothing once it has landed; Setup's MOTION still lands
+# every move at once; the setting is the FM-1's, kept when a project loads and over a restart
+wait 300
+expect theme 3
+expect still 0
+# the autosave redraws the header when it runs, an unrelated change: off, so nothing but motion moves the screen
+tap GLO
+turn SELECT 5
+expect page Setup
+tap SEL
+row AUTOSAVE
+turn ALGO -1
+tap HOME
+tap EDIT
+settle
+changes 300 0 0
+turn K1 20
+changes 120 2 100
+settle
+changes 400 0 0
+# a SEL list: the pill glides to the row picked, then the screen is quiet
+tap SEL
+settle
+turn SELECT 1
+changes 100 1 100
+settle
+changes 400 0 0
+turn SELECT -1
+changes 100 1 100
+settle
+changes 400 0 0
+tap HOME
+# a page change fades up and rises in (the screen changes while it does), then the screen is quiet
+settle
+tap FX
+changes 100 6 400
+settle
+changes 400 0 0
+# a toast: the header drops in and fades up, holds still, and fades back up when the toast ends
+tap HOME
+settle
+tap OCT+
+changes 100 2 100
+wait 100
+changes 200 0 0
+wait 1500
+settle
+changes 400 0 0
+tap OCT-
+wait 1500
+settle
+# a track change crossfades the inks, then the screen is quiet
+tap EDIT
+settle
+spin ALGO 1
+changes 100 10 400
+settle
+changes 400 0 0
+tap HOME
+# MOTION still: a turned knob and a picked row land at once
+tap GLO
+turn SELECT 5
+expect page Setup
+tap SEL
+row MOTION
+turn ALGO 1
+expect still 1
+tap HOME
+tap EDIT
+settle
+turn K1 -20
+changes 100 0 1
+changes 400 0 0
+tap SEL
+settle
+turn SELECT 1
+changes 100 0 1
+changes 400 0 0
+tap HOME
+# ... and so are a page change, a toast and a track change
+settle
+tap FX
+changes 100 0 0
+tap HOME
+settle
+tap OCT+
+changes 100 0 0
+wait 1500
+settle
+tap OCT-
+wait 1500
+settle
+tap EDIT
+settle
+spin ALGO 1
+changes 100 0 8
+changes 400 0 0
+tap HOME
+# the setting is the FM-1's: kept when project 1 loads, over a restart and by a new project
+projsave 1
+tap HOME
+tap SEL
+row LOAD PROJECT
+tap SEL
+wait 100
+tap SEL
+wait 300
+expect still 1
+reboot
+wait 400
+expect still 1
+projnew
+expect still 1

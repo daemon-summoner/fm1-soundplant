@@ -22,7 +22,7 @@ tap SEL
 wait 40
 expect used 1
 expect scene 1
-# playing scene 1, scene 2's key held: its cue withdrawn while LOOM-8 asks (the bar line passes); yes: scene 2 gone
+# playing scene 1, scene 2's key held: its cue withdrawn while SoundPlant asks (the bar line passes); yes: scene 2 gone
 scenedef 2 2
 tap PLAY
 wait 300

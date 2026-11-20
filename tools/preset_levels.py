@@ -66,9 +66,9 @@ def main():
     (out / "levels.txt").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
     with open(out / "index.html", "w") as f:
-        f.write("<!doctype html><meta charset=utf-8><title>LOOM-8 presets</title>"
+        f.write("<!doctype html><meta charset=utf-8><title>SoundPlant presets</title>"
                 "<style>body{font:14px system-ui;margin:16px}td{padding:2px 8px}"
-                "audio{height:28px}</style><h1>LOOM-8 factory presets</h1>"
+                "audio{height:28px}</style><h1>SoundPlant factory presets</h1>"
                 "<p>Three notes and a chord on track 2 of a new project (FX I delay, FX II reverb). dBFS.</p>"
                 "<table><tr><th>preset<th>dry rms<th>out peak<th>out rms<th>play</tr>\n")
         for nm, r in rows:

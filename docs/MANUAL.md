@@ -1,6 +1,6 @@
-# LOOM-8 manual
+# SoundPlant manual
 
-LOOM-8 turns your M-VAVE FM-1 into a pocket groovebox: eight threads of sound on a 64-step loom.
+SoundPlant turns your M-VAVE FM-1 into a pocket groovebox: eight threads of sound on a 64-step grid.
 
 Each track can play one of seven synths, a sample, a chopped-up break, a drum kit, or another synth over MIDI.
 Write patterns of up to 64 steps, then give any step a trick, or lock a knob to its own value there. Use the
@@ -9,10 +9,10 @@ plays. Weave two patterns into a third: bar by bar, step by step, or with one's 
 it all with two send effects (the reverb's modes include the PlayStation's own reverbs) and a master section, and
 arrange it into a song of up to thirty-two scenes.
 
-LOOM-8 is made for one way of working. Write a short pattern, add a few tricks and weave it with another. Let the
+SoundPlant is made for one way of working. Write a short pattern, add a few tricks and weave it with another. Let the
 conductor play a progression, and season it with throws while it plays. Then put your scenes in order.
 
-To see it played first, watch the [LOOM-8 video](https://www.youtube.com/watch?v=d84QXnfulRE).
+To see it played first, watch the [SoundPlant video](https://www.youtube.com/watch?v=d84QXnfulRE).
 
 - [Quick start](#quick-start)
 - [Cheat sheet](#cheat-sheet)
@@ -40,7 +40,7 @@ keys 1 to 11.
 
    <img src="img/screen-beat-playing.png" width="240" alt="Steps on T1 kit, playing: kick on 1, 5, 9 and 13, snare on 5 and 13, hats between; a tick for every sound on a step, the playhead lit" title="The beat playing">
 2. **A bass line.** Turn **ALGORITHM** to T2, the bass. Hold **SEQ** and play a low note. While you hold **SEQ**,
-   the keys play like a keyboard, and LOOM-8 remembers the note you played. Let go and press white keys 1, 4, 7
+   the keys play like a keyboard, and SoundPlant remembers the note you played. Let go and press white keys 1, 4, 7
    and 11 to put it on those steps. Hold **SEQ** again, play another note, let go and press white key 14. Or tap
    **REC** and play the notes one after another, and each one lands on the next step. Press **EDIT** and turn
    **KNOB 1** while it plays to hear the shape change.
@@ -109,7 +109,7 @@ second.
 - **Song**: a chain of scenes, each played for a number of bars.
 - **Engine**: the way a track makes its sound. There are seven synths (knit, rayon, jacquard, bellows, cane, voile
   and acid), two sample engines (sample and slice) and the kit, a drum synth.
-- **Preset**: a sound to load. 93 come with LOOM-8, from seven to eighteen for each engine, and 16 are your own.
+- **Preset**: a sound to load. 93 come with SoundPlant, from seven to eighteen for each engine, and 16 are your own.
 - **Player**: what the keys do on a track: arp, strum, hold or random.
 - **Conductor**: an aux track that sets the key, scale and chords for the other tracks. It plays its own chords,
   or takes them from a track's notes.
@@ -158,9 +158,9 @@ Count the white keys 1 to 16 from the left, and the black keys 1 to 11. "Hold **
 | edit a drum sound | On a drum track, press **EDIT** and press the sound's black key. The knobs are the model's own four. Turn **SELECT** for the model, random, pan and volume. Its **SEL** list has the play mode. <!-- hint: press EDIT; black 1 --> |
 | shape one drum | On a drum track, press **ENV** and press the drum's black key to get its own attack, hold, decay and lag. Turn **SELECT** for its filter: **PRESETS** picks low-pass, high-pass or band-pass, and the knobs set cutoff, resonance, envelope and drive. <!-- hint: press ENV; black 1 --> |
 | play a sample | On a drum track, set a key's model to sample. On a synth track, press **SEL** and set ENGINE to sample. The sample knob picks the sample. |
-| load my own samples | Open <https://charlesvestal.github.io/fm1-loom/samples/> in Chrome or Edge with the FM-1 connected by USB. Add, replace, rename, reorder or remove samples, then press Send. They come after the factory samples, as user 1, user 2 ... |
+| load my own samples | Open <https://daemon-summoner.github.io/fm1-soundplant/samples/> in Chrome or Edge with the FM-1 connected by USB. Add, replace, rename, reorder or remove samples, then press Send. They come after the factory samples, as user 1, user 2 ... |
 | get the breaks back (0.7 on) | On the samples page, press Add the breaks, then Send. |
-| chop a break | On a synth track, press **SEL** and set ENGINE to slice. Each key plays one slice of the break, with F3 playing the first. Write them on the steps in any order. To load your own break, run `tools/loom_samples.py load "amen.wav@2"` (here, a loop of 2 bars). |
+| chop a break | On a synth track, press **SEL** and set ENGINE to slice. Each key plays one slice of the break, with F3 playing the first. Write them on the steps in any order. To load your own break, run `tools/soundplant_samples.py load "amen.wav@2"` (here, a loop of 2 bars). |
 | change the filter | Press **ENV** and turn **SELECT** to Filter. **PRESETS** changes the filter type. |
 | give a sound some character | Press **FX** for the Character page. **PRESETS** changes the type (drive, fold, crush, ring, tilt, tape, sampler), and the knobs set its amount, tone and mix. |
 | use the effects | Press **FX** and turn **SELECT** to Sends, the track's sends. Keep turning to reach FX I and FX II, where **PRESETS** picks the effect. |
@@ -184,7 +184,7 @@ Count the white keys 1 to 16 from the left, and the black keys 1 to 11. "Hold **
 | let a track lead the chords | On COND, press **EDIT** and turn **SELECT** to Follow. Press the track's black key, and its notes set the chord for the others. A chord part or a bass line works well. Press the same key again to turn it off. <!-- hint: press EDIT; turn SELECT; black 3 --> |
 | harmonize a track to the chords | Give the conductor some chords: play them on COND's keys, or let a track lead from its Follow page. Then go to the track you want to harmonize, press **SEL** and set FOLLOWS CONDUCTOR to harmony. Each of its notes snaps to the nearest note of the conductor's chord. With **ch. deg**, each note's place in the scale picks a chord note instead. <!-- hint: press EDIT; press SEL; turn ALGORITHM --> |
 | get new sounds for the band | Press **HOME**, press **SEL** and pick RANDOMIZE PRESETS: T2 to T8 each get a random preset for their part. Press **SEL** for yes. |
-| save | LOOM-8 saves by itself when it is stopped and quiet. **SAVE** saves at once. Hold **SAVE** and press white key 1 to 3 to save to that slot. <!-- hint: press SAVE --> |
+| save | SoundPlant saves by itself when it is stopped and quiet. **SAVE** saves at once. Hold **SAVE** and press white key 1 to 3 to save to that slot. <!-- hint: press SAVE --> |
 | keep a sound | On a sound page, hold **SAVE** and press a white key. The sound becomes that user preset. <!-- hint: hold SAVE; white 1 --> |
 | load a project | Press **HOME** and press **SEL**. On LOAD PROJECT, turn **ALGORITHM** to pick the slot, then press **SEL**. NEW PROJECT starts an empty project in a free slot, with its sounds picked at random (new ones, as RANDOMIZE PRESETS gives). <!-- hint: press HOME, SEL; turn ALGORITHM --> |
 | listen on Bluetooth headphones | Put them in pairing mode. Press **GLO**, turn **SELECT** to Setup and press **SEL**. Turn **SELECT** to AUDIO DEVICE and press **SEL**. Turn **SELECT** to the headphones and press **SEL**. |
@@ -195,8 +195,8 @@ Count the white keys 1 to 16 from the left, and the black keys 1 to 11. "Hold **
 | --- | --- |
 | **PLAY** | Starts and stops. Every track starts from step 1. To start from the bar on screen instead, hold **SEQ** on Steps or Bar and press **PLAY**. If you change a track's scale or length, it stays in time with the others. On the Song page, it plays the song from the selected slot. Hold **REC** and press **PLAY** to record live. |
 | **REC** | While it plays, hold **REC** to record for as long as you hold it. On a sound page, the knobs you turn are recorded too. While stopped, tap it to start step recording. Hold it while stopped (or on Steps) to set up recording with the knobs: click, count-in, quantize and mode. |
-| **SEL** | Opens a list of this page's settings and actions. Hold a step and press it to see the step's notes. When LOOM-8 asks a question, **SEL** means yes. |
-| **HOME** | Opens Arrange. On Arrange, it opens the Song page. Hold it as a shift key for buttons and knobs: undo and redo, fine tempo, and the scenes on **PRESETS**. When LOOM-8 asks a question, **HOME** means no. |
+| **SEL** | Opens a list of this page's settings and actions. Hold a step and press it to see the step's notes. When SoundPlant asks a question, **SEL** means yes. |
+| **HOME** | Opens Arrange. On Arrange, it opens the Song page. Hold it as a shift key for buttons and knobs: undo and redo, fine tempo, and the scenes on **PRESETS**. When SoundPlant asks a question, **HOME** means no. |
 | **SEQ** | Opens Steps; page 2 is Bar. Hold it on Steps and the keys play the track and set what a step writes (**PRESETS** sets the track's sound, and **OCT** moves the whole pattern an octave). Hold it on Bar and black keys 1 to 4 jump to a bar or loop bars. Hold it on Steps or Bar and press **PLAY** to start from the bar on screen. |
 | **EDIT** | Opens Engine. Page 2 is Play and page 3 is Play 2 (the octave). The knit, rayon and acid engines have a page 4, Sub, with the engine's second set of knobs. A sample track in a loop mode has its Loop page second. On a drum track, page 2 holds the key's model, random, pan and volume, and page 3 its sends. On the conductor, the pages are its key, the routing and Follow. |
 | **ENV** | Opens Envelope (on a drum track: lag, attack, random, length), then Filter, then the filter's envelope. |
@@ -234,22 +234,40 @@ From top to bottom, the screen has five parts.
   knob you just turned shows in the text color.
 - **The two bottom lines** tell you what the encoders and the keys do here.
 
-The screen comes in three themes. Pick one with Setup's THEME knob. **tape deck** is warm brown-black with cream
-text, **blueprint** is deep blue with white lines, and **b/w** is black with white text and red. A new FM-1 starts
-in b/w.
+The screen comes in four themes. Pick one with Setup's THEME knob. **prism** is near-black with a vivid rainbow:
+each track glows in its own color, and a thin spectrum line runs under the header. **tape deck** is warm brown-black
+with cream text, **blueprint** is deep blue with white lines, and **b/w** is black with white text and red. A new
+FM-1 starts in prism.
 
-Each instrument track has its own color in every theme. In b/w, T1 is pink, T2 teal, T3 yellow, T4 blue, T5
-orange, T6 green, T7 violet and T8 tan. In tape deck, T1 is mustard, T2 rust, T3 olive, T4 teal, T5 blue, T6 plum,
-T7 tan and T8 sage. Steps with notes show in the track's color, dimmed. Whatever is sounding right now shows in the
-track's color at full brightness, such as the step playing, the scene playing or a meter. On Arrange and Mix,
-every track keeps its color, so you can tell them apart at a glance. Cream (or white) outlines show what you are
-touching: the held step, the cursor, the knob you turned. Red is used only for recording and for locks.
+Each instrument track has its own color in every theme. In prism, T1 is rose, T2 orange, T3 yellow, T4 green, T5
+cyan, T6 blue, T7 violet and T8 magenta. In b/w, T1 is pink, T2 teal, T3 yellow, T4 blue, T5 orange, T6 green, T7
+violet and T8 tan. In tape deck, T1 is mustard, T2 rust, T3 olive, T4 teal, T5 blue, T6 plum, T7 tan and T8 sage.
+Steps with notes show in the track's color, dimmed. Whatever is sounding right now shows in the track's color at
+full brightness, such as the step playing, the scene playing or a meter. On Arrange and Mix, every track keeps its
+color, so you can tell them apart at a glance. White outlines show what you are touching: the held step, the cursor,
+the knob you turned. Red is used only for recording and for locks.
+
+### Motion
+
+Nothing on the screen jumps. A knob's bar glides to its new value, a list's highlight glides to the row you picked
+and the rows slide with it, and a page fades up and rises into place when you change pages. Meters, playheads and
+curves move in steps finer than a pixel: an edge halfway between two pixels lights both, so a move fades from one
+spot to the next instead of hopping. A step the playhead leaves keeps a short afterglow. In prism the lit things
+(knob heads, the playhead, the curves in the engine pictures) have a soft glow, the knob tiles and cards have a glass
+sheen, and the spectrum line under the header pulses on every quarter note while the sequencer plays. When you stop
+and nothing is moving, the screen is still and costs nothing.
+
+Messages drop in from above and fade up. The track's color fades into the next track's color when you change tracks.
+
+Setup's **MOTION** row turns all of it off: **still** puts every change on the screen at once, with no gliding,
+fading or afterglow. The new colors and the glow stay. Use still if you want the screen to be as quiet as possible
+or you find movement distracting. Smooth is the default.
 
 ### Messages
 
 Short messages cover the header for a moment. An **i** is news, and a **✓** means something is done. An arrow
 means an undo or a redo. A **?** on red is a question, waiting for you to press **SEL** or **HOME**. A **!** means
-LOOM-8 couldn't do something, and the message tells you why.
+SoundPlant couldn't do something, and the message tells you why.
 
 <img src="img/screen-card.png" width="240" alt="SEQ held alone for a second: a card explaining the Steps page; let go and nothing changes" title="A help card">
 
@@ -629,7 +647,9 @@ sets how much brightness is left, and **keyscale** makes high notes less bright.
 
 **Jacquard** plays wavetables. **table** picks one of nine: shapes, nasal, grit, vocal, spiral, fold, octaves,
 glass and chirp. **scan** moves through the table's frames, and **bend** bends the shape of the wave. **ripple**
-wobbles the wave with a second oscillator, slowly at first and then as fast as the note itself.
+wobbles the wave with a second oscillator, slowly at first and then as fast as the note itself. The nine tables
+live beside the firmware, like the 909 cymbals' samples. Until the installer has written them, jacquard is silent,
+and picking it says NO WAVETABLES. Installing again from the site writes them.
 
 **Bellows** is the organ, with six drawbars. Its four knobs go from 1 to 8. **stops** picks the registration:
 transistor, combo, jazz, gospel, rock, theater, pipe or church. **pedal** adds the low 16' bar, and 1 leaves it out.
@@ -639,7 +659,7 @@ transistor, combo, jazz, gospel, rock, theater, pipe or church. **pedal** adds t
 
 These two engines come from Mutable Instruments' Braids, Émilie Gillet's macro oscillator. Each one is a family of
 Braids models, and **model** picks one. **timbre** and **color** are Braids' own two knobs, and what they do depends
-on the model. The fourth knob is LOOM-8's own.
+on the model. The fourth knob is SoundPlant's own.
 
 **Cane** plays the physical models. These are instruments built from their parts, such as a string, a tube or a bell.
 
@@ -769,9 +789,10 @@ The knobs after the dot are on a second Engine page. Turn **SELECT** to reach th
 - The **909 hat, open hat, ride and crash** are 9W9's cymbals. They play the samples the TR-909 plays its cymbals
   from (ER-99's, as 9W9 has them), with 9W9's knobs. pitch plays the sample slower or faster, up to two octaves each
   way, and decay sets how long it rings. As on the 909, both hats play the same sample. Give the hat and the open hat
-  the same choke group so that each cuts the other off. The samples live beside the firmware, not in it. The
-  installer writes them after an update, which takes a few seconds for about 70 KB. Until it has, these four models
-  are silent, and picking one says NO SAMPLES. Installing again from the site writes them.
+  the same choke group so that each cuts the other off. The samples live beside the firmware, not in it, with
+  jacquard's wavetables and the large type. The installer writes them after an update, which takes a few seconds for
+  about 125 KB. Until it has, these four models are silent, and picking one says NO SAMPLES. Installing again from
+  the site writes them.
 
 The x models and clang cost up to twice as much as a voice of a built-in model, and sophie and the 909 models up to
 three times as much. Even with a kit made of them, the busiest demo stays well within what the FM-1 can do.
@@ -791,9 +812,9 @@ four pages.
 
 **Kits.** On a kit track, **EDIT**'s **SEL** list has **KIT** and **SAVE KIT**. Use KIT to load a whole kit onto the
 track. You get its eleven keys with all their settings, plus the kit's envelope, filter, LFO and character. The
-track's level, pan, player and MIDI OUT stay as they are. LOOM-8 comes with eleven kits, named for fibers and cloth:
+track's level, pan, player and MIDI OUT stay as they are. SoundPlant comes with eleven kits, named for fibers and cloth:
 
-- **Loom**: the kit a new project starts with.
+- **SoundPlant**: the kit a new project starts with.
 - **Nylon**: the x models throughout.
 - **Elastane**: sophie throughout, rubbery, with a bouncing kick, crushed ticks, a latex snap and toms that boing.
 - **Wire**: clang throughout, hard and metallic, short, bright and folded.
@@ -809,7 +830,7 @@ The new kits keep the default kit's layout: kick, snare, closed hat, open hat (t
 clap, low and high tom, conga, shaker, string, and fm (a short FM blip). That way a pattern plays the same parts on
 every kit.
 
-SAVE KIT stores the track's kit in one of eight user kits, K1 to K8, named after the track's sound. LOOM-8 asks
+SAVE KIT stores the track's kit in one of eight user kits, K1 to K8, named after the track's sound. SoundPlant asks
 before it replaces one. After that, KIT loads your kits just like the others, in any project. User kits are kept
 with the user presets, and a backup includes them too.
 
@@ -849,29 +870,32 @@ from the end back to the start. It plays to the end of the sample, or for as lon
 sample keys can sound at once, and a fifth takes over from the oldest.
 ### Samples
 
-LOOM-8 carries a bank of samples. Sixteen of them are its own. There's a 909 kick, snare, hat and clap, a noise
+SoundPlant carries a bank of samples. Sixteen of them are its own. There's a 909 kick, snare, hat and clap, a noise
 sweep, and piano, upright bass, strings, brass, flute and an orchestra hit. There's a vinyl loop, and four breaks
 for the slice engine (classic, heat, choke and ecstasy). After those come thirty-two slots for your own samples,
 user 1 to user 32. The sample model on a drum key and the sample engine on a synth track both play them, and the
 knob shows each one's name.
 
-LOOM-8's own sounds live in the sample bank, in the FM-1's flash, beside yours. The bank holds 214 KB of sound,
-about 19 seconds at 22 kHz. The twelve sounds other than the breaks take 86 KB of it. The installer puts them
+SoundPlant's own sounds live in the sample bank, in the FM-1's flash, beside yours. The bank holds 178 KB of sound,
+about 16 seconds at 22 kHz. The twelve sounds other than the breaks take 77 KB of it. The installer puts them
 there after your samples. (Before 0.8, they were built into the firmware.) They don't use up user slots, so user 1
 to user 32 are all still yours. The sounds keep their own places on the sample knob, so kits, presets and your
 projects can find them.
 
-If your samples leave no room for LOOM-8's sounds, the installer asks you first. You can make room by storing the
+If your samples leave no room for SoundPlant's sounds, the installer asks you first. You can make room by storing the
 samples it names at a lower rate, install without the sounds, or stop. A lower rate loses everything above half
 that rate, and you can't undo it on the FM-1, so keep the original files. Without the sounds, the kits and presets
 that use them are silent, and the picture says "install the sounds: samples page". To add them later, open
-[the samples page](https://charlesvestal.github.io/fm1-loom/samples/), press **Add LOOM-8's sounds**, then Send.
-You can also run `tools/loom_samples.py factory`, and add `--make-room` to make room the same way.
+[the samples page](https://daemon-summoner.github.io/fm1-soundplant/samples/), press **Add SoundPlant's sounds**, then Send.
+You can also run `tools/soundplant_samples.py factory`, and add `--make-room` to make room the same way.
 
 Since 0.7, the four breaks aren't in the firmware either. To add them, press **Add the breaks** on the samples
-page, then Send, or run `tools/loom_samples.py load breaks`. They take 92 KB. They keep their own places on the
+page, then Send, or run `tools/soundplant_samples.py load breaks`. They take 86 KB. They keep their own places on the
 sample knob, so the slice presets and your projects find them by name. Until you add them, the breaks are silent
-and the picture says "install the breaks: samples page".
+and the picture says "install the breaks: samples page". Together with SoundPlant's own twelve sounds they take 163 KB of
+the bank, which leaves about 14 KB for samples of your own. For more room, remove the breaks, or press **Leave
+out SoundPlant's sounds** (77 KB) on the samples page, then Send. Each sample, the breaks included, also has its own
+Remove button there.
 
 The **sample** engine plays a sample at the pitch of the note. The sample's root note plays it at its own rate,
 and an octave up plays it twice as fast. Its knobs:
@@ -950,8 +974,8 @@ the waveform are the loop's name and bars, and the slice count or the slice play
 
 <img src="img/screen-slice-engine.png" width="240" alt="Engine on T3 slice: the classic break&#x27;s waveform (1 bar) cut in eight, slice 5 playing; knobs sample classic, slices 8, pitch 0 st, gate 100 %" title="The slice engine">
 
-**Your own samples.** Connect the FM-1, running LOOM-8, to a computer by USB. Open the Samples page,
-<https://charlesvestal.github.io/fm1-loom/samples/>, in Chrome or Edge, and press Connect to read the samples on
+**Your own samples.** Connect the FM-1, running SoundPlant, to a computer by USB. Open the Samples page,
+<https://daemon-summoner.github.io/fm1-soundplant/samples/>, in Chrome or Edge, and press Connect to read the samples on
 the FM-1. From there you can:
 
 - add files (WAV, AIFF, MP3 or FLAC) by dropping them on the page
@@ -966,9 +990,9 @@ You can do the same from the command line, in the firmware's folder:
 
 ```sh
 pip install mido python-rtmidi numpy
-python3 tools/loom_samples.py load kick.wav snare.wav "vox=ah_A3.wav" "pad=pad.wav:57" "amen=amen.wav@1%32k"
-python3 tools/loom_samples.py info
-python3 tools/loom_samples.py erase
+python3 tools/soundplant_samples.py load kick.wav snare.wav "vox=ah_A3.wav" "pad=pad.wav:57" "amen=amen.wav@1%32k"
+python3 tools/soundplant_samples.py info
+python3 tools/soundplant_samples.py erase
 ```
 
 `load` replaces the user samples with the files you give, in that order: user 1, user 2, and so on, up to 32.
@@ -983,21 +1007,21 @@ evens out its peak level.
   tempo, and its root (slice 1) is F3 unless `:ROOT` says otherwise. The tool prints the tempo the loop has at its
   own speed. Trim the loop to exactly its bars first, because the slices are even cuts of the whole file.
 
-**How much fits.** The bank holds 214 KB of sound. Each sample keeps its own rate, and a lower rate fits more:
+**How much fits.** The bank holds 178 KB of sound. Each sample keeps its own rate, and a lower rate fits more:
 
 | rate | keeps sound up to | fits in all |
 |---|---|---|
-| 32000 Hz (`%32k`) | 16 kHz: bright drums and loops | 12 seconds |
-| 22050 Hz (`%22k`) | 11 kHz: most sounds | 17.7 seconds |
-| 16000 Hz (`%16k`) | 8 kHz: bass, pads, voices | 24 seconds |
-| 11025 Hz (`%11k`) | 5.5 kHz: lo-fi, sub bass | 35 seconds |
+| 32000 Hz (`%32k`) | 16 kHz: bright drums and loops | 10 seconds |
+| 22050 Hz (`%22k`) | 11 kHz: most sounds | 14.7 seconds |
+| 16000 Hz (`%16k`) | 8 kHz: bass, pads, voices | 20 seconds |
+| 11025 Hz (`%11k`) | 5.5 kHz: lo-fi, sub bass | 29 seconds |
 
 Put `%RATE` after a file to set its rate, or put `--rate RATE` right after `load` to set the rate for the rest.
 Otherwise the tool picks the highest of 22050, 16000 and 11025 Hz at which everything fits. It prints each
 sample's rate, length and size, and the seconds left at each rate. A bar at 120 BPM is two seconds, so eight
 one-bar breaks fit at 22050 Hz. A sample plays at its own pitch whatever its rate, and a loop with `@BARS` keeps
 the tempo. A higher rate only costs room, plus a little more of the FM-1's time while it plays. One sample can be
-up to about 16 seconds long at 22050 Hz.
+up to about 14 seconds long at 22050 Hz.
 
 The sound stops while the FM-1 writes the samples, and a fuller bank takes longer. When the screen says LOADED,
 the FM-1 has checked every byte. A track that was playing a sample keeps pointing at the same slot, so user 2 is
@@ -1005,7 +1029,7 @@ still user 2, whatever is in it now.
 
 ### MIDI
 
-Use the **midi** engine to play an outside synth instead of one of LOOM-8's own sounds. The track makes no sound
+Use the **midi** engine to play an outside synth instead of one of SoundPlant's own sounds. The track makes no sound
 on the FM-1. Its notes from the keys, the steps, the arp and strums go out over USB and Bluetooth on the track's
 own channel: T1 on channel 1, up to T8 on channel 8. They go out whether or not the track's MIDI OUT is on.
 
@@ -1149,7 +1173,7 @@ that is playing.
   change at the next bar.
 - Turn **PRESETS** to cue the next scene for the next bar in the same way.
 - Press an empty scene's key to turn it into a copy of the scene that is playing.
-- Hold a white key for a second to clear that scene. The playing scene keeps going while LOOM-8 asks you to
+- Hold a white key for a second to clear that scene. The playing scene keeps going while SoundPlant asks you to
   confirm. Holding an empty scene's key does nothing.
 
 The black keys mute. Keys 1 to 8 mute the tracks, 9 mutes the conductor and 10 mutes the throws. A kit track's
@@ -1272,7 +1296,7 @@ under **SEQ**.
   either way. The delay holds half a second, so it halves a time longer than that and the knob shows what plays. For
   example, below 120 BPM a 1/4 shows "1/4 as 1/8", and below 90 BPM a 1/8D shows "1/8D as 1/16D".
 
-  The reverb has eleven modes, and **PRESETS** steps through them after the phaser. **plate** is LOOM-8's own.
+  The reverb has eleven modes, and **PRESETS** steps through them after the phaser. **plate** is SoundPlant's own.
   Nine come from the PlayStation's sound chip, the reverbs its games used: **room**, **studio S**, **studio M** and
   **studio L** (small, medium and large), **hall**, **half echo**, **space echo**, **chaos echo** and **one echo**.
   Chaos echo almost never stops, and one echo is a single repeat. **lush** is a smooth, wide plate based on Jon
@@ -1298,21 +1322,25 @@ of **FX**.
 
 Turn **SELECT** for more pages:
 
-- Master EQ has low, mid and high. 64 is flat.
+- Master EQ has low, mid, high and polish. 64 is flat on the three bands. **Polish** is a de-harsh band. It watches
+  the 2 to 5 kHz range and cuts it when that range sticks out above the sound on either side of it, which is what a
+  resonant filter parked around 3 kHz does. Evenly bright, dark or noisy sound passes untouched. The knob sets how far
+  it cuts, up to 9 dB, and only the peaks. It starts at 40 and works gently. Turn it to 0 and it is off. Projects
+  saved before polish existed load with it at 40, so they sound a little different. The CC for it is 19.
 - Master color is described below.
 - Master out has the drums' level, the melodic tracks' level, the compressor and the pump. The **SEL** list on
   these pages lists their knobs, page by page, along with what the pump follows, its release and accent, and the
   master level.
 
 On Setup, the knobs set the lights, the MIDI clock, sending MIDI notes and the theme. The clock is internal, receive
-or send (see MIDI, below). Sending notes is on to start with. The theme is b/w to start with, or tape deck or
-blueprint. The page also shows where the tempo comes from (LOOM-8, or a MIDI clock coming in), the USB audio level,
+or send (see MIDI, below). Sending notes is on to start with. The theme is prism to start with, or tape deck,
+blueprint or b/w. The page also shows where the tempo comes from (SoundPlant, or a MIDI clock coming in), the USB audio level,
 the autosave, Bluetooth audio and the Bluetooth MIDI device (see Bluetooth, below). The version is on the next page,
 Debug. The **SEL** list on Setup has the FM-1's own settings, in three groups:
 
 - Bluetooth: BT MIDI, MIDI DEVICE, BT AUDIO and AUDIO DEVICE.
 - USB and MIDI: the USB audio level, USB PORT, CLOCK, NOTES, CC IN, CC OUT and SCENES OUT.
-- LOOM-8: LIGHTS, THEME, AUTOSAVE and LOOP THROWS.
+- SoundPlant: LIGHTS, THEME, LARGE TYPE, MOTION, AUTOSAVE and LOOP THROWS.
 
 All of Setup's settings, the theme too, belong to the FM-1, not the project. Every project you load or start keeps
 them as you left them. On every page, the header shows the scene playing ("S3") before the tempo. You'll find the
@@ -1362,6 +1390,11 @@ to a beat nobody hears. At 0 it is off, and a new project starts there. Its **SE
   When it's off, every hit pumps fully.
 - **master level** sets the output level, which is the drive into the limiter. 100 is unity.
 
+The limiter is the last thing in the mix. It reads ahead (1.5 ms), judges the peaks between the samples too, and keeps
+the mix under -1 dBTP of the mix's own full level, however hard you drive it. Hi-hats, noise and tones in the top
+octaves can read up to three quarters of a dB over that, because it reads the in-between peaks at one point halfway
+between the samples. The MASTER knob on the side only turns the sound down from there.
+
 This pump works on the whole mix. A track's own pump LFO (above) still ducks just that track. Use it for a bass that
 gets out of the kick's way while the rest plays on.
 
@@ -1369,7 +1402,7 @@ gets out of the kick's way while the rest plays on.
 
 ### Bluetooth
 
-LOOM-8 can play through Bluetooth headphones or a Bluetooth speaker, and it can connect to a Bluetooth MIDI keyboard
+SoundPlant can play through Bluetooth headphones or a Bluetooth speaker, and it can connect to a Bluetooth MIDI keyboard
 or controller. Setup shows both. **BT audio** says off, the device playing, or what it is doing. **BT MIDI** says
 off, on, or the MIDI device connected. Press **SEL** on Setup and the list opens on BT MIDI. Its Bluetooth rows
 come in two pairs:
@@ -1384,24 +1417,24 @@ come in two pairs:
 - **AUDIO DEVICE** shows the headphones or speaker playing, or "choose". Press **SEL** to choose one.
 
 **Headphones and speakers.** Put the headphones or speaker in pairing mode, then press **SEL** on AUDIO DEVICE. The
-list's first line tells you what to do. It says "looking for devices..." while LOOM-8 looks, "pick a device. SEL
+list's first line tells you what to do. It says "looking for devices..." while SoundPlant looks, "pick a device. SEL
 connects" once it has found some, or "none found. In pairing mode?". The devices you've used before come first,
 marked "remembered". The one in use says "playing" or "connecting". After them come the ones it found, marked
-"new". Turn **SELECT** to one and press **SEL** to connect. A new one is paired and remembered, and LOOM-8 remembers
+"new". Turn **SELECT** to one and press **SEL** to connect. A new one is paired and remembered, and SoundPlant remembers
 four. While Bluetooth audio plays, the FM-1's own speaker and headphone jack are silent. The sound reaches your ears
 150 to 300 ms after you play, so use it for listening, not for playing in time.
 
 - **LOOK AGAIN** looks for devices again. The sound stops for a moment while it looks, because the radio can't look
   and play at once.
-- **FORGET** forgets a remembered device. Pick it with **ALGORITHM** and press **SEL**. LOOM-8 asks first.
+- **FORGET** forgets a remembered device. Pick it with **ALGORITHM** and press **SEL**. SoundPlant asks first.
 
-LOOM-8 keeps both settings over a restart. BT MIDI stays off if you switched it off, and when BT AUDIO is on,
-LOOM-8 connects the device you used last again. A new project, and every project you load, keeps them as they are.
+SoundPlant keeps both settings over a restart. BT MIDI stays off if you switched it off, and when BT AUDIO is on,
+SoundPlant connects the device you used last again. A new project, and every project you load, keeps them as they are.
 
-**MIDI devices.** Switch the keyboard or controller on, then press **SEL** on MIDI DEVICE. LOOM-8 looks for
+**MIDI devices.** Switch the keyboard or controller on, then press **SEL** on MIDI DEVICE. SoundPlant looks for
 Bluetooth MIDI devices while the list is open, and its first line says so. The ones it finds are marked "found".
-Turn **SELECT** to one and press **SEL** to connect. Its notes and CCs play LOOM-8 as a computer's would, and what
-LOOM-8 sends goes to it too. To let it go, press **SEL** on MIDI DEVICE again, then on DISCONNECT. LOOM-8 has one
+Turn **SELECT** to one and press **SEL** to connect. Its notes and CCs play SoundPlant as a computer's would, and what
+SoundPlant sends goes to it too. To let it go, press **SEL** on MIDI DEVICE again, then on DISCONNECT. SoundPlant has one
 Bluetooth MIDI link at a time, so while a computer or a phone is connected to the FM-1, it can't connect to a
 device.
 
@@ -1412,46 +1445,46 @@ In both lists, **SAVE** connects the device picked, as **SEL** does, and **HOME*
 
 ### MIDI
 
-LOOM-8 speaks MIDI over USB and over Bluetooth, and it works the same on both. What comes in from either one plays,
-and what LOOM-8 sends goes out on both.
+SoundPlant speaks MIDI over USB and over Bluetooth, and it works the same on both. What comes in from either one plays,
+and what SoundPlant sends goes out on both.
 
-**Bluetooth.** While LOOM-8 runs, the FM-1 shows up as a Bluetooth MIDI device, unless BT MIDI is off. It's named
+**Bluetooth.** While SoundPlant runs, the FM-1 shows up as a Bluetooth MIDI device, unless BT MIDI is off. It's named
 "FM-1" and four letters and digits of its own ("FM-1 5132"). The name is the same every time, so you can tell two
 FM-1s apart. On a Mac, open Audio MIDI Setup, choose Window, Show MIDI Studio, click the Bluetooth button, and press
 Connect next to your FM-1. On an iPhone or iPad, connect from the app you play with. Most have a Bluetooth MIDI
-button in their MIDI settings. Bluetooth bunches messages together, so LOOM-8 plays a clock that comes over
+button in their MIDI settings. Bluetooth bunches messages together, so SoundPlant plays a clock that comes over
 Bluetooth by the times the sender stamped on it. The tempo is as steady as over USB, but about 75 ms late. To line
-LOOM-8 up with your DAW, set the DAW's clock delay (or MIDI sync offset) to send the clock about 75 ms early. Notes
+SoundPlant up with your DAW, set the DAW's clock delay (or MIDI sync offset) to send the clock about 75 ms early. Notes
 and CCs play as they arrive.
 
 **Clock.** Setup's **CLOCK** knob decides who keeps time:
 
-- **receive** is the setting to start with. LOOM-8 follows a MIDI clock coming in, with its Start, Continue and
+- **receive** is the setting to start with. SoundPlant follows a MIDI clock coming in, with its Start, Continue and
   Stop, and sends no clock. With no clock coming in, it plays at its own tempo. Half a second after a clock stops,
   it goes back to its own tempo.
-- **send** has LOOM-8 keep time and send its clock, with Start, Continue and Stop, over USB and Bluetooth. It
+- **send** has SoundPlant keep time and send its clock, with Start, Continue and Stop, over USB and Bluetooth. It
   ignores any clock or Start and Stop coming in.
-- **internal** has LOOM-8 keep time without following or sending a clock.
+- **internal** has SoundPlant keep time without following or sending a clock.
 
 A project from 0.7 or older that sent the clock opens on send, and one that didn't opens on internal.
 
 Each track has its own channel. T1 to T8 are on channels 1 to 8, FX I on 9, FX II on 10, and the master and the
 scenes on 11. Notes on channels 12 to 16 play whichever instrument track is selected. If the conductor or the throws
-track is selected, they play the last instrument track you had. LOOM-8 never sends on 12 to 16. Notes on 9 and 10
+track is selected, they play the last instrument track you had. SoundPlant never sends on 12 to 16. Notes on 9 and 10
 do nothing.
 
-**USB keyboards and synths.** LOOM-8 can host a USB MIDI keyboard, controller or synth itself, with no computer
+**USB keyboards and synths.** SoundPlant can host a USB MIDI keyboard, controller or synth itself, with no computer
 around. Press **GLO**, open Setup's **SEL** list and set USB PORT to **MIDI host**. Then plug the device in through
 a powered USB hub or a powered USB-C adapter, because the FM-1 gives its USB port no power. It takes one device at
-a time, plugged in directly or behind one hub. The device's notes and CCs play LOOM-8 as a computer's would, by
-channel as above. What LOOM-8 sends goes to it: the tracks' MIDI OUT, the midi engine, and the clock on send. That
-means LOOM-8 can play a hardware synth. The header tells you when a device connects, has no MIDI, or is lost. If
+a time, plugged in directly or behind one hub. The device's notes and CCs play SoundPlant as a computer's would, by
+channel as above. What SoundPlant sends goes to it: the tracks' MIDI OUT, the midi engine, and the clock on send. That
+means SoundPlant can play a hardware synth. The header tells you when a device connects, has no MIDI, or is lost. If
 it's lost, the notes it held are let go. The screen freezes for a moment while a device connects, longer behind a
 hub, but the sound plays on. While USB PORT is MIDI host, there's no computer link, so no USB audio, backup, mirror
 or samples page. Bluetooth MIDI works as before. USB PORT goes back to **computer** at every start, so updating
 always works.
 
-You can also record LOOM-8 on a computer over USB, as an audio input with ten channels at 44.1 kHz. Channels 1
+You can also record SoundPlant on a computer over USB, as an audio input with ten channels at 44.1 kHz. Channels 1
 and 2 carry the master, as you hear it. Channels 3 to 10 carry tracks 1 to 8, one track each, so you can record
 every track on its own. Each track's channel has the track at its level, before its pan, with its own filter and
 character. The sends' effects and the master's EQ, color, compressor and pump are only on channels 1 and 2. A
@@ -1459,17 +1492,17 @@ muted track's channel is silent. To set the level of all ten, use USB audio on S
 **follows knob**, MASTER sets it. With **full**, the speaker follows MASTER and the recording stays at full level.
 
 The TRS jack is MIDI in. Everything that comes in over USB works from it too, except SysEx: notes, CCs, Program
-Change, and MIDI clock with start and stop. The FM-1 has no MIDI out jack, so LOOM-8 sends only over USB and
+Change, and MIDI clock with start and stop. The FM-1 has no MIDI out jack, so SoundPlant sends only over USB and
 Bluetooth.
 
 Each track's **SEL** list on **EDIT** has MIDI OUT. With it on, the track's notes go out on its own channel, as
 long as Setup's NOTES is on too. MIDI OUT is on in a new project. A project from an older version that had a MIDI
 channel number set opens with MIDI OUT on.
 
-Notes that come in play the track, and record, but LOOM-8 doesn't send them back out. It doesn't send the arp or
-strum they start either, so a DAW that sends them back doesn't cause a loop. The keys you play on LOOM-8 and the
+Notes that come in play the track, and record, but SoundPlant doesn't send them back out. It doesn't send the arp or
+strum they start either, so a DAW that sends them back doesn't cause a loop. The keys you play on SoundPlant and the
 sequencer's notes do go out. A track's arp, strum or hold follows the last key that played it. So if a note from
-your DAW joins an arp you're holding on LOOM-8, the arp stays off MIDI out until you play a key on LOOM-8 again.
+your DAW joins an arp you're holding on SoundPlant, the arp stays off MIDI out until you play a key on SoundPlant again.
 
 A CC moves the matching knob or switch, scaled to its range. On channels 12 to 16, it moves the knob or switch of
 the selected instrument track.
@@ -1494,7 +1527,7 @@ the selected instrument track.
 | CC | FX I / FX II | Master |
 | --- | --- | --- |
 | 7 | return level | level |
-| 16-19 | the effect's four knobs | EQ low / mid / high |
+| 16-19 | the effect's four knobs | EQ low / mid / high / polish |
 | 20-23 | - | color type / amount / tone / mix |
 | 24-27 | - | drums level / melodic level / comp / pump |
 | 28 | - | pump release |
@@ -1509,7 +1542,7 @@ after you keep recording on with **REC** and **PLAY**.
 To pick scenes 1 to 32 over MIDI, send Program Change 0 to 31 on channel 11, or notes 36 to 67 (C1 up) on that
 channel. This works like Arrange's white keys, and SCENES SWITCH decides when the change happens.
 
-CC IN, in Setup's **SEL** list (**GLO**), tells LOOM-8 what a controller's knobs send. **absolute** is the setting
+CC IN, in Setup's **SEL** list (**GLO**), tells SoundPlant what a controller's knobs send. **absolute** is the setting
 to start with, for pots and faders: a CC's value is where the parameter goes. **endless** is for endless encoders
 that send relative values. On a Launchkey, set its encoders to relative. Each message turns the parameter by its
 amount, in the knob's own steps, so nothing jumps when the FM-1's value and the encoder's disagree. Both of the
@@ -1518,21 +1551,21 @@ CC mutes when you turn up and unmutes when you turn down. Like CC OUT, CC IN bel
 projects.
 
 CC OUT is in Setup's **SEL** list (**GLO**) and is on to start with. With it on, when you turn a mapped knob or
-**SEL** row by hand, LOOM-8 sends its CC on its channel, if the track's MIDI OUT is on. FX and the master always
-send. LOOM-8 never sends back what comes in. It never sends locks, automation, presets or a kit's 91 / 93 either,
+**SEL** row by hand, SoundPlant sends its CC on its channel, if the track's MIDI OUT is on. FX and the master always
+send. SoundPlant never sends back what comes in. It never sends locks, automation, presets or a kit's 91 / 93 either,
 because each sound's own send is a separate parameter, and it isn't mapped.
 
 SCENES OUT comes after CC OUT in Setup's **SEL** list and is off to start with. With it on, when the scene changes
-on LOOM-8 or when you load a project, LOOM-8 sends that scene's Program Change on channel 11. A scene change that
+on SoundPlant or when you load a project, SoundPlant sends that scene's Program Change on channel 11. A scene change that
 came in over MIDI isn't sent back.
 ## Saving
 
-When you turn the FM-1 on, LOOM-8 opens the project you saved or loaded last. It saves by itself three seconds
+When you turn the FM-1 on, SoundPlant opens the project you saved or loaded last. It saves by itself three seconds
 after your last change, but only once it is stopped and silent, because writing to the flash would cut the sound.
 Until it saves, the header says "unsaved" and **SAVE** lights. Press **SAVE** to save at once.
 
 To save to another slot, hold **SAVE** and press white key 1 to 3. You can also pick SAVE TO on **HOME**'s **SEL**
-list and turn **ALGORITHM** to the slot. If the slot holds another project, LOOM-8 asks first. NEW PROJECT starts
+list and turn **ALGORITHM** to the slot. If the slot holds another project, SoundPlant asks first. NEW PROJECT starts
 in the first empty slot. If all three slots are taken, the new project has none, and it waits for you to use
 SAVE TO before it saves. To save only when you press **SAVE**, press **GLO**, go to Setup and set AUTOSAVE to off
 in its **SEL** list. Every project keeps that choice.
@@ -1551,18 +1584,18 @@ thirty-two, MIDI notes are switched on, and T1 to T8 go on channels 1 to 8. Proj
 open in older ones.
 
 **Backup.** You can keep the three projects, the user presets and kits, and your samples on a computer, and put
-them back later. Open <https://charlesvestal.github.io/fm1-loom/backup/> in Chrome or Edge with the FM-1 connected
+them back later. Open <https://daemon-summoner.github.io/fm1-soundplant/backup/> in Chrome or Edge with the FM-1 connected
 by USB. A backup holds the projects as they were last saved, so save anything you want in it first. Putting a
-backup back replaces all three projects and the presets. LOOM-8 asks first on its screen (**SEL** yes, **HOME**
+backup back replaces all three projects and the presets. SoundPlant asks first on its screen (**SEL** yes, **HOME**
 no), and only while stopped. Once you say yes, the page sends the samples too. This takes about 20 seconds, and
 the sound stops while they are written. If the backup was made before the page kept samples, your samples stay as
 they are. To do the same from a terminal, run these in the firmware's folder:
 
 - projects and presets: `python3 base/tools/fm1_backup.py backup FILE --magic LM8B` and `restore FILE`
-- samples: `python3 tools/loom_samples.py backup FILE` and `restore FILE` (its `restore` also takes the backup
+- samples: `python3 tools/soundplant_samples.py backup FILE` and `restore FILE` (its `restore` also takes the backup
   page's file)
 
-**Mirror.** To see LOOM-8's screen live on a computer, open <https://charlesvestal.github.io/fm1-loom/mirror/> in
+**Mirror.** To see SoundPlant's screen live on a computer, open <https://daemon-summoner.github.io/fm1-soundplant/mirror/> in
 Chrome or Edge with the FM-1 connected by USB. Use it for a video, a lesson, or a bigger view. The page
 shows the buttons, keys and knobs too, and you can play them from there. The music always comes first, so on a
 busy screen the picture may skip a frame, but the sound never does. From a terminal,
@@ -1625,12 +1658,12 @@ To put the FM-1 in update mode, hold **REC** while you switch it on. If you inst
 installer, the installer can reach the FM-1 from there, and holding **PLAY** instead opens m-bootloader's recovery
 menu. Without m-bootloader, **REC** starts the chip's own update mode, which only the rescue below can reach.
 
-If LOOM-8 crashes, it shows a red CRASH screen and restarts by itself a few seconds later. If you report the
+If SoundPlant crashes, it shows a red CRASH screen and restarts by itself a few seconds later. If you report the
 problem, include the numbers on that screen (a photo is easiest) and what you were doing.
 
-If LOOM-8 crashes twice in a row while starting, it starts in SAFE MODE instead. There's no sound, but USB works,
-so the web installer can reach it. Install LOOM-8 again, or put the stock firmware back from the same page. Press
-**PLAY** to try starting LOOM-8 normally again. If even safe mode fails twice, the FM-1 drops into the chip's own
+If SoundPlant crashes twice in a row while starting, it starts in SAFE MODE instead. There's no sound, but USB works,
+so the web installer can reach it. Install SoundPlant again, or put the stock firmware back from the same page. Press
+**PLAY** to try starting SoundPlant normally again. If even safe mode fails twice, the FM-1 drops into the chip's own
 update mode, and only the rescue below can reach it.
 
 ### Recovering an FM-1 that won't start
@@ -1652,30 +1685,30 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/hugelton/felucca-bsp/mai
    hold **REC** while you switch it back on. The script catches it and checks the chip. It saves a backup of the
    FM-1's memory in the `fm1-rescue` folder in your home folder, and asks before it writes anything.
 4. Type **yes** and press Return. Don't unplug anything until it says it's restarting the FM-1. The FM-1 then
-   starts into its original firmware, and you can install LOOM-8 again from there.
+   starts into its original firmware, and you can install SoundPlant again from there.
 
 The script downloads M-VAVE's FM-1 firmware (V16 and V15) and JieLi's flash loader, and checks them against known
 fingerprints. It writes only the firmware area of the memory, never the bootloader or the FM-1's own settings, and
 it checks everything it writes. Running it again is always safe. If it fails, copy everything in the Terminal
-window and [open an issue](https://github.com/charlesvestal/fm1-loom/issues). If the FM-1 never shows up at all,
+window and [open an issue](https://github.com/daemon-summoner/fm1-soundplant/issues). If the FM-1 never shows up at all,
 Felucca's [FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter) can still reach it. It's a small
 RP2040 board wired to the USB lines.
 
 ## Screen reader
 
-Connect the FM-1 by USB and open https://charlesvestal.github.io/fm1-reader/ in Chrome or Edge. LOOM-8 then
+Connect the FM-1 by USB and open https://charlesvestal.github.io/fm1-reader/ in Chrome or Edge. SoundPlant then
 speaks each page, knob value, step, scene and message as it changes, and reads the whole screen when you ask. The
 words it uses are published with this site, so every version reads its own screen correctly.
 
 ## Credits
 
-LOOM-8's way of working owes a great deal to teenage engineering's OP-XY. LOOM-8 is not affiliated with teenage
+SoundPlant's way of working owes a great deal to teenage engineering's OP-XY. SoundPlant is not affiliated with teenage
 engineering. It is built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hügelton Instruments), and it
 borrows Polly's menus and X0X's sequencer discipline.
 
 Cane and voile are Mutable Instruments Braids by Émilie Gillet (MIT). Acid is X0X's 303, from Open303 by Robin
 Schmidt (MIT), with jc303's Devilfish ranges by midilab and dm-Rat's RAT drive by Dave Mollen (GPL-3.0). That
-makes LOOM-8 GPL-3.0 as a whole. The plate reverb is after 9W9 by athousanddetails, and its PlayStation modes are
+makes SoundPlant GPL-3.0 as a whole. The plate reverb is after 9W9 by athousanddetails, and its PlayStation modes are
 PSXVerb's.
 
 The factory breaks are free loops by u/FCTRYBEATS. The 909 kick, snare and clap are renders of 9W9 by

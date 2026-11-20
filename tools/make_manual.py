@@ -229,7 +229,7 @@ def block(md_text, tag="p", cls=""):
     m = YOUTUBE.search(text)                   # a paragraph linking a video: the video under it
     if m:
         out += (f'<div class="video"><iframe src="https://www.youtube-nocookie.com/embed/{m.group(1)}" '
-                'title="LOOM-8 video" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; '
+                'title="SoundPlant video" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; '
                 'gyroscope; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>')
     return out + shots
 
@@ -342,7 +342,7 @@ def render(md):
 def main():
     src, dst = Path(sys.argv[1]), Path(sys.argv[2])
     body = render(src.read_text())
-    page = f"<title>LOOM-8 manual</title>{STYLE}<main>{body}</main>"
+    page = f"<title>SoundPlant manual</title>{STYLE}<main>{body}</main>"
     if "--fragment" not in sys.argv:
         page = f'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">{page}</html>'.replace("<main>", "</head><body><main>").replace("</main>", "</main></body>")
     dst.write_text(page)

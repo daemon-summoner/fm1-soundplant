@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MPL-2.0
 """The layout sweep: a simulator script (tests/run_tests.sh runs it) that turns through every page of every track,
 for each engine, character type, LFO type, player and filter type, and every effect of FX I and FX II. The
-simulator's layout audit (app/gfx_loom.c) checks each screen drawn: no label clipped, cut to fit, at the screen's
+simulator's layout audit (app/gfx_soundplant.c) checks each screen drawn: no label clipped, cut to fit, at the screen's
 edge, overlapping another or crossing a box.
   tools/layout_sweep.py OUT.xy"""
 import sys

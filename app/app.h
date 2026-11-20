@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8: the project (everything that is saved), the app's entry points and its half of the contract with fm1-base
+/* SoundPlant: the project (everything that is saved), the app's entry points and its half of the contract with fm1-base
  * (base/device/unity.c, base/host/plat_host.c). Included first by fm1-base's unity build and by its simulator. */
 #pragma once
 #include <stdint.h>
@@ -9,24 +9,25 @@
 #include "dsp/synth.h"
 #include "dsp/fx.h"
 
-#define APP_NAME "LOOM-8"
+#define APP_NAME "SoundPlant"
 #define APP_BLOCK 256u                  /* frames a render (5.8 ms): fm1-base's USB audio input takes 256-frame halves
-                                         * at most (felucca-bsp usb.c); LOOM-8's own platform had 512-frame halves,
+                                         * at most (felucca-bsp usb.c); SoundPlant's own platform had 512-frame halves,
                                          * each rendered as two 256-frame calls, which is what the simulator always did */
 #define FM1B_UAC_DEEP 1                 /* the USB audio input a half deeper: a song's busy blocks take most of their
                                          * time, which ran fm1-base's ring dry (holds in a recording; base/device/unity.c) */
-#define APP_CANVAS_PX (240u * 120u)     /* the tallest band, the main one, is 240 x 120 */
-#define APP_SYS_TEXT                    /* fm1-base's own screens (crash, update, restore, calibration) in LOOM-8's faces:
-                                         * gfx_loom.c app_sys_*; fm1-base's are then not linked (18 KB) */
+#define APP_CANVAS_PX (240u * 60u)      /* the canvas: 60 rows, a taller picture is drawn in bands (gfx_soundplant.c pic_next) */
+#define APP_SYS_TEXT                    /* fm1-base's own screens (crash, update, restore, calibration) in SoundPlant's faces:
+                                         * gfx_soundplant.c app_sys_*; fm1-base's are then not linked (18 KB) */
 
 /* the store, all in the data area: the panel calibration (the platform's, where every fm1-base firmware keeps it),
  * the user presets at 0xDE000, then NPROJ project slots of PROJ_NOBJ objects each (the settings, then the LZ chunks
- * of the patterns), two 4 KB sectors an object, from 0x97000 up to 0xC1000. The user sample bank is raw flash
- * beside them, 216 KB in three windows (dsp/sample.h SMP_REG*, plat_data): 0xC1000..0xDBFFF (108 KB, after the
- * projects, up to the calibration), fm1-base's PLAT_XDATA1 0xE5000..0xFBFFF (92 KB, above the update's staging)
+ * of the patterns), two 4 KB sectors an object, from 0x97000 up to 0xC1000 (the pool below takes 0x97000..0xAAFFF; the
+ * resource region the rest, to 0xC9FFF). The user sample bank is raw flash
+ * beside them, 180 KB in three windows (dsp/sample.h SMP_REG*, plat_data): 0xCA000..0xDBFFF (72 KB, after the
+ * resource region, up to the calibration), fm1-base's PLAT_XDATA1 0xE5000..0xFBFFF (92 KB, above the update's staging)
  * and PLAT_XDATA0 0x93000..0x96FFF (16 KB, above the app area); app.c checks that no store object lies in them.
- * Nothing of LOOM-8's is left free in the data area; above it, 0xE0000..0xE4FFF is the update's staging and
- * 0xFC000.. Felucca's settings pair (neither LOOM-8's). LOOM-8 was never released, so this map did not have to
+ * Nothing of SoundPlant's is left free in the data area; above it, 0xE0000..0xE4FFF is the update's staging and
+ * 0xFC000.. Felucca's settings pair (neither SoundPlant's). SoundPlant was never released, so this map did not have to
  * keep its own platform's (four slots); it does, but for the fourth slot: the same numbers at the same places, so
  * what a development build saved in slots 1 to 3 and the presets carry over (the sample bank moved: upload it
  * again) */
@@ -44,7 +45,7 @@ enum { OBJ_PANEL, OBJ_PRESETS, OBJ_PROJ0, OBJ_BLE = OBJ_PROJ0 + NPROJ * PROJ_NOB
  * objects, which until 0.12 had a pair each (42 sectors, to 0xC0FFF: the map above, kept for that), so a project of a
  * few KB takes two sectors and the slots share the room; three of 15 KB packed always fit (MEMORY FULL past the room:
  * project.c). The A/B pairs' copies move into the pool at the first boot (st_pool_boot); 0xAB000..0xC0FFF (22
- * sectors, 88 KB) are then free for the 909 samples' resource region */
+ * sectors, 88 KB) are then free, and the nine after them: the resource region */
 #define APP_STORE_POOL
 #define APP_STORE_POOL_BASE 0x97000u
 #define APP_STORE_POOL_N 20u
@@ -53,16 +54,16 @@ enum { OBJ_PANEL, OBJ_PRESETS, OBJ_PROJ0, OBJ_BLE = OBJ_PROJ0 + NPROJ * PROJ_NOB
 #define APP_STORE_POOL_OBJN (NPROJ * PROJ_NOBJ)
 /* up to 0.12 a save wrote every stream object past the packed stream as its format word alone (project.c st_flush:
  * PROJ_STREAM, 4 bytes): nothing to keep, so not moved into the pool (a stream object holds data after the word) */
-/* the resource region (fm1-base device/res.c; fm1.toml resources): the 909 cymbals' samples (tools/gen_909res.py), in
- * the sectors the pool freed */
+/* the resource region (fm1-base device/res.c; fm1.toml resources; tools/gen_res.py): the 909 cymbals' samples, the
+ * wavetable engine's tables and the large type faces, 31 sectors from the ones the pool freed (0xAB000..0xC9FFF) */
 #define APP_RES_BASE 0xAB000u
-#define APP_RES_SECTORS 22u
+#define APP_RES_SECTORS 31u
 #define APP_STORE_POOL_EMPTY(obj, p, n) \
     ((n) == 4u && ((obj) - OBJ_PROJ0) % PROJ_NOBJ >= 2u && (p)[0] == 2u && !(p)[1] && !(p)[2] && !(p)[3])
 
 /* backup and restore over USB (fm1-base's backup.c; base/tools/fm1_backup.py, base/web/backup): the user presets
  * and the three project slots, all or nothing. Not the user sample bank (raw flash, not store objects: its source is
- * the player's own WAVs, tools/loom_samples.py); a restore writes only the objects listed here, never its windows */
+ * the player's own WAVs, tools/soundplant_samples.py); a restore writes only the objects listed here, never its windows */
 #define APP_BACKUP_OBJS {OBJ_PRESETS, \
     OBJ_PROJ0 + 0, OBJ_PROJ0 + 1, OBJ_PROJ0 + 2, OBJ_PROJ0 + 3, OBJ_PROJ0 + 4, OBJ_PROJ0 + 5, OBJ_PROJ0 + 6, \
     OBJ_PROJ0 + 7, OBJ_PROJ0 + 8, OBJ_PROJ0 + 9, OBJ_PROJ0 + 10, OBJ_PROJ0 + 11, OBJ_PROJ0 + 12, OBJ_PROJ0 + 13, \
@@ -70,8 +71,8 @@ enum { OBJ_PANEL, OBJ_PRESETS, OBJ_PROJ0, OBJ_BLE = OBJ_PROJ0 + NPROJ * PROJ_NOB
 #define APP_BACKUP_MAGIC 0x42384D4Cu     /* "LM8B" */
 #define APP_BACKUP_VERSION 1u
 #define APP_BACKUP_WHAT "replaces projects, presets"
-#define APP_BACKUP_BUF loom_io_buf      /* project.c's object buffer, lent to a restore (fm1-base's own: 3.8 KB of the pool) */
-extern uint8_t loom_io_buf[];
+#define APP_BACKUP_BUF soundplant_io_buf      /* project.c's object buffer, lent to a restore (fm1-base's own: 3.8 KB of the pool) */
+extern uint8_t soundplant_io_buf[];
 int app_backup_playing(void);
 void app_backup_flush(void);
 void app_backup_hold(int on);
@@ -95,7 +96,7 @@ void app_redraw(void);
 #define APP_SYSEX                       /* the user sample bank over USB-MIDI (samples.c: F0 7D 46 4C) */
 int app_sysex(const uint8_t *p, uint32_t n);
 
-/* the host simulator's part (host.c): LOOM-8's checks and commands, the screen reader's dump */
+/* the host simulator's part (host.c): SoundPlant's checks and commands, the screen reader's dump */
 #ifdef PLAT_HOST
 #define APP_HOST_EXPECT
 int app_expect(const char *what, int *got);
@@ -112,23 +113,24 @@ void app_host_ms(void);
 #define APP_HOST_CPU2                   /* the second core simulated in host.c (its work counted apart) */
 #endif
 
-/* LOOM-8's own platform extras, beyond fm1-base's plat.h (its second core too: fm1.toml cpu2 = true): on the FM-1 in
- * plat_loom.c (felucca-bsp's helpers), in the simulator in host.c */
+/* SoundPlant's own platform extras, beyond fm1-base's plat.h (its second core too: fm1.toml cpu2 = true): on the FM-1 in
+ * plat_soundplant.c (felucca-bsp's helpers), in the simulator in host.c */
 uint32_t plat_cpu_peak_pct(void);       /* the render's peak load since the last call, % */
 uint32_t plat_cycles(void);             /* a cycle counter for the profiler (ISR) */
 int plat_store_load_prev(uint32_t obj, void *dst, uint32_t max);   /* the copy before the current one (a torn stream) */
-int loom_store_save(uint32_t obj, const void *src, uint32_t len);  /* plat_store_save, the host keeping the copy before */
+int soundplant_store_save(uint32_t obj, const void *src, uint32_t len);  /* plat_store_save, the host keeping the copy before */
 int plat_vdc14_mv(void);                /* VDC14 as set at start, mV (the Status page) */
 int plat_sysvdd_mv(void);
 int plat_last_crash(uint32_t v[5]);     /* 1: a crash since power-on (vec, pc, emu, dbg, rets as its red screen) */
 /* the lights: lit buttons and keys; glow: the unlit buttons dim (PLAY's green one); dim_keys dim; red: PLAY red */
-void loom_lights(uint32_t buttons, uint32_t keys, int glow, uint32_t dim_keys, int red);
+void soundplant_lights(uint32_t buttons, uint32_t keys, int glow, uint32_t dim_keys, int red);
 
 /* a debug build (not tools/build.py --release): GLO's last page, Debug, with the load, the voices and CORES */
 #define DEBUG_BUILD (APP_VERSION[0] == 'D' && APP_VERSION[1] == 'E' && APP_VERSION[2] == 'V' && \
                      (!APP_VERSION[3] || APP_VERSION[3] == 'T'))   /* DEV, or the load test's DEVTEST */
 #define PROJ_MAGIC 0x384D4F4Cu          /* "LOM8" (was "XXY1": XY-1's projects start fresh) */
-#define PROJ_FORMAT 21u                 /* (10, 0.5-beta's, to 12 load too: project.c migrate_old; older ones do not)
+#define PROJ_FORMAT 22u                 /* (10, 0.5-beta's, to 12 load too: project.c migrate_old; older ones do not)
+                                         * 22: the master's polish (MS_POLISH, the EQ page's fourth knob; older projects: POLISH_DEF);
                                          * 21: the arp's dotted speeds, the delay's triplet times (project.c OLD_ARP);
                                          * 20: an FX track's PING WIDTH (TP_FX_WIDTH, its TP_X1; older: 127, full);
                                          * 19: the random player's octaves up (TP_RUP), the tracks' last parameter;

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* LOOM-8 synth: a pool of voices playing eight engines (knit, rayon, jacquard, bellows, cane, voile, sample and slice),
+/* SoundPlant synth: a pool of voices playing eight engines (knit, rayon, jacquard, bellows, cane, voile, sample and slice),
  * each voice with two ADSRs, a state-variable filter, a character stage, an LFO and sends. (The kit, EG_DRUMLINE, is
  * dsp/drumline.c's.)
  *
@@ -331,6 +331,14 @@ void synth_acid_lite(synth_t *s, int on);                      /* and before it:
 int synth_lock_value(const synth_t *s, int trk, int param);   /* a lock's value now, -1 none (the UI's dot) */
 void synth_load_hint(synth_t *s, uint32_t pct);              /* the last block's load, %: the note-start check */
 extern uint32_t synth_load_steals;                            /* notes that took a sounding voice by the load check */
+/* the wavetable engine's tables (tools/gen_wavetables.py): int8, WT_NTABLE tables of WT_NFRAME frames of WT_N samples, in the
+ * resource region (WTB1). wt_res_get answers that section's bytes (the app's: plat_res), 0 while the FM-1 does not hold them:
+ * jacquard is then silent, and wt_res_ok says so */
+#define WT_NTABLE 9
+#define WT_NFRAME 16
+#define WT_N 256
+extern const uint8_t *(*wt_res_get)(uint32_t *len);
+int wt_res_ok(void);
 /* what voice vi costs to render, in rough units for the cores' split (engine.c split_at): 0 silent, 4 an
  * ordinary voice (bellows 5), knit 3 + its unison (+ 1 osc 2, + 1 sub or noise); the Braids engines by their model
  * (braids.h: 3 .. 8, cane's bell the most) */
@@ -345,5 +353,5 @@ extern volatile uint32_t synth_vworst[3];
 extern volatile uint32_t synth_vblk[NVOICE];
 extern volatile uint8_t synth_vinfo[NVOICE];
 #ifdef PLAT_HOST
-extern uint16_t synth_host_solo;              /* the host's stems (host.c LOOM_SOLO): bits 0-7 tracks, 8 / 9 FX I / II */
+extern uint16_t synth_host_solo;              /* the host's stems (host.c SOUNDPLANT_SOLO): bits 0-7 tracks, 8 / 9 FX I / II */
 #endif

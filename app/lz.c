@@ -34,7 +34,7 @@ typedef struct {
 } lz_src_t;
 
 /* a position's low 16 bits: a match reaches 64 KB back at most. On the FM-1 in the screen's canvas (gfx.c cv_px,
- * 57 KB), which nothing reads between frames: every page fills it (cv_begin) before it sends it, and the
+ * 29 KB), which nothing reads between frames: every page fills it (cv_begin) before it sends it, and the
  * compressor runs in the main loop, never in a page's drawing, after the last transfer (lcd_sync). 4 KB of the
  * pool for Bluetooth's (ble-spike) */
 #ifdef PLAT_HOST

@@ -1,4 +1,4 @@
-# LOOM-8 demo: modern pop, 110 BPM, C major (C G Am F). (tools/demos/render.sh renders it; its bank is
+# SoundPlant demo: modern pop, 110 BPM, C major (C G Am F). (tools/demos/render.sh renders it; its bank is
 # build/demos/pop.bin: the hook sung in a bar and an "oh" to play as an instrument, both made by
 # tools/demos/make_banks.py.)
 #   T1 kit: kick, the clap as a snap (a snare under it in the chorus), eighth hats with rolls
@@ -384,7 +384,7 @@ knob 3 cut 90
 tap HOME
 turn SELECT 1
 stats reset
-wav loom_demo_pop.wav
+wav soundplant_demo_pop.wav
 tap PLAY
 # intro 2: the hook opening
 bars 1

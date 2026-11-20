@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MPL-2.0
-"""LOOM-8's profiler on an attached FM-1: where the audio render's time goes, stage by stage (app/samples.c SB_PROF,
+"""SoundPlant's profiler on an attached FM-1: where the audio render's time goes, stage by stage (app/samples.c SB_PROF,
 app/engine.h PR_*, app/dsp/synth.h synth_prof), as shares of the render's budget (the time its frames last).
 
   tools/perf_read.py [--every S] [--for S]      a line every S seconds (1.0) for S seconds (forever): the stages'
@@ -29,8 +29,8 @@ class Port:
 
     def __init__(self):
         import mido
-        outs = [n for n in mido.get_output_names() if "LOOM" in n or "FM-1" in n]
-        ins = [n for n in mido.get_input_names() if "LOOM" in n or "FM-1" in n]
+        outs = [n for n in mido.get_output_names() if "SoundPlant" in n or "FM-1" in n]
+        ins = [n for n in mido.get_input_names() if "SoundPlant" in n or "FM-1" in n]
         if not outs or not ins:
             sys.exit("perf_read: no FM-1 on USB-MIDI")
         self.out = mido.open_output(outs[0])

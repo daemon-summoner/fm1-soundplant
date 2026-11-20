@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MPL-2.0
-"""Make the LOOM-8 site for GitHub Pages (https://charlesvestal.github.io/fm1-loom/):
+"""Make the SoundPlant site for GitHub Pages (https://daemon-summoner.github.io/fm1-soundplant/):
 
-  index.html                    what LOOM-8 is, and the ways in: try, install, download, manual, source
+  index.html                    what SoundPlant is, and the ways in: try, install, download, manual, source
   manual/index.html             docs/MANUAL.md as a page (tools/make_manual.py), its screenshots in img/
   img/                          screenshots (docs/img)
-  emu/                          LOOM-8 in the browser (app/build/emu, from ./build.sh --web)
+  emu/                          SoundPlant in the browser (app/build/emu, from ./build.sh --web)
   words/                        the screen reader's words files (app/web/words, from app/words.tsv)
   install/index.html            the web installer (fm1-base's web/installer.html, with fm1ports.js, fm1pkg.js, fm1ota.js and
                                 the package's metadata inlined; Chrome or Edge, Web MIDI)
@@ -14,15 +14,17 @@
   mirror/index.html             the screen and the panel on the computer (fm1-base's web/mirror/index.html; Chrome or
                                 Edge, Web MIDI)
   samples/index.html            the user sample bank in the browser (app/web/samples/: add, replace, rename, reorder,
-                                remove; loom_samples.js inlined)
-  firmware/loom-VERSION.fwsc    the package the installer writes; also the download
-  firmware/loom-VERSION-res.bin the resource region beside it (the 909 cymbals), which the installer writes after it
+                                remove; soundplant_samples.js inlined)
+  firmware/soundplant-VERSION.fwsc    the package the installer writes; also the download
+  firmware/soundplant-VERSION-res.bin the resource region beside it (the 909 cymbals, the wavetables, the large type), which the installer
+                                writes after it
   firmware/m-bootloader-X.Y.fwsc  m-bootloader (MIT, fm1-base's web/m-bootloader), offered after the firmware
 
-  tools/make_pages.py app/build/loom-0.1.fwsc 0.1 OUT_DIR
+  tools/make_pages.py app/build/soundplant-0.1.fwsc 0.1 OUT_DIR
 
 The package must be a release build (./build.sh --release X.Y): its identity, FM-1_10XXYYZZ, is what
 the installer checks the download against and what the FM-1 reports after the install."""
+
 import hashlib
 import html
 import json
@@ -37,33 +39,77 @@ sys.path.insert(0, str(SRC / "base" / "tools"))
 import make_site as base_site  # noqa: E402  (fm1-base's: the installer, the backup page, the package format)
 from make_site import product_of, strip_module  # noqa: E402
 
-REPO = "https://github.com/charlesvestal/fm1-loom"
-# the app's look (app/pages.c THEMES[0], "tape deck"): its eight track inks, and the site's palette from it: dark is the
-# FM-1's screen, light the same browns on cream paper. Every page of the site wears it (dress()), whatever names its own
-# stylesheet gives the colours, with a header to go between them.
-TRACKS = ["#e6b432", "#d66030", "#a0aa46", "#46aaa0", "#6e96c8", "#b46e96", "#d2aa78", "#96be96"]
+REPO = "https://github.com/daemon-summoner/fm1-soundplant"
+# the app's look (app/pages.c THEMES[3], "prism"): its eight track inks, and the site's palette from it: dark is the FM-1's
+# screen, near-black with the rainbow, light the same hues deepened on pale paper. Every page of the site wears it
+# (dress()), whatever names its own stylesheet gives the colours, with a header to go between them.
+TRACKS = [
+    "#ff4081",
+    "#ff911e",
+    "#ffe628",
+    "#3cff78",
+    "#00e1ff",
+    "#3c78ff",
+    "#a05cff",
+    "#eb40ff",
+]
 PALETTE = {
-    "light": {"bg": "#f4ecdc", "card": "#fffaf0", "now": "#e9dcc4", "rule": "#d8c6a8", "muted": "#6a5440", "ink": "#24180f",
-              "accent": "#8a5a00", "on": "#ffffff", "teal": "#2a7a72", "bad": "#b3261e", "focus": "#2f5f9a", "wave": "#a08a6e"},
-    "dark": {"bg": "#18120e", "card": "#2c221a", "now": "#46382a", "rule": "#4a3c2e", "muted": "#beaa8c", "ink": "#f4e6c8",
-             "accent": "#e6b432", "on": "#18120e", "teal": "#46aaa0", "bad": "#ff7a5c", "focus": "#8fb4e0", "wave": "#786450"},
+    "light": {
+        "bg": "#f3f4fb",
+        "card": "#ffffff",
+        "now": "#e4e7f7",
+        "rule": "#d2d6ee",
+        "muted": "#545b86",
+        "ink": "#0c0e24",
+        "accent": "#6a2ee8",
+        "on": "#ffffff",
+        "teal": "#0a7a46",
+        "bad": "#c4162a",
+        "focus": "#2f5fd0",
+        "wave": "#8a90b8",
+    },
+    "dark": {
+        "bg": "#06070f",
+        "card": "#0e1022",
+        "now": "#1a1d3a",
+        "rule": "#242850",
+        "muted": "#8e96cd",
+        "ink": "#eef1ff",
+        "accent": "#00e1ff",
+        "on": "#04050c",
+        "teal": "#3cff78",
+        "bad": "#ff5a5a",
+        "focus": "#7aa8ff",
+        "wave": "#5560a0",
+    },
 }
 
 
 def tokens(p):
     """the palette under every name the site's pages use for it (the landing's, the manual's, the installer's, the
     backup's, the emulator's, the samples page's)"""
-    names = {"bg": ("ground", "bg"), "card": ("card", "panel"), "now": ("now",), "rule": ("rule", "line"),
-             "muted": ("muted", "dim"), "ink": ("ink", "fg"), "accent": ("accent",), "on": ("on-accent", "keytext"),
-             "teal": ("teal",), "bad": ("bad", "red"), "focus": ("focus",), "wave": ("wave",)}
+    names = {
+        "bg": ("ground", "bg"),
+        "card": ("card", "panel"),
+        "now": ("now",),
+        "rule": ("rule", "line"),
+        "muted": ("muted", "dim"),
+        "ink": ("ink", "fg"),
+        "accent": ("accent",),
+        "on": ("on-accent", "keytext"),
+        "teal": ("teal",),
+        "bad": ("bad", "red"),
+        "focus": ("focus",),
+        "wave": ("wave",),
+    }
     out = [f"--{n}: {p[k]};" for k, ns in names.items() for n in ns]
     out.append(f"--key: {p['ink']};")
     return " ".join(out)
 
 
 SITE_CSS = """<style>
-:root { --panel-lit: #e6b432; --panel-lit-ink: #18120e; --panel-lit-white: #f0d58a; --panel-lit-black: #46aaa0;
-        --panel-dim: #6b5a2e; --panel-dim-white: #e4d8b4; --panel-dim-black: #8fbdb7; }   /* (the FM-1's lights: fm1panel.js; as app/web/emu) */
+:root { --panel-lit: #00e1ff; --panel-lit-ink: #04050c; --panel-lit-white: #b4f6ff; --panel-lit-black: #ec40ff;
+        --panel-dim: #0f6a7a; --panel-dim-white: #cfeaf0; --panel-dim-black: #d9a0e6; }   /* (the FM-1's lights: fm1panel.js; as app/web/emu) */
 :root { %s color-scheme: light; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { %s color-scheme: dark; } }
 :root[data-theme="dark"] { %s color-scheme: dark; }
@@ -78,34 +124,52 @@ SITE_CSS = """<style>
 .lm-top nav a:hover, .lm-top nav a:focus-visible { color: var(--ink); }
 .lm-top nav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
 @media (max-width: 520px) { .lm-top nav { margin-left: 0; width: 100%%; } }
-</style>""" % (tokens(PALETTE["light"]), tokens(PALETTE["dark"]), tokens(PALETTE["dark"]))
+</style>""" % (
+    tokens(PALETTE["light"]),
+    tokens(PALETTE["dark"]),
+    tokens(PALETTE["dark"]),
+)
 
-SECTIONS = [("emu/", "Try it"), ("manual/", "Manual"), ("install/", "Install"), ("samples/", "Samples"),
-            ("backup/", "Backup"), ("mirror/", "Mirror")]
+SECTIONS = [
+    ("emu/", "Try it"),
+    ("manual/", "Manual"),
+    ("install/", "Install"),
+    ("samples/", "Samples"),
+    ("backup/", "Backup"),
+    ("mirror/", "Mirror"),
+]
 
 
 def dress(page, here):
     """a page of the site in the app's colours, with the site's header; here: its section ("" the front page)"""
     up = "../" if here else ""
     threads = "".join(f'<i style="background:{c}"></i>' for c in TRACKS)
-    links = "".join(f'<a href="{up}{d}"' + (' aria-current="page"' if d == here else "") + f">{t}</a>"
-                    for d, t in SECTIONS)
+    links = "".join(
+        f'<a href="{up}{d}"'
+        + (' aria-current="page"' if d == here else "")
+        + f">{t}</a>"
+        for d, t in SECTIONS
+    )
     links += f'<a href="{REPO}">Source</a>'
-    top = (f'<header class="lm-top"><a class="lm-brand" href="{up or "./"}"' + (' aria-current="page"' if not here else "") +
-           f'><span class="lm-threads" aria-hidden="true">{threads}</span>LOOM-8</a>'
-           f'<nav aria-label="LOOM-8">{links}</nav></header>')
+    top = (
+        f'<header class="lm-top"><a class="lm-brand" href="{up or "./"}"'
+        + (' aria-current="page"' if not here else "")
+        + f'><span class="lm-threads" aria-hidden="true">{threads}</span>SoundPlant</a>'
+        f'<nav aria-label="SoundPlant">{links}</nav></header>'
+    )
     if page.count("</head>") != 1 or not re.search(r"<body[^>]*>", page):
         raise SystemExit(f"dress: {here or 'index'}: no head or body")
     page = page.replace("</head>", SITE_CSS + "</head>")
     return re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + top, page, count=1)
+
 
 LANDING = """<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LOOM-8</title>
-<meta name="description" content="LOOM-8 turns the M-VAVE FM-1 into a pocket groovebox, with eight tracks, a 64-step sequencer with tricks and locks, weave, throws, a conductor and a song.">
+<title>SoundPlant</title>
+<meta name="description" content="SoundPlant turns the M-VAVE FM-1 into a pocket groovebox, with eight tracks, a 64-step sequencer with tricks and locks, weave, throws, a conductor and a song.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap">
@@ -143,12 +207,12 @@ code { font-size: .9em; }
 </head>
 <body>
 <main>
-<h1>LOOM-8</h1>
+<h1>SoundPlant</h1>
 <div class="threads" aria-hidden="true">__THREADS__</div>
-<p class="lede">LOOM-8 turns your M-VAVE FM-1 into a pocket groovebox. Fill eight tracks with synths, samples,
+<p class="lede">SoundPlant turns your M-VAVE FM-1 into a pocket groovebox. Fill eight tracks with synths, samples,
 chopped-up breaks or drums, and sequence them over 64 steps, with tricks and parameter locks on any step. Then weave
 two patterns together to get a third.</p>
-<div class="video"><iframe src="https://www.youtube-nocookie.com/embed/d84QXnfulRE" title="LOOM-8 video" loading="lazy"
+<div class="video"><iframe src="https://www.youtube-nocookie.com/embed/d84QXnfulRE" title="SoundPlant video" loading="lazy"
   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
 <div class="shots">
   <img src="img/screen-beat-playing.png" width="240" height="240" alt="The Steps page on T1, the kit, playing: kick and snare in pink, the playhead lit">
@@ -157,7 +221,7 @@ two patterns together to get a third.</p>
 </div>
 <div class="status"><strong>Version __VERSION__.</strong> You install and remove it like any other fm1-base
 firmware, and the installer can always put M-VAVE's own firmware back. Install at your own risk.</div>
-<nav class="ways" aria-label="Get LOOM-8">
+<nav class="ways" aria-label="Get SoundPlant">
   <a href="emu/"><strong>Try it in the browser</strong><span>Play it right here, with sound. It runs the same code as the FM-1, so you don't need one.</span></a>
   <a href="manual/"><strong>Read the manual</strong><span>Start with the ten-minute quick start, then look up any page or gesture.</span></a>
   <a href="install/"><strong>Install</strong><span>Connect your FM-1 by USB and install from Chrome or Edge. There's nothing to install on your computer.</span></a>
@@ -180,9 +244,9 @@ firmware, and the installer can always put M-VAVE's own firmware back. Install a
   <li>The FM-1 can read its screen aloud with <a href="https://charlesvestal.github.io/fm1-reader/">FM-1 Screen Reader</a>.</li>
 </ul>
 <p class="small">To go back to the official firmware, use "Back to the stock firmware" in the installer, or
-M-VAVE's own updater, M-UPGRADE, from <a href="https://www.m-vave.com/download">m-vave.com/download</a>. LOOM-8
+M-VAVE's own updater, M-UPGRADE, from <a href="https://www.m-vave.com/download">m-vave.com/download</a>. SoundPlant
 owes a lot of its way of working to teenage engineering's OP-XY. M-VAVE, FM-1 and OP-XY are trademarks of their
-owners; LOOM-8 is not affiliated with any of them.</p>
+owners; SoundPlant is not affiliated with any of them.</p>
 </main>
 </body>
 </html>
@@ -194,121 +258,242 @@ def main(pkg, version, out):
     raw = pkg.read_bytes()
     product = product_of(raw)
     if not re.fullmatch(r"FM-1_10\d{6}", product):
-        raise SystemExit(f"{pkg}: identity {product!r}: make a release build (./build.sh --release X.Y)")
+        raise SystemExit(
+            f"{pkg}: identity {product!r}: make a release build (./build.sh --release X.Y)"
+        )
     if b"FELUCCA-LOADER-1" not in raw:
         raise SystemExit(f"{pkg}: no update loader in it")
-    name = f"loom-{re.sub(r'[^A-Za-z0-9.-]', '-', version)}.fwsc"
+    name = f"soundplant-{re.sub(r'[^A-Za-z0-9.-]', '-', version)}.fwsc"
     if out.exists():
         shutil.rmtree(out)
     for d in ("install", "firmware", "backup", "mirror"):
         (out / d).mkdir(parents=True)
     shutil.copy(pkg, out / "firmware" / name)
-    # the resource region (the 909 cymbals: fm1.toml resources), checked, beside it: the installer writes it after
-    res_src, res_name = pkg.with_name(pkg.stem + "-res.bin"), Path(name).stem + "-res.bin"
+    # the resource region (the 909 cymbals, the wavetables, the large type: fm1.toml resources), checked, beside it: the installer writes it after
+    res_src, res_name = (
+        pkg.with_name(pkg.stem + "-res.bin"),
+        Path(name).stem + "-res.bin",
+    )
     if not res_src.exists():
-        raise SystemExit(f"make_pages: no {res_src} (./build.sh --release writes it; gh release download it with the package)")
+        raise SystemExit(
+            f"make_pages: no {res_src} (./build.sh --release writes it; gh release download it with the package)"
+        )
     sys.path.insert(0, str(SRC / "base" / "tools"))
     from fm1_resources import ResError, payload_of
+
     try:
         payload_of(res_src.read_bytes())
     except ResError as e:
         raise SystemExit(f"make_pages: {res_src}: {e}")
     shutil.copy(res_src, out / "firmware" / res_name)
     # m-bootloader (MIT), which the installer offers after the firmware, with its licence (as fm1-base's sites)
-    boot = SRC / "base" / "web" / "m-bootloader" / f"fm1-uboot-{base_site.MBOOT_VERSION}.fwsc"
+    boot = (
+        SRC
+        / "base"
+        / "web"
+        / "m-bootloader"
+        / f"fm1-uboot-{base_site.MBOOT_VERSION}.fwsc"
+    )
     boot_name = f"m-bootloader-{base_site.MBOOT_VERSION}.fwsc"
     shutil.copy(boot, out / "firmware" / boot_name)
-    shutil.copy(SRC / "base" / "web" / "m-bootloader" / "LICENSE", out / "firmware" / "m-bootloader-LICENSE.txt")
-    for lic in sorted((SRC / "base" / "LICENSES").glob("*.txt")):   # fm1-base's parts under other licences (the JieLi
-        shutil.copy(lic, out / "firmware" / lic.name)               # SDK files, the Bluetooth stack's Apache / BSD parts)
+    shutil.copy(
+        SRC / "base" / "web" / "m-bootloader" / "LICENSE",
+        out / "firmware" / "m-bootloader-LICENSE.txt",
+    )
+    for lic in sorted(
+        (SRC / "base" / "LICENSES").glob("*.txt")
+    ):  # fm1-base's parts under other licences (the JieLi
+        shutil.copy(
+            lic, out / "firmware" / lic.name
+        )  # SDK files, the Bluetooth stack's Apache / BSD parts)
     page = (SRC / "base" / "web" / "installer.html").read_text(encoding="utf-8")
-    lib = "\n".join(strip_module((SRC / "base" / "web" / f).read_text(encoding="utf-8"))   # (as fm1-base's make_site)
-                     for f in ("fm1ports.js", "fm1pkg.js", "fm1ota.js"))
-    meta = json.dumps({"version": version, "product": product, "pkg": "../firmware/" + name,
-                       "backup": True,                              # (the site's backup page: the installer links it)
-                       "res": "../firmware/" + res_name,           # (the resource region: written after the firmware)
-                       "boot": {"pkg": "../firmware/" + boot_name, "version": base_site.MBOOT_VERSION,
-                                "sha256": hashlib.sha256(boot.read_bytes()).hexdigest()}})
+    lib = "\n".join(
+        strip_module(
+            (SRC / "base" / "web" / f).read_text(encoding="utf-8")
+        )  # (as fm1-base's make_site)
+        for f in ("fm1ports.js", "fm1pkg.js", "fm1ota.js")
+    )
+    meta = json.dumps(
+        {
+            "version": version,
+            "product": product,
+            "pkg": "../firmware/" + name,
+            "backup": True,  # (the site's backup page: the installer links it)
+            "res": "../firmware/"
+            + res_name,  # (the resource region: written after the firmware)
+            "boot": {
+                "pkg": "../firmware/" + boot_name,
+                "version": base_site.MBOOT_VERSION,
+                "sha256": hashlib.sha256(boot.read_bytes()).hexdigest(),
+            },
+        }
+    )
     for mark in ("/*LIB*/", "/*META*/"):
         if page.count(mark) != 1:
             raise SystemExit(f"base/web/installer.html must contain {mark} once")
     conf = base_site.read_conf(SRC / "app" / "fm1.toml")
-    credits = conf.get("credits", "").replace("Built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hügelton "
-                                              "Instruments). ", "")        # (the page says that part itself)
-    for key, val in (("RES", conf["resources_what"]), ("RES_JA", conf["resources_what_ja"]),   # (fm1.toml)
-                     ("NAME", "LOOM-8"), ("REPO", REPO), ("REPO_SHORT", REPO.replace("https://", "")),
-                     ("LICENSE", conf.get("licence", "MPL-2.0")), ("CREDITS", " " + credits if credits else "")):
+    credits = conf.get("credits", "").replace(
+        "Built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hügelton "
+        "Instruments). ",
+        "",
+    )  # (the page says that part itself)
+    for key, val in (
+        ("RES", conf["resources_what"]),
+        ("RES_JA", conf["resources_what_ja"]),  # (fm1.toml)
+        ("NAME", "SoundPlant"),
+        ("REPO", REPO),
+        ("REPO_SHORT", REPO.replace("https://", "")),
+        ("LICENSE", conf.get("licence", "MPL-2.0")),
+        ("CREDITS", " " + credits if credits else ""),
+    ):
         page = page.replace("{{" + key + "}}", val)
     # since 0.7 the breaks are a pack for the user bank: say so where the firmware is installed
     warn = '<p data-t="warn">'
     if page.count(warn) != 1:
         raise SystemExit(f"base/web/installer.html must contain {warn} once")
-    page = page.replace(warn, '<p class="note"><b>LOOM-8\'s sounds now live in the sample bank.</b> From 0.8, its own '
-                        'sounds (the kits\' drums, the instruments, the sweep and the vinyl: 86 KB) are no longer built '
-                        'into the firmware, to make room for Bluetooth MIDI. The installer adds them to the sample bank '
-                        'after your samples, which keep their numbers; if your samples leave no room for them, it asks '
-                        'first. The four breaks (from 0.7) are on <a href="../samples/">the samples page</a>: "Add the '
-                        'breaks".</p>\n  ' + warn)
-    page = page.replace("</style>", "  .note { border-left: 4px solid var(--accent); padding: 4px 0 4px 12px; }\n</style>", 1)
-    # the installer's own steps for LOOM-8 (base/web/installer.html APP): the factory set into the sample bank
-    app_js = ("(() => {\n" + strip_module((SRC / "app" / "web" / "samples" / "loom_samples.js").read_text(encoding="utf-8"))
-              + "\n" + (SRC / "app" / "web" / "install_app.js").read_text(encoding="utf-8") + "\nreturn { before, after };\n})()")
+    page = page.replace(
+        warn,
+        '<p class="note"><b>SoundPlant\'s sounds now live in the sample bank.</b> From 0.8, its own '
+        "sounds (the kits' drums, the instruments, the sweep and the vinyl: 77 KB) are no longer built "
+        "into the firmware, to make room for Bluetooth MIDI. The installer adds them to the sample bank "
+        "after your samples, which keep their numbers; if your samples leave no room for them, it asks "
+        'first. The four breaks (from 0.7) are on <a href="../samples/">the samples page</a>: "Add the '
+        'breaks".</p>\n  ' + warn,
+    )
+    page = page.replace(
+        "</style>",
+        "  .note { border-left: 4px solid var(--accent); padding: 4px 0 4px 12px; }\n</style>",
+        1,
+    )
+    # the installer's own steps for SoundPlant (base/web/installer.html APP): the factory set into the sample bank
+    app_js = (
+        "(() => {\n"
+        + strip_module(
+            (SRC / "app" / "web" / "samples" / "soundplant_samples.js").read_text(
+                encoding="utf-8"
+            )
+        )
+        + "\n"
+        + (SRC / "app" / "web" / "install_app.js").read_text(encoding="utf-8")
+        + "\nreturn { before, after };\n})()"
+    )
     if page.count("/*APP*/") != 1:
         raise SystemExit("base/web/installer.html must contain /*APP*/ once")
-    (out / "install" / "index.html").write_text(page.replace("/*LIB*/", lib).replace("/*META*/", meta)
-                                                .replace("/*APP*/", app_js), encoding="utf-8")
+    (out / "install" / "index.html").write_text(
+        page.replace("/*LIB*/", lib)
+        .replace("/*META*/", meta)
+        .replace("/*APP*/", app_js),
+        encoding="utf-8",
+    )
     # the backup page's own section: the sample bank (app/web/backup/extras.js on the samples page's code)
-    extras = ("const EXTRAS = (() => {\n" +
-              strip_module((SRC / "app" / "web" / "samples" / "loom_samples.js").read_text(encoding="utf-8")) + "\n" +
-              (SRC / "app" / "web" / "backup" / "extras.js").read_text(encoding="utf-8") + "})();")
-    note = ("\n  <li>The samples go in the file too. A restore sends them after LOOM-8 has said yes on its screen, which "
-            "takes about 20 seconds more. An older backup has no samples, so a restore from it leaves the samples as they "
-            "are.</li>")
-    terminal = ("You can also do it from a terminal, in LOOM-8's repository: <code>python3 base/tools/fm1_backup.py</code> "
-                "for the projects and presets (the same files: it leaves their samples alone), and "
-                "<code>python3 tools/loom_samples.py backup</code> / <code>restore</code> for the samples (its restore "
-                "takes this page's files too).")
-    tools = base_site.tool_pages(SRC / "app", conf, {"NAME": "LOOM-8", "EXTRAS_JS": extras, "EXTRA": note,
-                                                     "TERMINAL": terminal})
-    (out / "backup" / "index.html").write_text(tools["backup/index.html"], encoding="utf-8")
-    (out / "mirror" / "index.html").write_text(tools["mirror/index.html"], encoding="utf-8")
-    # the samples page, its bank code (app/web/samples/loom_samples.js) inlined
+    extras = (
+        "const EXTRAS = (() => {\n"
+        + strip_module(
+            (SRC / "app" / "web" / "samples" / "soundplant_samples.js").read_text(
+                encoding="utf-8"
+            )
+        )
+        + "\n"
+        + (SRC / "app" / "web" / "backup" / "extras.js").read_text(encoding="utf-8")
+        + "})();"
+    )
+    note = (
+        "\n  <li>The samples go in the file too. A restore sends them after SoundPlant has said yes on its screen, which "
+        "takes about 20 seconds more. An older backup has no samples, so a restore from it leaves the samples as they "
+        "are.</li>"
+    )
+    terminal = (
+        "You can also do it from a terminal, in SoundPlant's repository: <code>python3 base/tools/fm1_backup.py</code> "
+        "for the projects and presets (the same files: it leaves their samples alone), and "
+        "<code>python3 tools/soundplant_samples.py backup</code> / <code>restore</code> for the samples (its restore "
+        "takes this page's files too)."
+    )
+    tools = base_site.tool_pages(
+        SRC / "app",
+        conf,
+        {"NAME": "SoundPlant", "EXTRAS_JS": extras, "EXTRA": note, "TERMINAL": terminal},
+    )
+    (out / "backup" / "index.html").write_text(
+        tools["backup/index.html"], encoding="utf-8"
+    )
+    (out / "mirror" / "index.html").write_text(
+        tools["mirror/index.html"], encoding="utf-8"
+    )
+    # the samples page, its bank code (app/web/samples/soundplant_samples.js) inlined
     spage = (SRC / "app" / "web" / "samples" / "index.html").read_text(encoding="utf-8")
     if spage.count("/*LIB*/") != 1:
         raise SystemExit("app/web/samples/index.html must contain /*LIB*/ once")
-    slib = strip_module((SRC / "app" / "web" / "samples" / "loom_samples.js").read_text(encoding="utf-8"))
+    slib = strip_module(
+        (SRC / "app" / "web" / "samples" / "soundplant_samples.js").read_text(
+            encoding="utf-8"
+        )
+    )
     (out / "samples").mkdir()
-    (out / "samples" / "index.html").write_text(spage.replace("/*LIB*/", slib), encoding="utf-8")
+    (out / "samples" / "index.html").write_text(
+        spage.replace("/*LIB*/", slib), encoding="utf-8"
+    )
     # the break pack (out of the firmware since 0.7): the samples page's "Add the breaks" fetches these
     import gen_samples
     import sampleio
-    # LOOM-8's own sounds (out of the firmware since 0.8): the installer and the samples page add them to the bank
-    (out / "samples" / "factory.bin").write_bytes(sampleio.user_bank(gen_samples.factory_set()))
+
+    # SoundPlant's own sounds (out of the firmware since 0.8): the installer and the samples page add them to the bank
+    (out / "samples" / "factory.bin").write_bytes(
+        sampleio.user_bank(gen_samples.factory_set())
+    )
     (out / "samples" / "breaks").mkdir()
     for brk, f, _, _ in gen_samples.RECORDINGS:
-        shutil.copy(gen_samples.SAMPLE_DIR / f, out / "samples" / "breaks" / f"{brk}.wav")
+        shutil.copy(
+            gen_samples.SAMPLE_DIR / f, out / "samples" / "breaks" / f"{brk}.wav"
+        )
     shutil.copytree(SRC / "docs" / "img", out / "img")
     threads = "".join(f'<span style="background:{c}"></span>' for c in TRACKS)
-    (out / "index.html").write_text(LANDING.replace("__VERSION__", html.escape(version)).replace("__PKG__", name)
-                                    .replace("__REPO__", REPO).replace("__THREADS__", threads), encoding="utf-8")
+    (out / "index.html").write_text(
+        LANDING.replace("__VERSION__", html.escape(version))
+        .replace("__PKG__", name)
+        .replace("__REPO__", REPO)
+        .replace("__THREADS__", threads),
+        encoding="utf-8",
+    )
     (out / "manual").mkdir()
-    subprocess.run([sys.executable, str(SRC / "tools" / "make_manual.py"), str(SRC / "docs" / "MANUAL.md"),
-                    str(out / "manual" / "index.html")], check=True)
-    for f in (out / "manual" / "index.html",):    # the manual's pictures are the site's img/
-        f.write_text(f.read_text(encoding="utf-8").replace('src="img/', 'src="../img/'), encoding="utf-8")
+    subprocess.run(
+        [
+            sys.executable,
+            str(SRC / "tools" / "make_manual.py"),
+            str(SRC / "docs" / "MANUAL.md"),
+            str(out / "manual" / "index.html"),
+        ],
+        check=True,
+    )
+    for f in (
+        out / "manual" / "index.html",
+    ):  # the manual's pictures are the site's img/
+        f.write_text(
+            f.read_text(encoding="utf-8").replace('src="img/', 'src="../img/'),
+            encoding="utf-8",
+        )
     emu = SRC / "app" / "build" / "emu"
     if not (emu / "app.wasm").exists():
-        raise SystemExit("no app/build/emu/app.wasm: run ./build.sh --web (needs Emscripten)")
+        raise SystemExit(
+            "no app/build/emu/app.wasm: run ./build.sh --web (needs Emscripten)"
+        )
     shutil.copytree(emu, out / "emu")
     # the screen reader's words files (fm1-reader): every one ever made, for the devices that point at them
     shutil.copytree(SRC / "app" / "web" / "words", out / "words")
-    for path, here in (("index.html", ""), ("manual/index.html", "manual/"), ("install/index.html", "install/"),
-                       ("backup/index.html", "backup/"), ("mirror/index.html", "mirror/"), ("samples/index.html", "samples/"),
-                       ("emu/index.html", "emu/")):
+    for path, here in (
+        ("index.html", ""),
+        ("manual/index.html", "manual/"),
+        ("install/index.html", "install/"),
+        ("backup/index.html", "backup/"),
+        ("mirror/index.html", "mirror/"),
+        ("samples/index.html", "samples/"),
+        ("emu/index.html", "emu/"),
+    ):
         f = out / path
         f.write_text(dress(f.read_text(encoding="utf-8"), here), encoding="utf-8")
     (out / ".nojekyll").write_text("")
-    print(f"site: {out}: index.html, manual/, install/ ({product}), backup/, mirror/, samples/, emu/, words/, firmware/{name} ({len(raw)} B)")
+    print(
+        f"site: {out}: index.html, manual/, install/ ({product}), backup/, mirror/, samples/, emu/, words/, firmware/{name} ({len(raw)} B)"
+    )
 
 
 if __name__ == "__main__":
