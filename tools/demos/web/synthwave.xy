@@ -1,0 +1,272 @@
+# SoundPlant demo: synthwave, 108 BPM, D minor. Factory sounds only: tools/make_demos.py puts it on the emulator page.
+# (tools/demos/web/ holds the songs written for the web; the others, tools/demos/*.xy, were made with private sample
+# banks and get factory sounds in their place there.)
+#   T1 kit: the kick on 1 and 3, the snare and clap on 2 and 4 into the hall (the gated snare), eighth hats, a tom fill
+#   T2 rayon "dx bass": driving eighths on the root           T3 knit "ribbon": the pad, a chord a bar, pumped
+#   T4 knit "soft lead": the melody, in the echo              T5 jacquard "digi pluck": a sixteenth arpeggio
+# Chords: Dm | Bb | F | C. Song: intro 4 (kick, hats, the pad), verse 8 (the bass, the arpeggio), chorus 8 (the lead),
+# break 4 (no kick, the pad and the arpeggio, the tom fill), final chorus 8, outro 4.
+bpm 108
+
+# ---- the sounds (synthwave: a big gated snare, an even eighth bass, a wide pad, a lead that sings over a bright
+# arpeggio, the whole mix pumped a little by the kick)
+# T1 the kit: the kick a little round, the snare and the clap into the long hall
+knob 1 d1.k1 70
+knob 1 d1.k2 52
+knob 1 d1.k3 64
+knob 1 d2.k1 84
+knob 1 d2.k2 40
+knob 1 d2.k3 96
+knob 1 d2.volume 90
+knob 1 d5.volume 66
+knob 1 d3.volume 58
+knob 1 level 96
+knob 1 send2 34
+# T2 rayon "dx bass": the bass, ducked by the kick
+preset 2 dx_bass rayon
+param 2 oct 2
+knob 2 brain no
+knob 2 ltype pump
+knob 2 lspeed track_1
+knob 2 lamt 40
+knob 2 level 100
+# T3 knit "ribbon": the pad, pumped by the kick
+preset 3 ribbon knit
+knob 3 brain no
+knob 3 ltype pump
+knob 3 lspeed track_1
+knob 3 lamt 70
+knob 3 level 80
+knob 3 send2 40
+# T4 knit "soft lead": the melody, in the echo and the hall
+preset 4 soft_lead knit
+knob 4 brain no
+knob 4 level 92
+knob 4 send1 40
+knob 4 send2 30
+# T5 jacquard "digi pluck": the arpeggio, in the echo
+preset 5 digi_pluck jacquard
+knob 5 brain no
+knob 5 pan 40
+knob 5 level 78
+knob 5 send1 50
+knob 5 send2 20
+# FX I a dotted-eighth echo; FX II a long hall
+knob 11 engine delay
+knob 11 e1 85
+knob 11 e3 60
+knob 11 e4 48
+knob 12 engine hall
+knob 12 e2 84
+knob 12 e3 52
+# the master: warm, the compressor firm, a gentle pump by the kick
+mst lo 66
+mst hi 58
+mst comp 60
+mst pump 20
+mst pumpby kick
+mst release 70
+mst level 106
+
+# ---- T1 the kit: kick 1, snare 2, hat 3, open 4, clap 5, low tom 6, high tom 7
+# P1 the beat: the kick on 1 and 3, the snare and the clap on 2 and 4, eighth hats; P2 the intro: the kick and the hat;
+# P3 the break: the hat and the snare on 4; P4 the fill: the toms running down into the next bar
+pat 1 1 16 1 50 20
+hits 1 1 1 x.......x.......
+hits 1 1 2 ....x.......x...
+hits 1 1 5 ....x.......x...
+hits 1 1 3 g.g.g.g.g.g.g.g.
+pat 1 2 16 1 50 20
+hits 1 2 1 x...x...x...x...
+hits 1 2 3 g.g.g.g.g.g.g.g.
+pat 1 3 16 1 50 20
+hits 1 3 3 g.g.g.g.g.g.g.g.
+hits 1 3 2 ............x...
+pat 1 4 16 1 50 20
+hits 1 4 3 g.g.g.g.g.g.g.g.
+hits 1 4 7 ........x.x.....
+hits 1 4 6 ............x.x.
+hits 1 4 2 ..............xx
+
+# ---- T2 the bass: eighths on the root, an octave jump on the last of each bar. Dm D2, Bb Bb1, F F2, C C2
+pat 2 1 64 1 60 20
+notes 2 1 1 0.5 110 D2
+notes 2 1 3 0.5 90 D2
+notes 2 1 5 0.5 100 D2
+notes 2 1 7 0.5 90 D2
+notes 2 1 9 0.5 105 D2
+notes 2 1 11 0.5 90 D2
+notes 2 1 13 0.5 100 D2
+notes 2 1 15 0.5 95 D3
+notes 2 1 17 0.5 110 Bb1
+notes 2 1 19 0.5 90 Bb1
+notes 2 1 21 0.5 100 Bb1
+notes 2 1 23 0.5 90 Bb1
+notes 2 1 25 0.5 105 Bb1
+notes 2 1 27 0.5 90 Bb1
+notes 2 1 29 0.5 100 Bb1
+notes 2 1 31 0.5 95 Bb2
+notes 2 1 33 0.5 110 F2
+notes 2 1 35 0.5 90 F2
+notes 2 1 37 0.5 100 F2
+notes 2 1 39 0.5 90 F2
+notes 2 1 41 0.5 105 F2
+notes 2 1 43 0.5 90 F2
+notes 2 1 45 0.5 100 F2
+notes 2 1 47 0.5 95 F3
+notes 2 1 49 0.5 110 C2
+notes 2 1 51 0.5 90 C2
+notes 2 1 53 0.5 100 C2
+notes 2 1 55 0.5 90 C2
+notes 2 1 57 0.5 105 C2
+notes 2 1 59 0.5 90 C2
+notes 2 1 61 0.5 100 C2
+notes 2 1 63 0.5 95 C3
+
+# ---- T3 the pad: a chord held a bar, Dm | Bb | F | C
+pat 3 1 64 1 100
+notes 3 1 1 16 70 D3 F3 A3
+notes 3 1 17 16 70 Bb2 D3 F3
+notes 3 1 33 16 70 C3 F3 A3
+notes 3 1 49 16 70 C3 E3 G3
+
+# ---- T4 the melody: four bars, a phrase a bar, ending on the fifth of C so the loop turns round
+pat 4 1 64 1 100
+notes 4 1 1 2 100 A4
+notes 4 1 3 2 90 D5
+notes 4 1 5 4 105 F5
+notes 4 1 9 2 90 E5
+notes 4 1 11 2 90 D5
+notes 4 1 13 4 95 A4
+notes 4 1 17 2 100 Bb4
+notes 4 1 19 2 90 D5
+notes 4 1 21 4 105 F5
+notes 4 1 25 2 90 D5
+notes 4 1 27 2 90 Bb4
+notes 4 1 29 4 95 F4
+notes 4 1 33 2 100 A4
+notes 4 1 35 2 90 C5
+notes 4 1 37 4 105 F5
+notes 4 1 41 2 90 E5
+notes 4 1 43 2 90 C5
+notes 4 1 45 4 95 A4
+notes 4 1 49 2 100 G4
+notes 4 1 51 2 90 C5
+notes 4 1 53 4 105 E5
+notes 4 1 57 2 90 D5
+notes 4 1 59 2 90 C5
+notes 4 1 61 4 95 G4
+
+# ---- T5 the arpeggio: the chord's three notes up and back in sixteenths, following the pad
+pat 5 1 64 1 60 20
+notes 5 1 1 1 100 D4
+notes 5 1 2 1 80 F4
+notes 5 1 3 1 90 A4
+notes 5 1 4 1 80 F4
+notes 5 1 5 1 100 D4
+notes 5 1 6 1 80 F4
+notes 5 1 7 1 90 A4
+notes 5 1 8 1 80 F4
+notes 5 1 9 1 100 D4
+notes 5 1 10 1 80 F4
+notes 5 1 11 1 90 A4
+notes 5 1 12 1 80 F4
+notes 5 1 13 1 100 D4
+notes 5 1 14 1 80 A4
+notes 5 1 15 1 90 F4
+notes 5 1 16 1 80 D4
+notes 5 1 17 1 100 Bb3
+notes 5 1 18 1 80 D4
+notes 5 1 19 1 90 F4
+notes 5 1 20 1 80 D4
+notes 5 1 21 1 100 Bb3
+notes 5 1 22 1 80 D4
+notes 5 1 23 1 90 F4
+notes 5 1 24 1 80 D4
+notes 5 1 25 1 100 Bb3
+notes 5 1 26 1 80 D4
+notes 5 1 27 1 90 F4
+notes 5 1 28 1 80 D4
+notes 5 1 29 1 100 Bb3
+notes 5 1 30 1 80 F4
+notes 5 1 31 1 90 D4
+notes 5 1 32 1 80 Bb3
+notes 5 1 33 1 100 C4
+notes 5 1 34 1 80 F4
+notes 5 1 35 1 90 A4
+notes 5 1 36 1 80 F4
+notes 5 1 37 1 100 C4
+notes 5 1 38 1 80 F4
+notes 5 1 39 1 90 A4
+notes 5 1 40 1 80 F4
+notes 5 1 41 1 100 C4
+notes 5 1 42 1 80 F4
+notes 5 1 43 1 90 A4
+notes 5 1 44 1 80 F4
+notes 5 1 45 1 100 C4
+notes 5 1 46 1 80 A4
+notes 5 1 47 1 90 F4
+notes 5 1 48 1 80 C4
+notes 5 1 49 1 100 C4
+notes 5 1 50 1 80 E4
+notes 5 1 51 1 90 G4
+notes 5 1 52 1 80 E4
+notes 5 1 53 1 100 C4
+notes 5 1 54 1 80 E4
+notes 5 1 55 1 90 G4
+notes 5 1 56 1 80 E4
+notes 5 1 57 1 100 C4
+notes 5 1 58 1 80 E4
+notes 5 1 59 1 90 G4
+notes 5 1 60 1 80 E4
+notes 5 1 61 1 100 C4
+notes 5 1 62 1 80 G4
+notes 5 1 63 1 90 E4
+notes 5 1 64 1 80 C4
+
+# ---- scenes and the song: the mask is T1..T8, x = muted
+# 1 the intro (kick and hat, the pad), 2 the verse (+ the bass, the arpeggio), 3 the chorus (everything), 4 the break
+# (the hat, the pad, the arpeggio), 5 the break's last bar (the fill), 6 the outro (the kick, the bass, the pad)
+scenedef 1 2 1 1 1 1 1 1 1 1
+scenemute 1 .x.xxxxx
+scenedef 2 1 1 1 1 1 1 1 1 1
+scenemute 2 ...x.xxx
+scenedef 3 1 1 1 1 1 1 1 1 1
+scenemute 3 .....xxx
+scenedef 4 3 1 1 1 1 1 1 1 1
+scenemute 4 .x.x.xxx
+scenedef 5 4 1 1 1 1 1 1 1 1
+scenemute 5 .x.x.xxx
+scenedef 6 2 1 1 1 1 1 1 1 1
+scenemute 6 ...xxxxx
+song 1:4 2:8 3:8 4:3 5:1 3:8 6:4
+songloop 0
+
+# ---- play the song (HOME, SELECT to the Song page, PLAY), and perform
+
+tap HOME
+turn SELECT 1
+stats reset
+wav soundplant_demo_synthwave.wav
+tap PLAY
+# intro 4, verse 8
+bars 4
+knob 4 cut 80
+bars 8
+# chorus 8: the lead opens up, the echo thrown on the last bar
+knob 4 cut 100
+bars 7.75
+throw echo on perc
+bars 0.25
+throw echo off perc
+# break 4
+bars 4
+# final chorus 8
+knob 4 cut 110
+bars 8
+# outro 4
+knob 4 cut 80
+bars 4
+wait 3000
+wavstop
+stats

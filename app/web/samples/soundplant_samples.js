@@ -46,8 +46,9 @@ function imaNext(pred, idx, code) {
   return [pred, Math.max(0, Math.min(88, idx + IMA_IDX[code & 7]))];
 }
 
-// ---- WAV in (sampleio.read_any_wav): -> {rate, x: mono floats, loop: [start, end] or null}
-export function readWav(buf) {
+// ---- WAV in (sampleio.read_any_wav): -> {rate, x: mono floats, loop: [start, end] or null, chs: each channel's floats
+// when keep (the samples page's editor mixes them itself), else null}
+export function readWav(buf, keep = false) {
   const d = new DataView(buf.buffer || buf, buf.byteOffset || 0, buf.byteLength);
   const tag4 = (o) => String.fromCharCode(d.getUint8(o), d.getUint8(o + 1), d.getUint8(o + 2), d.getUint8(o + 3));
   if (d.byteLength < 12 || tag4(0) !== "RIFF" || tag4(8) !== "WAVE") throw new Error("not a WAV file");
@@ -73,11 +74,15 @@ export function readWav(buf) {
     if (bps === 4) return d.getInt32(p, true) / 2147483648;
     return (d.getUint8(p) - 128) / 128;
   };
-  const x = new Float64Array(nfr);
+  const x = new Float64Array(nfr), chs = keep ? Array.from({ length: nch }, () => new Float64Array(nfr)) : null;
   for (let f = 0; f < nfr; f++) {
     const p = o + f * frame;
     let acc = 0;                                  // sum(v[f:f + nch]) / nch, from 0, left to right
-    for (let c = 0; c < nch; c++) acc += val(p + c * bps);
+    for (let c = 0; c < nch; c++) {
+      const v = val(p + c * bps);
+      acc += v;
+      if (chs) chs[c][f] = v;
+    }
     x[f] = nch > 1 ? acc / nch : acc;
   }
   let loop = null;
@@ -85,7 +90,7 @@ export function readWav(buf) {
     const so = ch.smpl[0];
     if (so + 52 <= d.byteLength && d.getUint32(so + 28, true)) loop = [d.getUint32(so + 44, true), d.getUint32(so + 48, true)];
   }
-  return { rate: sr, x, loop };
+  return { rate: sr, x, loop, chs };
 }
 
 // numpy.convolve(a, h, mode="same"): length max(N, M), from (min(N, M) - 1) // 2 of the full convolution
@@ -198,11 +203,11 @@ export function imaDecode(b, n) {
 }
 
 export function sampleBytes(n) { return Math.ceil(n / BLK) * 4 + Math.floor((Math.floor((n + 1) / 2) + 3) / 4) * 4; }
-export function bytesPerSecond(rate) { return rate * (0.5 + 4.0 / BLK); }
 
-// a file's samples at a rate, ready for the bank (soundplant_samples.at_rate): {s: Int16Array, loop}
-export function atRate(x, sr, loop, rate) {
-  const s = toInt16(emphasis(resample(x, sr, rate)));
+// a file's samples at a rate, ready for the bank (soundplant_samples.at_rate): {s: Int16Array, loop}; peak: the level
+// they are stored at, in 16-bit steps (the samples page's editor sets it; to_int16's peak_to)
+export function atRate(x, sr, loop, rate, peak = 30000) {
+  const s = toInt16(emphasis(resample(x, sr, rate)), peak);
   const lp = loop ? [Math.trunc(loop[0] * rate / sr), Math.trunc((loop[1] + 1) * rate / sr)] : null;
   return { s, loop: lp };
 }
@@ -396,8 +401,9 @@ export function* frames(image) {
 }
 
 // soundplant_samples.build: the bank from items in order, each either kept ({name, n, root, loop, bars, rate, ckb, adpcm}:
-// read back) or new ({name, x, sr, loop (the file's), root, bars, rate: its own or null}); rate: for the new ones that
-// did not choose (null: auto, the highest of AUTO at which all fits). -> {img, chose}; throws TooLong.
+// read back) or new ({name, x, sr, loop (the file's), root, bars, rate: its own or null, peak: its level in 16-bit steps,
+// default 30000}); rate: for the new ones that did not choose (null: auto, the highest of AUTO at which all fits).
+// -> {img, chose}; throws TooLong.
 // cache (a Map) keeps each new item's samples at a rate between calls.
 export function build(items, rate = null, cache = new Map()) {
   const own = items.filter((it) => !isFactory(it)).length;
@@ -411,7 +417,7 @@ export function build(items, rate = null, cache = new Map()) {
       const rr = it.rate || r, key = rr;
       let c = cache.get(it);
       if (!c) cache.set(it, c = new Map());
-      if (!c.has(key)) c.set(key, atRate(it.x, it.sr, it.loop, rr));
+      if (!c.has(key)) c.set(key, atRate(it.x, it.sr, it.loop, rr, it.peak));
       const { s, loop } = c.get(key);
       return { name: it.name, s, root: it.root, loop, bars: it.bars, rate: rr };
     });

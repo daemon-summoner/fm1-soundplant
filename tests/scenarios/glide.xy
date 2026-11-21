@@ -1,0 +1,327 @@
+# KNOB GLIDE (Setup's SEL list, the FM-1's setting): with it on and the sequencer playing, a knob turned by hand walks
+# its parameter to the new value over N bars, on the sequencer's sixteenths. The project holds the target at once, the
+# engine (epar) hears the walk, a step lock still wins on its step, a stop lands the walk. A walk begins on the
+# sequencer's second sixteenth (tick 2: "bars 0.125" waits for it, with a sixteenth to spare); a bar is 16 sixteenths
+wait 300
+projnew
+bpm 120
+expect glidebars 0
+# off (the default) is a knob as ever: the engine has the value at once, nothing walks
+knob 2 cut 0
+tap PLAY
+expect playing 1
+glide 2 cut 100
+expect par2.cut 100
+wait 20
+expect epar2.cut 100
+expect glides 0
+tap PLAY
+expect playing 0
+# the pick: off at 0, 1 bar, up to 64 with the encoder, no further either way
+tap GLO
+turn SELECT 5
+expect page Setup
+tap SEL
+row KNOB GLIDE
+rowtext off
+spin ALGO -1
+expect glidebars 0
+rowtext off
+spin ALGO 1
+expect glidebars 1
+rowtext 1 bar
+spin ALGO 63
+expect glidebars 64
+rowtext 64 bars
+spin ALGO 5
+expect glidebars 64
+rowtext 64 bars
+turn ALGO -200
+expect glidebars 0
+rowtext off
+spin ALGO 4
+expect glidebars 4
+rowtext 4 bars
+wait 100
+shot glide_setup.png
+tap HOME
+# the transport stopped: a knob is immediate even with glide on
+knob 2 cut 0
+wait 20
+glide 2 cut 100
+expect par2.cut 100
+wait 20
+expect epar2.cut 100
+expect glides 0
+# 4 bars from 0 to 64 is a step a sixteenth: the project has the target, the engine is at 0, then 16, 32 and the target
+# (1, 2 and 4 bars in), and the walk is over
+knob 2 cut 0
+wait 20
+tap PLAY
+bars 0.125
+expect tick 2
+glide 2 cut 64
+expect par2.cut 64
+expect glides 1
+wait 20
+expect epar2.cut 0
+bars 1
+wait 20
+expect tick 18
+expect epar2.cut 16
+bars 1
+wait 20
+expect epar2.cut 32
+expect par2.cut 64
+bars 2
+wait 20
+expect tick 66
+expect epar2.cut 64
+expect glides 0
+# back down, over a span the length does not divide (63 over 64): the nearest value, a half away from the start
+tap PLAY
+tap PLAY
+bars 0.125
+glide 2 cut 1
+expect par2.cut 1
+bars 1
+wait 20
+expect epar2.cut 48
+bars 1
+wait 20
+expect epar2.cut 32
+bars 2
+wait 20
+expect epar2.cut 1
+expect glides 0
+# a turn on a walk starts the new walk where the engine is: 2 bars up to 64, back to 0 from there (not from the old
+# start, nor from the old target): 32 at the turn, 16 two bars on, 0 at four
+tap PLAY
+knob 2 cut 0
+wait 20
+tap PLAY
+bars 0.125
+glide 2 cut 64
+bars 2
+wait 20
+expect epar2.cut 32
+glide 2 cut 0
+expect par2.cut 0
+expect glides 1
+wait 20
+expect epar2.cut 32
+bars 2
+wait 20
+expect epar2.cut 16
+bars 2
+wait 20
+expect epar2.cut 0
+expect glides 0
+# a stop lands the walk on its target at once
+tap PLAY
+knob 2 cut 0
+wait 20
+tap PLAY
+bars 0.125
+glide 2 cut 64
+bars 1
+wait 20
+expect epar2.cut 16
+tap PLAY
+expect playing 0
+wait 40
+expect epar2.cut 64
+expect par2.cut 64
+expect glides 0
+# a step lock wins on its step and lets go after it, the walk is the base under it: T2 plays steps 1 and 3, the lock
+# (cut 40) on step 1; on step 1 the lock holds 40 while the base walks on (16, then 18 after step 3)
+step 2 1 1 60 100
+step 2 1 3 62 100
+lock 2 1 1 cut 40
+knob 2 cut 0
+wait 20
+tap PLAY
+bars 0.125
+glide 2 cut 64
+bars 1
+wait 20
+expect tick 18
+expect live2.cut 40
+expect epar2.cut 16
+bars 0.125
+wait 20
+expect live2.cut -1
+expect epar2.cut 18
+tap PLAY
+expect epar2.cut 64
+# ... a kit plays its engine copy, which the lock holds at 40 while the walk goes on under it (key 1's cut: 16 by now)
+step 1 1 1 36 100
+lock 1 1 1 d1.cut 40
+knob 1 d1.cut 0
+wait 20
+tap PLAY
+bars 0.125
+glide 1 d1.cut 64
+bars 1
+wait 20
+expect par1.d1.cut 64
+expect live1.d1.cut 40
+expect epar1.d1.cut 40
+tap PLAY
+# a discrete knob never walks (a filter type, an engine's choice), and a MIDI controller does not either: both at once
+knob 2 cut 10
+wait 20
+tap PLAY
+bars 0.125
+glide 2 ftype 2
+glide 2 vmode 1
+expect par2.ftype 2
+expect glides 0
+wait 20
+expect epar2.ftype 2
+expect epar2.vmode 1
+midi B1 4A 41
+wait 20
+expect par2.cut 65
+expect epar2.cut 65
+expect glides 0
+# the knob itself: ENV's first knob (the attack of T2) walks, the project shows the turn's end (ten clicks, each a new
+# walk from where the engine is: still at 0, the last one ends after 4 bars, a sixteenth or two on)
+tap EDIT
+turn ALGO 1
+tap ENV
+expect page Envelope
+spin K1 10
+expect par2.a 10
+expect glides 1
+wait 20
+expect epar2.a 0
+bars 5
+wait 20
+expect epar2.a 10
+expect glides 0
+tap PLAY
+tap HOME
+# the ninth walk lands the oldest at its target and takes its place: eight walks (T2..T5, cut and res, from 0 to 100),
+# then T6's cut: T2's cut is at 100 now, the others are still at 0, and there are still eight
+knob 2 cut 0
+knob 2 res 0
+knob 3 cut 0
+knob 3 res 0
+knob 4 cut 0
+knob 4 res 0
+knob 5 cut 0
+knob 5 res 0
+knob 6 cut 0
+wait 20
+tap PLAY
+bars 0.125
+glide 2 cut 100
+glide 2 res 100
+glide 3 cut 100
+glide 3 res 100
+glide 4 cut 100
+glide 4 res 100
+glide 5 cut 100
+glide 5 res 100
+expect glides 8
+wait 20
+expect epar2.cut 0
+glide 6 cut 100
+expect glides 8
+wait 20
+expect epar2.cut 100
+expect epar2.res 0
+expect epar6.cut 0
+expect par6.cut 100
+bars 4
+wait 20
+expect epar2.res 100
+expect epar5.res 100
+expect epar6.cut 100
+expect glides 0
+tap PLAY
+# a track's new engine ends its walks (and only its): T2's and T3's cut under way, T2 changes engine
+knob 2 cut 0
+knob 3 cut 0
+wait 20
+tap PLAY
+bars 0.125
+glide 2 cut 100
+glide 3 cut 100
+expect glides 2
+knob 2 engine 1
+expect glides 1
+tap PLAY
+wait 40
+expect glides 0
+expect epar3.cut 100
+# a new project ends them all
+knob 3 cut 0
+wait 20
+tap PLAY
+bars 0.125
+glide 3 cut 100
+expect glides 1
+projnew
+expect glides 0
+wait 40
+expect playing 0
+expect glidebars 4
+# 1 bar: half way at 8 sixteenths, there at 16
+tap GLO
+turn SELECT 5
+tap SEL
+row KNOB GLIDE
+spin ALGO -3
+expect glidebars 1
+tap HOME
+bpm 120
+knob 2 cut 0
+wait 20
+tap PLAY
+bars 0.125
+glide 2 cut 64
+bars 0.5
+wait 20
+expect epar2.cut 32
+bars 0.5
+wait 20
+expect epar2.cut 64
+expect glides 0
+tap PLAY
+# 64 bars (1024 sixteenths: more than a byte holds), at the fastest tempo (220 BPM) to keep the run short: half way at 32 bars, there at 64
+tap GLO
+turn SELECT 5
+tap SEL
+row KNOB GLIDE
+spin ALGO 63
+expect glidebars 64
+tap HOME
+bpm 220
+wait 100
+expect tempo 220
+knob 2 cut 0
+wait 20
+tap PLAY
+bars 0.125
+glide 2 cut 127
+bars 32
+wait 20
+expect epar2.cut 64
+bars 31
+wait 20
+expect glides 1
+expect epar2.cut 125
+bars 1
+wait 20
+expect epar2.cut 127
+expect glides 0
+tap PLAY
+# the setting is the FM-1's: a new project keeps it, a saved one comes back with it after a restart
+projnew
+expect glidebars 64
+projsave 1
+reboot
+wait 400
+expect glidebars 64

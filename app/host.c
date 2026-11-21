@@ -5,8 +5,13 @@
  * shows them; "expect step" reports the playhead 0-based (eng_step).
  *   param T P V                  parameter P (synth.h TP_*: a number or a knob's name, as the knob command's) of track
  *                                T set to V, as a knob would
+ *   glide T P V                  as param, but a knob turned by hand: Setup's KNOB GLIDE walks a continuous one while the
+ *                                sequencer plays
+ *   rowtext TEXT                 the picked row of the open list shows TEXT as its value (a failure otherwise)
  *   load N                       every block costs N % (the overload guard's input); -1 = measured
  *   meter MS                     run MS ms; print the modelled load's mean and peak (the model: load_model below)
+ *   cost MS                      run MS ms; print what the UI frames took in executed instructions (macOS), all and
+ *                                those that drew
  *   steps T PAT                  print track T's pattern PAT: each step's notes, component, condition
  *   step T PAT S NOTE VEL        write one note on step S (NOTE 0 clears the step)
  *   chord T PAT S LEN N1 N2 [N3 [N4]]  notes together on step S, LEN quarter steps long
@@ -23,15 +28,21 @@
  *                                upload would leave it (empty at boot)
  *   upload FILE                  an upload's SysEx frames (tools/soundplant_samples.py syx), each through samples.c as from
  *                                USB; a frame not answered, or answered with an error, fails the run
- *   expect WHAT VALUE            besides fm1-base's: playing, scene, mute (the tracks' bits), songpos, used (the scenes' bits), voices, drumhits (the kit's hits),
+ *   expect WHAT VALUE            besides fm1-base's: playing, scene, mute (the tracks' bits), morph (the scene morph's percent), morphto (its target scene, from 1), songpos, used (the scenes' bits), voices, drumhits (the kit's hits),
  *                                guard, cores, dirty, ask, mem (the last save's
  *                                share of a project slot, %), model_avg /
  *                                model_peak (the last meter's, %), tempo, trk, user / userbytes / rateN (the user bank's
  *                                samples, its data's bytes, user N's rate), punch_drum / punch_mel (the masks in effect,
- *                                PX_* bits), parT.P (P a number or a name: par2.x1, par1.d3.decay), mst.NAME (a
+ *                                PX_* bits), parT.P (P a number or a name: par2.x1, par1.d3.decay), eparT.P (the engine's
+ *                                copy: a knob walk's value), liveT.P (the value a step lock holds now, -1 none), glidebars
+ *                                (Setup's KNOB GLIDE), glides (the walks under way), tick (the sequencer's sixteenths), mst.NAME (a
  *                                master value, the mst command's names), pump (the
- *                                pump's duck now, tenths of a dB); and with more words: step T VALUE, page NAME, comp T S VALUE (prints
- *                                both components; checks the first), note T PAT S VALUE
+ *                                pump's duck now, tenths of a dB), the Garden's state (garden.h): gactN (plant N's activity,
+ *                                0..255), gwiltN (0..255), gparts (petals in the air), gglitch (the glitch on now, GK_*), gsame
+ *                                (1 if its state is as at the last gsame, which gives 0 the first time); and with more words:
+ *                                step T VALUE, page NAME, comp T S VALUE (prints
+ *                                both components; checks the first), note T PAT S VALUE, hits T PAT SOUND STRING (x where the
+ *                                step has SOUND, a kit's, or any note for 0, . where not: a step each, from step 1)
  * The demos' stems and taps (tools/demos/render.sh --stems), from the environment:
  *   SOUNDPLANT_SOLO=1,3,fx1,fx2        only these tracks (dry and their sends) and FX returns sound
  *   SOUNDPLANT_MST=raw|eq|comp         the master's output taken after that stage (raw: the groups summed, the level;
@@ -171,6 +182,35 @@ static void work_print(void)
            work_over92, work_over, work_k);
     work_blocks = work_over = work_over92 = 0;
     work_sum = work_worst = work_s = 0.0;
+}
+/* "cost MS": what the UI frames take over MS ms in executed instructions (macOS's count, less the count's own cost):
+ * every frame, and those that put something on the screen (the garden's idle frames draw nothing and cost the input
+ * alone; app_frame brackets ui_frame with these) */
+static uint64_t frame_t0, frame_sum, frame_dsum, frame_worst, frame_ov;
+static uint32_t frame_n, frame_nd, frame_c0;
+static int frame_on;
+static void frame_begin(void)
+{
+    if (!frame_on)
+        return;
+    frame_c0 = lcd_changes;
+    frame_t0 = host_instr_raw();
+}
+static void frame_end(void)
+{
+    uint64_t d;
+    if (!frame_on)
+        return;
+    d = host_instr_raw() - frame_t0;
+    d = d > frame_ov ? d - frame_ov : 0u;
+    frame_n++;
+    frame_sum += d;
+    if (d > frame_worst)
+        frame_worst = d;
+    if (lcd_changes != frame_c0) {
+        frame_nd++;
+        frame_dsum += d;
+    }
 }
 /* seqbench: a copy of the sequencer as it plays now, run on through BARS bars with every note going nowhere (no
  * engine, no MIDI, no log), its instructions counted per call: each sixteenth's cost (the calls that fired it),
@@ -425,12 +465,22 @@ int app_expect(const char *what, int *got)
         *got = seq.scene + 1;
     else if (!strcmp(what, "mute"))
         *got = seq.mute;
+    else if (!strcmp(what, "morph"))                /* the scene morph's percent (0 off) */
+        *got = seq.morph & 0xFF;
+    else if (!strcmp(what, "morphto"))              /* the scene it blends toward, from 1 (0 none) */
+        *got = seq.morph ? (seq.morph >> 8) + 1 : 0;
     else if (!strncmp(what, "epar", 4) && strchr(what, '.')) {   /* eparT.P: the engine's own value of a parameter
                                                      * (with the locks and the shared LFO on a kit) */
         int t = atoi(what + 4) - 1, p = param_of(strchr(what, '.') + 1);
         if (t < 0 || t >= NALLTRK || p < 0 || p >= NTP)
             return 0;
         *got = epar[t][p];
+    } else if (!strncmp(what, "live", 4) && strchr(what, '.')) {   /* liveT.P: the value a step lock holds now, -1 none
+                                                     * (engine_live: a synth overlays its locks, epar keeps the base) */
+        int t = atoi(what + 4) - 1, p = param_of(strchr(what, '.') + 1);
+        if (t < 0 || t >= NALLTRK || p < 0 || p >= NTP)
+            return 0;
+        *got = engine_live(t, p);
     } else if (!strcmp(what, "sendnotes"))            /* Setup's NOTES: MIDI notes out */
         *got = seq.send_notes;
     else if (!strcmp(what, "clock"))                /* Setup's CLOCK: SEQ_CLK_* (0 internal, 1 send, 2 receive) */
@@ -451,6 +501,12 @@ int app_expect(const char *what, int *got)
         *got = theme_ix();
     else if (!strcmp(what, "still"))              /* Setup's MOTION on still (1) or smooth (0) */
         *got = (proj.rsv[3] & MOTION_STILL) != 0;
+    else if (!strcmp(what, "glidebars"))          /* Setup's KNOB GLIDE: its bars (0 off) */
+        *got = glide_bars();
+    else if (!strcmp(what, "glides"))             /* the knob walks under way */
+        *got = kglide_n;
+    else if (!strcmp(what, "tick"))               /* the sequencer's sixteenths since it started (a ramp's clock) */
+        *got = (int)seq.step_tick;
     else if (!strcmp(what, "listopen"))             /* a SEL list up */
         *got = lst.open;
     else if (!strcmp(what, "slot_reads"))           /* project_exists's reads of the flash so far */
@@ -533,6 +589,29 @@ int app_expect(const char *what, int *got)
         *got = (int)(cc_out_last >> 8 & 0xFFu);
     else if (!strcmp(what, "ccd2"))
         *got = (int)(cc_out_last & 0xFFu);
+    else if (!strncmp(what, "gact", 4) || !strncmp(what, "gwilt", 5)) {   /* gactN, gwiltN: the garden's plant N */
+        int n = atoi(what + (what[1] == 'a' ? 4 : 5)) - 1;
+        if (n < 0 || n >= GD_N)
+            return 0;
+        *got = what[1] == 'a' ? (int)gd_act(&gdn, n) : gdn.pl[n].wilt;
+    }
+    else if (!strcmp(what, "gparts"))
+        *got = gd_particles(&gdn);
+    else if (!strcmp(what, "gglitch"))
+        *got = gdn.g_kind;
+    else if (!strcmp(what, "gsame")) {
+        static uint32_t mark;
+        gd_t c = gdn;                               /* (less the clock, the hit counters and the seed's running hash it keeps: they move with every look) */
+        const uint8_t *b = (const uint8_t *)&c;
+        uint32_t h = 2166136261u;
+        c.last = 0, c.step = 0, c.epoch = 0, c.acc = 0;
+        for (int i = 0; i < GD_N; i++)
+            c.pl[i].seen = 0;
+        for (size_t i = 0; i < sizeof c; i++)
+            h = (h ^ b[i]) * 16777619u;
+        *got = h == mark;
+        mark = h;
+    }
     else if (!strncmp(what, "par", 3) && strchr(what, '.')) {   /* parT.P: parameter P of track T */
         int t = atoi(what + 3) - 1, p = param_of(strchr(what, '.') + 1);
         if (t < 0 || t >= NALLTRK || p < 0 || p >= NTP)
@@ -689,6 +768,24 @@ static int expect_more(const char *what, const char *a, const char *b, const cha
             host_fails++;
         } else
             printf("  ok lock %s %s %s %s: %d\n", t, pt, st, pn, got);
+    } else if (!strcmp(what, "hits")) {            /* expect hits T PAT SOUND STRING: x on each step with SOUND (a kit's;
+                                                    * 0: any note), . on each without, from step 1 for STRING's length */
+        char t[16] = {0}, pt[16] = {0}, sn[16] = {0}, want[NSTEP + 1] = {0}, got[NSTEP + 1];
+        const tpat_t *tp;
+        int i, bad;
+        if (sscanf(plat_host_line, "%*s %*s %15s %15s %15s %64s", t, pt, sn, want) != 4 ||
+            !(tp = pat_of(atoi(t), atoi(pt)))) {
+            printf("FAIL expect hits: T PAT SOUND STRING\n");
+            host_fails++;
+            return 1;
+        }
+        for (i = 0; want[i]; i++)
+            got[i] = (atoi(sn) ? kit_has(&tp->st[i], atoi(sn)) : !step_empty(&tp->st[i])) ? 'x' : '.';
+        got[i] = 0;
+        bad = strcmp(got, want) != 0;
+        printf("%s hits %s %s %s: %s%s%s\n", bad ? "FAIL" : "  ok", t, pt, sn, got, bad ? ", expected " : "",
+               bad ? want : "");
+        host_fails += bad;
     } else if (!strcmp(what, "weave")) {           /* expect weave PAT S MASK LEN: the WEAVE track's step */
         char pt[16] = {0}, st[16] = {0}, m[16] = {0}, l[16] = {0};
         const wv_step_t *w;
@@ -962,6 +1059,25 @@ static void meter_run(uint32_t ms)
     meter_avg = ms ? (float)(sum / ms) : 0.0f;
     printf("meter: %u ms, model load mean %.1f %%, peak %.1f %%, voices %d\n", ms, meter_avg, meter_peak, eng_voices);
 }
+static void frame_cost(uint32_t ms)
+{
+    uint64_t a = host_instr_raw(), m = ~0ull;
+    for (int i = 0; i < 64; i++) {                 /* the least a count costs */
+        uint64_t b = host_instr_raw();
+        if (b - a < m)
+            m = b - a;
+        a = b;
+    }
+    frame_ov = m;
+    frame_n = frame_nd = 0;
+    frame_sum = frame_dsum = frame_worst = 0;
+    frame_on = 1;
+    run_ms(ms);
+    frame_on = 0;
+    printf("cost: %u ms, %u frames, mean %llu instructions a frame, worst %llu; %u drew (mean %llu a drawing frame)\n", ms,
+           frame_n, (unsigned long long)(frame_n ? frame_sum / frame_n : 0u), (unsigned long long)frame_worst, frame_nd,
+           (unsigned long long)(frame_nd ? frame_dsum / frame_nd : 0u));
+}
 void app_host_ms(void)
 {
     int ns, nd;
@@ -1079,6 +1195,17 @@ static int song_cmd(const char *cmd)
                 set_tp(t, TP_DRUM(d, k == TP_SEND1 ? DP_SEND1 : DP_SEND2), v);
         } else
             set_tp(t, k, value_of(t, k, w[3]));
+        run_ms(1);
+    } else if (!strcmp(cmd, "glide")) {             /* glide T PARAM VALUE: a knob turned by hand (Setup's KNOB GLIDE says) */
+        if (n < 4)
+            host_die("glide T PARAM VALUE", "");
+        t = atoi(w[1]) - 1;
+        if (t < 0 || t >= NALLTRK)
+            host_die("no track", w[1]);
+        k = param_of(w[2]);
+        knob_hand = 1;
+        set_tp(t, k, value_of(t, k, w[3]));
+        knob_hand = 0;
         run_ms(1);
     } else if (!strcmp(cmd, "listdump")) {          /* listdump: the page's SEL list, a row a line (the menu inventory) */
         static const char *const KIND[] = {"knob", "more", "action", "pick", "note", "head"};
@@ -1436,6 +1563,22 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         host_fails++;
         return 1;
     }
+    if (!strcmp(cmd, "rowtext")) {                  /* rowtext TEXT: the picked row's value, as the list shows it */
+        const char *tx = plat_host_line + 7;
+        size_t l;
+        while (*tx == ' ')
+            tx++;
+        l = strcspn(tx, "\r\n");
+        while (l && tx[l - 1] == ' ')
+            l--;
+        list_build();
+        if (!lst.open || lst.sel >= lst.n || strlen(lst.row[lst.sel].val) != l || strncmp(lst.row[lst.sel].val, tx, l)) {
+            printf("  FAIL rowtext %.*s: the row shows \"%s\"\n", (int)l, tx, lst.open && lst.sel < lst.n ? lst.row[lst.sel].val : "");
+            host_fails++;
+        } else
+            printf("  ok    the row shows \"%.*s\"\n", (int)l, tx);
+        return 1;
+    }
     if (!strcmp(cmd, "passkey")) {                  /* passkey N: a pairing waits for code N to be typed (-1 none) */
         sim_passkey = atoi(a);
         run_ms(1);
@@ -1572,6 +1715,8 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         run_ms(1);
     } else if (!strcmp(cmd, "meter"))               /* meter MS: the model's load over MS ms */
         meter_run((uint32_t)atoi(a));
+    else if (!strcmp(cmd, "cost"))                  /* cost MS: the UI frames' instructions over MS ms */
+        frame_cost((uint32_t)atoi(a));
     else if (!strcmp(cmd, "load"))
         load_force = atoi(a);
     else if (!strcmp(cmd, "steps"))

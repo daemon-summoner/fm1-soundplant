@@ -111,7 +111,8 @@ steady tone still. The FM-1's own scope trace starts there too.
     <td valign="top">
       <img src="docs/img/readme-card-backup.svg" width="240" alt="Backup and mirror"><br>
       Your projects and presets can be backed up to a computer and put back (the site's
-      <a href="https://daemon-summoner.github.io/fm1-soundplant/backup/">Backup page</a>), and the screen mirrored
+      <a href="https://daemon-summoner.github.io/fm1-soundplant/backup/">Backup page</a>), edited there
+      (the <a href="https://daemon-summoner.github.io/fm1-soundplant/project/">Project page</a>), and the screen mirrored
       to it and played from there (the <a href="https://daemon-summoner.github.io/fm1-soundplant/mirror/">Mirror page</a>).
     </td>
     <td valign="top">

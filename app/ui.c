@@ -3,9 +3,8 @@
  * Part of the unity build, after pages.c; the host simulator includes it too. The gestures are the OP-XY
  * notebook's, with HOME as shift and a held step as "what is on it":
  *
- *   HOME   Arrange (again: Song); held: HOME + key = punch-in fx, + step + white key = a component (black
- *          key = its value), + REC undo, + PLAY redo, + SELECT tempo, + K1 fine tempo, + PRESETS scene,
- *          + white key on Arrange = the scene at the end of track 1's pattern, + black key on Mix = mute
+ *   HOME   Arrange (again: Song); held: HOME + REC undo, + PLAY redo, + SELECT tempo, + K1 fine tempo,
+ *          + PRESETS scene, + white key 1-3 load that project
  *   SEQ    Steps (page 2 Bar)      EDIT Engine (Play; a drum key's pages)   ENV Envelope (filter envelope)
  *   FX     Filter (Sends)          LFO  LFO (LFO 2)        ARP  Players (its page 2, hold)
  *   GLO    Mix, Master, Setup, Status
@@ -163,11 +162,27 @@ static void cc_out_param(int trk, int p);         /* midicc.c: a parameter chang
 static void cc_out_master(int m);
 static void cc_out_scene(int n);                  /* midicc.c: the scene playing changed */
 static uint8_t cc_hand;                           /* (midicc.c's: knob() and list_change() running) */
+static uint8_t knob_hand;                         /* knob() running: a knob turned by hand (set_tp glides what KNOB GLIDE says) */
 static void sound_reset(uint8_t *par, int engine)   /* the engine's defaults; MIDI OUT stays (routing, not sound) */
 {
     int out = par[TP_CHAN];
     sound_default(par, engine);
     par[TP_CHAN] = (uint8_t)out;
+}
+/* a parameter KNOB GLIDE walks: a continuous value (a level, a time, a cutoff, an amount), not a name, a switch, a count
+ * or a semitone, which are steps */
+static int tp_glides(int trk, int p)
+{
+    const tp_info_t *in = tp_info_par(p, proj.trk[trk].par);
+    switch (in->kind) {
+    case PK_PCT: case PK_BIP: case PK_MS: case PK_HZ_SYNC: case PK_NN: case PK_HZ: case PK_FADE: case PK_DB: case PK_DMS:
+    case PK_DECAY: case PK_LAGMS: case PK_FADER: case PK_CENT:
+        return 1;
+    case PK_NUM:                                  /* (the acid engine's knobs; a MIDI knob's CC number is a step) */
+        return in->hi - in->lo >= 127;
+    default:
+        return 0;
+    }
 }
 static void set_tp(int trk, int p, int v)
 {
@@ -229,7 +244,9 @@ static void set_tp(int trk, int p, int v)
         }
         if (v == EG_JACQUARD && !wt_res_ok())
             say_no("NO WAVETABLES", "reinstall SoundPlant");   /* (the tables: the installer writes them beside the firmware) */
-    } else
+    } else if (knob_hand && glide_bars() && !is_aux(trk) && tp_glides(trk, p))
+        engine_glide(trk, p, v, glide_bars());
+    else
         engine_set(trk, p, v);
     if (p == TP_PLAYER && !is_aux(trk) && !is_drum(trk) && v == PL_RAND) {
         static const uint8_t SD[8] = {64, 32, 32, 0, 0, 16, 0, 0};   /* note, pitch, rhythm, oct down, time, length, vel, gate */
@@ -1216,6 +1233,7 @@ static void scene_go(int n, int when)
 {
     int cur = cur_scene();
     char t[16];
+    seq.morph = 0;
     if (!pats.scene[n].used) {
         undo_arr();
         pats.scene[n] = pats.scene[cur];
@@ -1433,6 +1451,7 @@ static void bar_key(int k, int b)
 static void ask_end(int yes);
 static void act_clear_scene(void);
 static void act_save_slot(int slot);
+static void home_load_key(int w);
 static void weave_set(int t, int from, int pat, int rule);   /* (below: the weave) */
 static void pattern_octave(int t, int d);          /* (below) */
 static void key_down(int k)
@@ -1454,8 +1473,11 @@ static void key_down(int k)
         keyboard_down(k);
         return;
     }
-    if (home_held())                             /* (HOME shifts the knobs and buttons, not the keys) */
+    if (home_held()) {                           /* (HOME shifts the knobs and buttons; white keys 1 to 3 load a project) */
+        if (w >= 0)
+            home_load_key(w);
         return;
+    }
     if (p == P_GLFO && w >= 0 && w < NDRUM + 1) {   /* the shared LFO on a kit: white keys 1-11 its sound, 12 every one */
         set_tp(AUX_BRAIN, TP_P1, w == NDRUM ? 0 : w + 1);
         say("KIT SOUND", w == NDRUM ? "all" : DL_SOUND_NAME[w]);
@@ -1982,9 +2004,19 @@ static void button_up(int b)
 }
 #define CARD_MS 900u
 #define KEY_LONG_MS 900u
+/* the morph lives on the HOME pages, over the mutes of a scene that is not a song's: another page, a solo, the song, the
+ * target scene cleared or passed put it back to 0 (a morph at 100 is a cued scene: it stays across pages) */
+static void morph_keep(void)
+{
+    int on = seq.morph & 0xFFu;
+    if (on && (seq.morph >> 8 != seq_morph_target(&seq) || ui.solo || (seq.song_on && pats.song.len) ||
+               (on < 100 && ui.page != P_ARRANGE && ui.page != P_SONG)))
+        seq.morph = 0;
+}
 static void holds(void)
 {
     uint32_t now = plat_ms();
+    morph_keep();
     for (int b = 0; b < NB; b++)
         if (ui.btn == 1u << b && !ui.keys && b != B_HOME && !(ui.btn_used >> b & 1u) &&
             now - ui.btn_t[b] >= CARD_MS) {
@@ -2027,6 +2059,31 @@ static void holds(void)
 /* -------------------------------------------------------------- knobs --- */
 static int cued_pat(int trk);
 static void pattern_pick(int trk, int p);
+/* HOME + K3 on Arrange and Song: the next used scene blended in by thinning steps, 0-100. At 100 it is cued as a white
+ * key cues a scene, the blend held until it lands; turned back before the bar, the cue is withdrawn */
+static void morph_knob(int32_t e)
+{
+    int to = seq_morph_target(&seq), was = seq.morph & 0xFFu, pct;
+    const char *no = to < 0 ? "NEEDS 2 SCENES" : !playing() ? "PLAY FIRST" : seq.song_on && pats.song.len ? "NOT IN SONG"
+                     : ui.solo ? "SOLO IS ON" : 0;
+    char t[8];
+    if (no) {
+        say_no("MORPH", no);
+        return;
+    }
+    pct = clampi(was + (int)e, 0, 100);
+    if (pct == was)
+        return;
+    if (was == 100)
+        engine_scene(cur_scene(), SCENE_BAR);
+    seq_morph(&seq, pct);
+    if (pct == 100) {
+        scene_go(to, proj.rsv[2] & SCENES_AT_END ? SCENE_END : SCENE_BAR);
+        seq_morph(&seq, 100);
+        num_s((uint32_t)to + 1u, s_cat(t, "TO S"));
+        say("MORPH", t);
+    }
+}
 static void arrange_knob(int k, int32_t e)
 {
     int trk = sel_trk();
@@ -2035,6 +2092,10 @@ static void arrange_knob(int k, int32_t e)
     else if (k == 1)
         set_groove_type(proj.groove + (int)e);
     else if (k == 2) {
+        if (home_held()) {
+            morph_knob(e);
+            return;
+        }
         if (!is_seqt(trk))
             return;
         undo_keep();
@@ -2049,6 +2110,10 @@ static void song_knob(int k, int32_t e)
     int cur = ui.name_slot <= sg->len ? ui.name_slot : sg->len;
     if (k == 0) {
         ui.name_slot = (uint8_t)clampi(cur + e, 0, sg->len);
+        return;
+    }
+    if (k == 2 && home_held()) {
+        morph_knob(e);
         return;
     }
     if (k == 3) {
@@ -2327,6 +2392,7 @@ static void knob_do(int k, int32_t e)
     case P_MASTER: case P_MASTER2: case P_MASTER3: master_knob(k, e); return;
     case P_SETUP: setup_knob(k, e); return;
     case P_STATUS: debug_knob(k, e); return;
+    case P_GARDEN: garden_knob(k, e); return;
     case P_GLFO: glfo_knob(k, e); return;
     default: break;
     }
@@ -2370,7 +2436,9 @@ static void knob(int k, int32_t e)               /* a knob turned by hand: what 
 {
     uint8_t was = cc_hand;
     cc_hand = 1;
+    knob_hand = 1;
     knob_do(k, e);
+    knob_hand = 0;
     cc_hand = was;
 }
 static void presets(int32_t e)
@@ -2509,7 +2577,7 @@ static void list_open(void)
         ui.pick_fx = proj.trk[sel_trk()].par[TP_ENGINE] % NFXPICK;
     if (fx_page(ui.page))
         ui.pick_fx = proj.trk[ui.page == P_FX1 ? AUX_FX1 : AUX_FX2].par[TP_ENGINE] % NFXPICK;
-    if ((ui.page == P_ARRANGE || ui.page == P_SONG) && proj_slot < NPROJ)   /* LOAD and SAVE TO start on the slot open */
+    if ((ui.page == P_ARRANGE || ui.page == P_SONG || ui.page == P_GARDEN) && proj_slot < NPROJ)   /* LOAD and SAVE TO start on the slot open */
         ui.pick_slot = ui.pick_save = proj_slot;
     list_build();
     if (!lst.n) {
@@ -2580,6 +2648,11 @@ static void list_change_do(int32_t e)
             if (n == 0)
                 n = d;
             *v = (int8_t)clampi(n, -m, m);
+            break;
+        }
+        case A_EUCLID: {                         /* how many hits: 1 .. the pattern's steps */
+            int trk = sel_trk();
+            ui.pick_euclid = (uint8_t)clampi(euclid_hits(trk) + (int)accel(EN_ALGO, e), 1, euclid_steps(trk));
             break;
         }
         case A_PASTE: ui.pick_paste = (uint8_t)(d > 0); break;
@@ -2716,6 +2789,16 @@ static void list_change_do(int32_t e)
             proj.rsv[3] = (uint8_t)(d > 0 ? proj.rsv[3] | MOTION_STILL : proj.rsv[3] & ~MOTION_STILL);
             mark_dirty();
             break;
+        case A_GLIDE: {                          /* 0 off, then 1..64 bars: a turn is a step of a bar, quicker turns more */
+            int v = clampi(glide_bars() + (int)accel(EN_ALGO, e), 0, GLIDE_BARS_MAX);
+            if (v != glide_bars()) {
+                proj.rsv[8] = (uint8_t)v;
+                if (!v)
+                    engine_glide_land();         /* (off: the walks in flight end where they were headed) */
+                mark_dirty();
+            }
+            break;
+        }
         default: break;
         }
         break;
@@ -3096,6 +3179,51 @@ static void act_double(void)                     /* the pattern twice as long, p
         say("DOUBLED", t);
     }
 }
+/* EUCLID: the pattern's steps given the hits spread evenly over them (euclid, pattern.c), one undo. A kit: the sound
+ * shown's hits only, its other sounds stay. Any other track: every step rewritten, the hits with the notes a step tap
+ * writes (the notes held; a random slot's one note; THROW's remembered effect). The locks stay as they were */
+static void act_euclid(void)
+{
+    int trk = sel_trk(), pt = cur_pat(trk), n = euclid_steps(trk), k = euclid_hits(trk), snd = ui.dsound % NDRUM + 1;
+    tpat_t *tp = tpat(trk);
+    uint8_t hit[NSTEP], one = 0;
+    char t[16];
+    if (trk == AUX_PUNCH) {
+        if (!ui.rem_fx) {
+            say_no("NO EFFECT YET", "play a key on EDIT");
+            return;
+        }
+        one = ui.rem_fx;
+    } else if (pl_type(trk) == PL_RAND)
+        one = ui.nrem ? ui.rem[0] : 60;
+    undo_pat(trk, pt, 0);
+    euclid(hit, k, n);
+    for (int i = 0; i < n; i++) {
+        step_t *st = &tp->st[i];
+        if (is_drum(trk)) {
+            if (hit[i] == kit_has(st, snd))
+                continue;
+            if (step_empty(st))
+                memset(st, 0, sizeof *st);
+            kit_toggle(st, snd);
+            if (!hit[i])
+                hit_sound_off(trk, pt, i, snd - 1);
+            step_fresh_if_empty(st);
+        } else {
+            memset(st, 0, sizeof *st);
+            st->vel = 100;
+            if (!hit[i])
+                continue;
+            if (one)
+                step_set_notes(st, &one, 1, 100);
+            else
+                step_set_notes(st, ui.rem, ui.nrem ? ui.nrem : 1, 100);
+        }
+    }
+    mark_dirty();
+    num_s((uint32_t)n, s_cat(num_s((uint32_t)k, t), " in "));
+    say("EUCLID", t);
+}
 static void act_scramble(void)                   /* a random sound: the engine stays (a drum key keeps its model) */
 {
     int trk = sel_trk();
@@ -3391,6 +3519,31 @@ static void do_load_proj(void)
         proj_slot = (uint8_t)slot;
     after_load();
     ui.dirty = 0;
+}
+static void act_load_proj(int slot)              /* (LOAD PROJECT, and HOME + white key) */
+{
+    ui.ask_arg = (uint8_t)slot;
+    if (ui.dirty)
+        ask("LOSE UNSAVED CHANGES?", do_load_proj);
+    else {
+        do_load_proj();
+        lst.open = 0;                            /* (the other song: back to its page, as after the question) */
+    }
+}
+static void home_load_key(int w)                 /* HOME held, white key w (0-based): slot w + 1; an empty one is said
+                                                  * and left alone */
+{
+    char t[16];
+    if (w >= NPROJ) {
+        say_no("THREE SLOTS", "white keys 1 to 3");
+        return;
+    }
+    if (!project_exists(w)) {
+        num_s((uint32_t)w + 1u, s_cat(t, "slot "));
+        say_no("EMPTY SLOT", t);
+        return;
+    }
+    act_load_proj(w);
 }
 static uint32_t proj_seed = 1;
 static void do_random_sounds(void)               /* HOME's RANDOMIZE PRESETS: T2-T8 a new band, the patterns kept */
@@ -3691,6 +3844,7 @@ static void action_run(int a)
     case A_ROT_BACK: act_rotate(-1); say("ROTATED", "back"); break;
     case A_DUP_BAR: act_dup_bar(); break;
     case A_DOUBLE: act_double(); break;
+    case A_EUCLID: act_euclid(); break;
     case A_ENGINE: {                             /* another engine: its first sound */
         int f = preset_first(ui.pick_engine);
         set_tp(sel_trk(), TP_ENGINE, ui.pick_engine);
@@ -3731,7 +3885,7 @@ static void action_run(int a)
     case A_FOLLOW: case A_USB_AUDIO: case A_COUNT_IN: case A_THEME: case A_LARGE_TYPE: case A_PLAYMODE: case A_FTYPE: case A_FX_HP: case A_FX_LP:
     case A_FX_SEND: case A_PUMP_BY: case A_PUMP_REL: case A_PUMP_ACC: case A_LEVEL: case A_SCENE_AT: case A_AUTOSAVE:
     case A_MIDI_OUT: case A_LOOP_FREE: case A_CC_OUT: case A_SCENES_OUT: case A_MIDI_CC: case A_USB_HOST: case A_KIT_FILTER:
-    case A_CC_IN: case A_FX_WIDTH: case A_MOTION:
+    case A_CC_IN: case A_FX_WIDTH: case A_MOTION: case A_GLIDE:
         return;   /* (ALGORITHM sets them; SEL
                                                                                     * leaves the list) */
     case A_REMOVE_NOTE: act_remove_note(lst.sel); break;
@@ -3773,13 +3927,7 @@ static void action_run(int a)
         play_press();
         break;
     case A_LOAD_PROJ:
-        ui.ask_arg = ui.pick_slot % NPROJ;
-        if (ui.dirty)
-            ask("LOSE UNSAVED CHANGES?", do_load_proj);
-        else {
-            do_load_proj();
-            lst.open = 0;                        /* (the other song: back to its page, as after the question) */
-        }
+        act_load_proj(ui.pick_slot % NPROJ);
         return;
     case A_NEW_PROJ: ask("NEW PROJECT?", do_new_proj); return;
     case A_RANDOM_SOUNDS: ask("NEW SOUNDS ON T2 TO T8?", do_random_sounds); return;
@@ -4324,6 +4472,19 @@ static void sp_main(void)
             }
         if (!n)
             sp_cat("none");
+    } else if (ui.page == P_GARDEN) {
+        int n = 0;
+        sp_cat("glitches ");
+        sp_cat(GLITCH_NAME[garden_glitch % GG_N]);
+        sp_cat(", muted: ");
+        for (int t = 0; t < NTRK; t++)
+            if (seq.mute >> t & 1u) {
+                if (n++)
+                    sp_cat(", ");
+                sp_cat(TRACK_NAME[t]);
+            }
+        if (!n)
+            sp_cat("none");
     } else if (ui.page == P_ENGINE && !is_aux(trk)) {
         sp_cat("engine ");
         sp_cat(EG_NAME[proj.trk[trk].par[TP_ENGINE] % NENGINE]);
@@ -4805,6 +4966,7 @@ void ui_frame(void)
         if (!ui.playing)
             rec_off();
     }
+    engine_glide_tick();                         /* (KNOB GLIDE's walks, on the sequencer's sixteenths) */
     if (cur_scene() != ui.scene_seen) {
         if (ui.scene_seen != 0xFF)               /* not boot's first catch-up: no Program Change for that */
             cc_out_scene(cur_scene());            /* (MIDI: its Program Change, midicc.c) */

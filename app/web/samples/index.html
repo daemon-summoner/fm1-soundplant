@@ -5,7 +5,10 @@
      add, replace, rename, reorder and remove samples, set a sample's root note and its bars (a loop for the slice
      engine); Send builds the bank as tools/soundplant_samples.py does (soundplant_samples.js, inlined at LIB by
      tools/make_pages.py; tests/host/samples_web.mjs checks the two agree), the samples read back kept as stored, and
-     writes it with the bank's protocol (BEGIN 11, WRITE 12, HDR 16, END 13; ERASE 14 for an empty bank). -->
+     writes it with the bank's protocol (BEGIN 11, WRITE 12, HDR 16, END 13; ERASE 14 for an empty bank).
+     Prepare a sample (a file, or Edit on a sample in the list): trim, level, fades, reverse, mono, a loop, a preview,
+     then add it to the list or download it as a WAV, with or without the FM-1 (soundplant_prep.js, inlined after
+     soundplant_samples.js). -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -38,8 +41,8 @@
   button.quiet { background: none; color: var(--ink); border: 1px solid var(--rule); }
   button.link { background: none; color: var(--muted); border: 0; padding: 2px 4px; text-decoration: underline; font-weight: 400; font-size: 14px; border-radius: 4px; }
   button:disabled { opacity: .35; cursor: default; }
-  select, input[type=text] { font: inherit; font-size: 14px; color: var(--ink); background: var(--card); border: 1px solid var(--rule);
-                             border-radius: 6px; padding: 2px 6px; }
+  select, input[type=text], input[type=number] { font: inherit; font-size: 14px; color: var(--ink); background: var(--card);
+                             border: 1px solid var(--rule); border-radius: 6px; padding: 2px 6px; }
   input[type=text] { width: 9.5em; font-weight: 600; }
   .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 0 0 1.2rem; }
   #status { color: var(--muted); font-size: 15px; }
@@ -66,6 +69,29 @@
   progress { width: 100%; height: 6px; accent-color: var(--accent); }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   input[type=file] { display: none; }
+  .prep { border: 1px solid var(--rule); border-radius: 10px; background: var(--card); padding: 14px 16px 12px; margin: 0 0 1.2rem; }
+  .prep h2 { font: 700 1.3rem "Barlow Semi Condensed", sans-serif; margin: 0 0 .2rem; }
+  .prep fieldset { border: 0; padding: 0; margin: 0 0 10px; min-width: 0; }
+  .prep legend { font: 700 1rem "Barlow Semi Condensed", sans-serif; padding: 0; margin: 0 0 4px; }
+  .pgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: 8px 16px; align-items: end; }
+  .pgrid label { display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: var(--muted); min-width: 0; }
+  .pgrid label.chk { flex-direction: row; align-items: center; gap: 6px; color: var(--ink); }
+  .pgrid label[hidden] { display: none; }
+  .pgrid input[type=number], .pgrid select { width: 100%; box-sizing: border-box; }
+  .pgrid button { justify-self: start; }
+  .cap { margin: 8px 0 2px; color: var(--muted); font-size: 14px; }
+  .pw { position: relative; margin: 0 8px 4px; }
+  .pw canvas { display: block; width: 100%; height: 96px; border-radius: 4px; background: color-mix(in srgb, var(--ink) 4%, transparent); }
+  .handle { position: absolute; top: -4px; bottom: -4px; width: 24px; margin-left: -12px; cursor: ew-resize; touch-action: none; }
+  .handle::before { content: ""; position: absolute; left: 11px; top: 0; bottom: 0; width: 2px; background: var(--accent); }
+  .handle::after { content: ""; position: absolute; left: 6px; top: calc(50% - 11px); width: 12px; height: 22px; border-radius: 5px;
+                   background: var(--accent); }
+  .handle:focus-visible { outline: none; }
+  .handle:focus-visible::after { outline: 2px solid var(--ink); outline-offset: 2px; }
+  #prepinfo { margin: 8px 0 12px; min-height: 1.6em; }
+  #prepinfo .warn, #preperr { color: var(--bad); font-weight: 600; }
+  #preperr { margin: 0 0 8px; font-size: 15px; }
+  #preperr:empty { display: none; }
 </style>
 </head>
 <body>
@@ -86,6 +112,54 @@
     <button class="quiet" id="add">Add samples</button>
     <span class="small">or drop files here. Drop one on a sample to replace it.</span>
   </div>
+  <div class="bar">
+    <button class="quiet" id="prepopen">Prepare a sample</button>
+    <span class="small">trim, level, fade or reverse a file first. It works without the FM-1: download the result as a WAV.</span>
+  </div>
+  <section id="prep" class="prep" aria-labelledby="preph" hidden>
+    <h2 id="preph" tabindex="-1">Prepare a sample</h2>
+    <p class="cap" id="prepcap">The sound. Drag the two handles to trim it, or use the arrow keys on one.</p>
+    <div class="pw" id="pws">
+      <canvas id="pwsrc" width="1200" height="160" aria-hidden="true"></canvas>
+      <div class="handle" id="hstart" role="slider" tabindex="0" aria-label="Trim start"></div>
+      <div class="handle" id="hend" role="slider" tabindex="0" aria-label="Trim end"></div>
+    </div>
+    <p class="cap">What goes in the bank.</p>
+    <div class="pw"><canvas id="pwout" width="1200" height="160" aria-hidden="true"></canvas></div>
+    <p class="small" id="prepinfo" role="status"></p>
+    <p id="preperr" aria-hidden="true"></p>
+    <fieldset><legend>Trim</legend><div class="pgrid">
+      <label>Start (sample)<input type="number" id="pstart" min="0" step="1" inputmode="numeric"></label>
+      <label>End (sample)<input type="number" id="pend" min="1" step="1" inputmode="numeric"></label>
+      <label class="chk"><input type="checkbox" id="psnap" checked> Snap cuts to zero crossings</label>
+    </div></fieldset>
+    <fieldset><legend>Shape</legend><div class="pgrid">
+      <label>Fade in (ms)<input type="number" id="pfin" min="0" step="1" inputmode="numeric"></label>
+      <label>Fade out (ms)<input type="number" id="pfout" min="0" step="1" inputmode="numeric"></label>
+      <label id="pchwrap">Channels<select id="pch"></select></label>
+      <label class="chk"><input type="checkbox" id="prev"> Reverse</label>
+    </div></fieldset>
+    <fieldset><legend>Level</legend><div class="pgrid">
+      <label class="chk"><input type="checkbox" id="pnorm"> Normalise</label>
+      <label>Peak (dBFS)<input type="number" id="ppeak" min="-96" max="0" step="0.1" inputmode="decimal"></label>
+      <label>Gain (dB)<input type="number" id="pgain" min="-96" max="96" step="0.1" inputmode="decimal"></label>
+    </div></fieldset>
+    <fieldset><legend>Loop</legend><div class="pgrid">
+      <label class="chk"><input type="checkbox" id="ploopon"> Loop it</label>
+      <label>Loop start (sample)<input type="number" id="pls" min="0" step="1" inputmode="numeric"></label>
+      <label>Loop end (sample)<input type="number" id="ple" min="1" step="1" inputmode="numeric"></label>
+      <button class="quiet" id="plwhole" type="button">Loop the whole trim</button>
+    </div></fieldset>
+    <div class="bar">
+      <button id="pplay" type="button">Play</button>
+      <label class="q"><input type="checkbox" id="pploop" checked> Play the loop</label>
+    </div>
+    <div class="bar">
+      <button id="pcommit" type="button">Add to the bank</button>
+      <button class="quiet" id="pdown" type="button">Download WAV</button>
+      <button class="quiet" id="pclose" type="button">Close</button>
+    </div>
+  </section>
   <div class="bar">
     <button class="quiet" id="factory">Add SoundPlant's sounds</button>
     <span class="small" id="factorynote">the kits' drums, the instruments, the sweep and the vinyl (77 KB).</span>
@@ -113,12 +187,26 @@
   </div>
   <progress id="progress" max="100" value="0" hidden aria-label="Progress"></progress>
   <input type="file" id="files" multiple accept="audio/*,.wav,.aif,.aiff,.mp3,.flac,.m4a,.ogg" aria-label="Samples to add" tabindex="-1">
+  <input type="file" id="prepfile" accept="audio/*,.wav,.aif,.aiff,.mp3,.flac,.m4a,.ogg" aria-label="A sample to prepare" tabindex="-1">
 
   <h2 style="font: 700 1.3rem 'Barlow Semi Condensed', sans-serif; margin: 2rem 0 .5rem">The breaks</h2>
   <p class="small">Since SoundPlant 0.7 its four breaks are no longer built into the firmware, to make room for new sounds.
     "Add the breaks" puts them in your bank, then "Send to the FM-1". The slice engine's presets and your projects find
     them there by name, whatever their place in the list. Without them, those presets are silent and the screen says
     "install the breaks". The breaks are free loops posted by u/FCTRYBEATS, with permission to use them in any project.</p>
+  <h2 style="font: 700 1.3rem 'Barlow Semi Condensed', sans-serif; margin: 2rem 0 .5rem">Preparing a sample</h2>
+  <p class="small">"Prepare a sample" opens a file in a small editor, and "Edit" on a sample in the list opens that one. Trim it
+    (drag the two handles, use the arrow keys on one, or type the sample numbers; with "Snap cuts to zero crossings" a cut
+    lands where the sound crosses zero, so it doesn't click), set its level (Normalise to a peak, and a gain), fade its ends,
+    reverse it, mix a stereo file down to mono or take one side, set its loop, and play the result before it goes in. "Add to
+    the bank" or "Update" puts it in your list; nothing reaches the FM-1 until Send, and one that is too big for the free
+    room is refused there, with the size. Without the FM-1 connected you can still prepare a file and download it as a WAV
+    (its loop goes in the file).</p>
+  <p class="small">The bank keeps one loop for each sample, a start and an end, which the sample engine's loop mode plays, and
+    a bar count for the slice engine. It has no slice markers: the slice engine cuts a loop into equal slices as it plays,
+    so trim a loop to its exact length. A sample already in the bank is edited as it is stored there, at its rate and with
+    its tone, and the edit does not change them again. The preview plays the sound as you have prepared it; the bank stores
+    it at a lower rate, so on the FM-1 it is a little duller.</p>
   <h2 style="font: 700 1.3rem 'Barlow Semi Condensed', sans-serif; margin: 2rem 0 .5rem">How samples play</h2>
   <p class="small"><b>Root</b> is the note that plays a sample at its own pitch on a synth track (a note in the file's
     name sets it: "piano_C4.wav"). <b>Loop</b> says the file is a loop of that many bars, for the slice engine: it then
@@ -203,10 +291,11 @@ function render(focus = null) {
     r.innerHTML = `<div class="num">user ${i + 1}</div>
       <div class="top">
         <input type="text" id="${id}n" maxlength="11" value="" aria-label="user ${i + 1}: name" spellcheck="false">
-        <span class="facts">${(n / rate).toFixed(2)} s · ${(rate / 1000).toFixed(rate % 1000 ? 1 : 0)} kHz${it.isNew ? " · new" : it.s ? " · made smaller" : ""}${bpm}</span>
+        <span class="facts">${(n / rate).toFixed(2)} s · ${(rate / 1000).toFixed(rate % 1000 ? 1 : 0)} kHz${it.edited ? (it.isNew ? " · new, edited" : " · edited") : it.isNew ? " · new" : it.s ? " · made smaller" : ""}${bpm}</span>
         <span class="acts">
           <button class="link up" aria-label="Move user ${i + 1} up"${i ? "" : " disabled"}>↑</button>
           <button class="link dn" aria-label="Move user ${i + 1} down"${i < items.length - 1 ? "" : " disabled"}>↓</button>
+          <button class="link edit" aria-label="Edit user ${i + 1}: trim, level, loop">Edit</button>
           <button class="link rep" aria-label="Replace user ${i + 1}">Replace</button>
           <button class="link del" aria-label="Remove user ${i + 1}">Remove</button>
         </span>
@@ -222,6 +311,7 @@ function render(focus = null) {
     if (it.file) r.title = it.file;
     r.querySelector(".up").onclick = () => { [items[i - 1], items[i]] = [items[i], items[i - 1]]; render({ row: i - 1, sel: ".up" }); say(`Moved to user ${i}.`); };
     r.querySelector(".dn").onclick = () => { [items[i + 1], items[i]] = [items[i], items[i + 1]]; render({ row: i + 1, sel: ".dn" }); say(`Moved to user ${i + 2}.`); };
+    r.querySelector(".edit").onclick = () => attempt(() => openPrep({ ...editOf(it), item: it, base: it }));
     r.querySelector(".rep").onclick = () => { replaceAt = i; $("files").multiple = false; $("files").click(); };
     r.querySelector(".del").onclick = () => { items.splice(i, 1); render({ row: i, sel: ".del" }); say(`user ${i + 1} removed.`); };
     r.querySelector(".root").onchange = (ev) => { it.root = Number(ev.target.value); it.rootSet = true; render(); };
@@ -263,6 +353,7 @@ function render(focus = null) {
     "classic, heat, choke and ecstasy: the slice engine's four breaks (86 KB).";
   $("rate").disabled = busy;
   $("connect").disabled = busy;
+  syncPrep();
   if (focus) {                                       // the focused control went with its row: the same one there
     const rows = list.querySelectorAll(".smp");
     const row = rows[Math.min(focus.row ?? 0, rows.length - 1)];
@@ -278,7 +369,7 @@ function picOf(it) {
   const x = it.x, out = new Int16Array(Math.min(x.length, 20000));
   let pk = 1e-9;
   for (const v of x) pk = Math.max(pk, Math.abs(v));
-  for (let i = 0; i < out.length; i++) out[i] = x[Math.floor(i * x.length / out.length)] / pk * 30000;
+  for (let i = 0; i < out.length; i++) out[i] = x[Math.floor(i * x.length / out.length)] / pk * (it.peak || 30000);
   return (it.pic = out);
 }
 function wave(cv, s, colour) {                      // the peak in each pixel column
@@ -294,14 +385,14 @@ function wave(cv, s, colour) {                      // the peak in each pixel co
 }
 
 // ---- files -> samples ------------------------------------------------------------------
-async function decode(file) {
+async function decode(file, keep = false) {          // keep: the channels too (the editor mixes them itself)
   const buf = new Uint8Array(await file.arrayBuffer());
-  try { return readWav(buf); } catch (_) { /* not a WAV the reader takes: the browser's decoder */ }
+  try { return readWav(buf, keep); } catch (_) { /* not a WAV the reader takes: the browser's decoder */ }
   const ab = await new OfflineAudioContext(1, 1, 44100).decodeAudioData(buf.buffer.slice(0));
   const n = ab.length, x = new Float64Array(n), chs = [];
   for (let c = 0; c < ab.numberOfChannels; c++) chs.push(ab.getChannelData(c));
   for (let i = 0; i < n; i++) { let acc = 0; for (const ch of chs) acc += ch[i]; x[i] = acc / chs.length; }
-  return { rate: ab.sampleRate, x, loop: null };
+  return { rate: ab.sampleRate, x, loop: null, chs: keep ? chs : null };
 }
 async function addFiles(list, at = -1) {
   if (busy || !readOk || !list.length) return;
@@ -324,6 +415,328 @@ async function addFiles(list, at = -1) {
   else say(at >= 0 ? `user ${at + 1} replaced.` : got.length === 1 ? "1 sample added." : `${got.length} samples added.`);
   render();
 }
+
+// ---- preparing a sample (soundplant_prep.js), in the editor under the list. ed: the sound being prepared: src {rate, chs, loop
+// [ls, le)}, p its settings (all in src's samples), stored (it came out of the bank), base (a file's name, root and the like, or
+// the list item), item (the list item an Update replaces: null before the first Add), gone (it was in the list and no longer
+// is), mono (the channel mix the top wave is drawn from), cols (its peaks), out (what prepare made of it: null when it could not)
+let ed = null, voice = null, ac = null, drag = null, infoTimer = 0, laterTimer = 0, target = BANK_DB;
+const PCOLS = 1200;
+const attempt = (fn) => { try { fn(); } catch (e) { fail(e.message || String(e)); } };
+function perr(t) { $("preperr").textContent = t; if (t) fail(t); else $("alert").textContent = ""; }
+const snapOn = () => $("psnap").checked;
+const curLoop = () => fitLoop(ed.p.loop, ed.p.start, ed.p.end);
+function num(el) {
+  if (!Number.isFinite(el.valueAsNumber)) throw new Error("A number, please.");
+  return el.valueAsNumber;
+}
+function columns(x, W) {                             // each pixel column's lowest and highest sample
+  const c = new Float32Array(W * 2), n = x.length;
+  for (let k = 0; k < W && n; k++) {
+    const a = Math.min(n - 1, Math.floor(k * n / W)), e = Math.max(a + 1, Math.floor((k + 1) * n / W));
+    let lo = 0, hi = 0;
+    for (let i = a; i < e; i++) { if (x[i] < lo) lo = x[i]; if (x[i] > hi) hi = x[i]; }
+    c[k * 2] = lo;
+    c[k * 2 + 1] = hi;
+  }
+  return c;
+}
+function paintCols(g, cols, W, H, colour, over) {   // over-range columns in the alert colour
+  const css = getComputedStyle(document.documentElement), y = (v) => H / 2 - Math.max(-1, Math.min(1, v)) * H / 2;
+  g.clearRect(0, 0, W, H);
+  g.fillStyle = css.getPropertyValue("--rule");
+  g.fillRect(0, H / 2, W, 1);
+  for (let k = 0; k < W; k++) {
+    const lo = cols[k * 2], hi = cols[k * 2 + 1], top = y(hi);
+    g.fillStyle = css.getPropertyValue(over && (hi > 1 || lo < -1) ? "--bad" : colour);
+    g.fillRect(k, top, 1, Math.max(1, y(lo) - top));
+  }
+}
+function paintLoop(g, loop, n, W, H) {
+  if (!loop) return;
+  const x = loop[0] / n * W, w = Math.max(2, (loop[1] - loop[0]) / n * W);
+  g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--accent");
+  g.globalAlpha = .16;
+  g.fillRect(x, 0, w, H);
+  g.globalAlpha = 1;
+  g.fillRect(x, H - 6, w, 6);
+}
+function paintSrc() {
+  const cv = $("pwsrc"), g = cv.getContext("2d"), W = cv.width, H = cv.height, n = ed.mono.length, p = ed.p;
+  paintCols(g, ed.cols, W, H, "--wave", false);
+  g.globalAlpha = .72;                               // what the trim leaves out, faded
+  g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--card");
+  g.fillRect(0, 0, p.start / n * W, H);
+  g.fillRect(p.end / n * W, 0, W - p.end / n * W, H);
+  g.globalAlpha = 1;
+  paintLoop(g, curLoop(), n, W, H);
+}
+function paintOut() {
+  const cv = $("pwout"), g = cv.getContext("2d"), W = cv.width, H = cv.height;
+  if (!ed.out) { g.clearRect(0, 0, W, H); return; }
+  paintCols(g, columns(ed.out.x, W), W, H, "--accent", true);
+  paintLoop(g, ed.out.loop, ed.out.x.length, W, H);
+}
+
+// the settings on the page: the fields, the handles and the top wave (cheap: runs while a handle is dragged)
+function view() {
+  const p = ed.p, n = ed.mono.length, min = Math.min(MIN_TRIM, n), lp = curLoop(), norm = typeof p.normTo === "number";
+  const sec = (i) => (i / ed.src.rate).toFixed(3);
+  $("pstart").value = p.start;
+  $("pend").value = p.end;
+  $("pend").max = n;
+  $("pfin").value = p.fadeIn;
+  $("pfout").value = p.fadeOut;
+  $("pch").value = String(p.channel);
+  $("prev").checked = p.reverse;
+  $("pnorm").checked = norm;
+  $("ppeak").value = Math.round((norm ? p.normTo : target) * 100) / 100;
+  $("ppeak").disabled = !norm;
+  $("pgain").value = p.gain;
+  $("ploopon").checked = !!lp;
+  $("pls").value = lp ? lp[0] : "";
+  $("ple").value = lp ? lp[1] : "";
+  $("pls").disabled = $("ple").disabled = !lp;
+  for (const [id, v, lo, hi] of [["hstart", p.start, 0, p.end - min], ["hend", p.end, p.start + min, n]]) {
+    const h = $(id);
+    h.style.left = `${v / n * 100}%`;
+    h.setAttribute("aria-valuemin", lo);
+    h.setAttribute("aria-valuemax", hi);
+    h.setAttribute("aria-valuenow", v);
+    h.setAttribute("aria-valuetext", `sample ${v} of ${n}, ${sec(v)} seconds`);
+  }
+  paintSrc();
+}
+function heading() {
+  const at = ed.item ? items.indexOf(ed.item) : -1;
+  $("preph").textContent = at >= 0 ? `Edit user ${at + 1}: ${ed.item.name}` : `Prepare ${(ed.item || ed.base).name}`;
+  $("pcommit").textContent = at >= 0 ? `Update user ${at + 1}` : "Add to the bank";
+}
+function buttons() {
+  const ok = !!ed.out && !ed.out.over;
+  heading();
+  $("pplay").textContent = voice ? "Stop" : "Play";
+  $("pplay").disabled = !ed.out;
+  $("pdown").disabled = !ok;
+  $("pcommit").disabled = busy || !readOk || !ok || (!ed.item && items.length >= BANK_N);
+}
+function infoText() {                                // -> {t: what the sound is, warn: what is wrong with it}
+  const o = ed.out, p = ed.p, rate = ed.src.rate, n = ed.mono.length, sec = (i) => (i / rate).toFixed(3);
+  if (!o) return { t: "", warn: "" };
+  const bankRate = ed.stored ? rate : rateChoice() || (plan && plan.chose) || 22050, len = o.x.length;
+  const kb = sampleBytes(ed.stored ? len : lengthAt(len, rate, bankRate)) / 1024;
+  const t = [`Keeping ${sec(p.start)} to ${sec(p.end)} of ${sec(n)} seconds: ${len} samples at ${rate} Hz.`,
+    o.silent ? "Silent." : `Peak ${toDb(o.peak).toFixed(1)} dBFS.`,
+    `About ${kb.toFixed(1)} KB in the bank${ed.stored ? "" : ` at ${(bankRate / 1000).toFixed(bankRate % 1000 ? 1 : 0)} kHz`}.`];
+  if (o.loop) t.push(`Loop ${o.loop[0]} to ${o.loop[1]}.`);
+  if (!readOk) t.push("Not connected to the FM-1: download the WAV, or connect to add it to the bank.");
+  const w = [];
+  if (o.over) w.push(`Over full scale by ${toDb(o.peak).toFixed(1)} dB: lower the gain or turn on Normalise. It can't be added or downloaded like this.`);
+  if (o.clipped) w.push(`The input is clipped: ${o.clipped} samples sit flat at its peak, and levelling can't undo that.`);
+  if (p.loop && !curLoop()) w.push("The loop no longer fits the trim, so it is left out.");
+  if (ed.gone) w.push("It is not in the list any more: Add puts it back.");
+  if (readOk && !ed.item && items.length >= BANK_N) w.push(`The FM-1 holds ${BANK_N} samples: remove one to add this.`);
+  return { t: t.join(" "), warn: w.join(" ") };
+}
+function describe() {                                // the status line, once the settings have settled (screen readers)
+  clearTimeout(infoTimer);
+  infoTimer = setTimeout(() => {
+    if (!ed) return;
+    const { t, warn } = infoText(), el = $("prepinfo");
+    el.textContent = t;
+    if (!warn) return;
+    const w = document.createElement("span");
+    w.className = "warn";
+    w.textContent = ` ${warn}`;
+    el.appendChild(w);
+  }, 250);
+}
+// the settings run through prepare: the bottom wave, the status line and the buttons; the failure's text ("": none)
+function refresh() {
+  stopVoice();
+  view();
+  let bad = "";
+  try { ed.out = prepare(ed.src, ed.p); } catch (e) { ed.out = null; bad = e.message || String(e); }
+  paintOut();
+  describe();
+  buttons();
+  return bad;
+}
+function act(fn) {                                   // an edit: a refused one leaves the settings as they were and says why
+  let msg = "";
+  try { fn(); } catch (e) { msg = e.message || String(e); }
+  const bad = refresh();
+  perr(msg || bad);
+}
+function later() { clearTimeout(laterTimer); laterTimer = setTimeout(() => perr(refresh()), 160); }
+function syncPrep() {                                // the list changed under the editor
+  if (!ed) return;
+  if (ed.item && !items.includes(ed.item)) { ed.item = null; ed.gone = true; }
+  describe();
+  buttons();
+}
+
+function setMono() {
+  ed.mono = mixDown(ed.src.chs, ed.p.channel);
+  ed.cols = columns(ed.mono, PCOLS);
+}
+function openPrep({ src, p, stored, item = null, base }) {
+  stopVoice();
+  const k = src.chs.length;
+  ed = { src, p, stored, item, base, gone: false, mono: null, cols: null, out: null };
+  target = typeof p.normTo === "number" ? p.normTo : BANK_DB;
+  $("pch").innerHTML = `<option value="-1">Mix all ${k} to mono</option>` +
+    src.chs.map((_, c) => `<option value="${c}">${k === 2 ? (c ? "Right" : "Left") + " only" : `Channel ${c + 1} only`}</option>`).join("");
+  $("pchwrap").hidden = k < 2;
+  setMono();
+  $("prep").hidden = false;
+  $("prepinfo").textContent = "";
+  perr("");
+  const bad = refresh();
+  $("preph").focus();
+  if (bad) perr(bad);
+}
+function closePrep() {
+  if (!ed) return;
+  stopVoice();
+  const at = ed.item ? items.indexOf(ed.item) : -1, row = at >= 0 ? $("list").querySelectorAll(".smp")[at] : null;
+  ed = null;
+  clearTimeout(infoTimer);
+  clearTimeout(laterTimer);
+  $("prep").hidden = true;
+  perr("");
+  const back = row && row.querySelector(".edit");
+  (back && !back.disabled ? back : $("prepopen")).focus();
+}
+async function prepareFile(f) {
+  if (!f) return;
+  say("Reading the file…");
+  let d;
+  try { d = await decode(f, true); } catch (e) { fail(`Couldn't read ${f.name} (${e.message || e}). Use WAV, AIFF, MP3 or FLAC files.`); return; }
+  if (d.x.length < 2) { fail(`${f.name} has no audio.`); return; }
+  const stem = f.name.replace(/\.[^.]*$/, ""), src = { rate: d.rate, chs: d.chs && d.chs.length ? d.chs : [d.x], loop: d.loop ? [d.loop[0], d.loop[1] + 1] : null };
+  openPrep({ src, p: defaults(src, true), stored: false,
+    base: { name: cleanName(stem), root: noteFromName(stem), rootSet: false, bars: 0, rate: null, file: f.name, isNew: true } });
+  say(`${f.name} is open in the editor.`);
+}
+
+// ---- the editor's controls
+function stopVoice() {
+  if (!voice) return;
+  const v = voice;
+  voice = null;
+  v.onended = null;
+  v.stop();
+  if (ed) $("pplay").textContent = "Play";
+}
+async function startVoice() {
+  const o = ed.out, Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!o) return;
+  if (!Ctx) throw new Error("This browser can't play audio.");
+  if (!ac) ac = new Ctx();                           // made in the click that asked for sound: a gesture, as browsers require
+  if (ac.state === "suspended") await ac.resume();
+  if (!ed || ed.out !== o || voice) return;
+  const buf = ac.createBuffer(1, o.x.length, o.rate), src = ac.createBufferSource(), g = ac.createGain();
+  buf.copyToChannel(Float32Array.from(o.x), 0);
+  src.buffer = buf;
+  if ($("pploop").checked && o.loop) { src.loop = true; src.loopStart = o.loop[0] / o.rate; src.loopEnd = o.loop[1] / o.rate; }
+  g.gain.value = o.peak > 1 ? 1 / o.peak : 1;       // the preview never goes past full scale, however loud the gain
+  src.connect(g).connect(ac.destination);
+  src.onended = () => { if (voice === src) { voice = null; if (ed) $("pplay").textContent = "Play"; } };
+  voice = src;
+  src.start();
+  $("pplay").textContent = "Stop";
+}
+function download() {
+  const bytes = encodeWav(ed.out), stem = ed.base.file ? ed.base.file.replace(/\.[^.]*$/, "") : (ed.item || ed.base).name;
+  const url = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" })), a = document.createElement("a");
+  a.href = url;
+  a.download = `${stem}-prepared.wav`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+  say(`${a.download} downloaded: ${ed.out.x.length} samples at ${ed.out.rate} Hz${ed.out.loop ? ", with its loop" : ""}.`);
+}
+// the editor's sound into the list: the item it updates, else a new one at the end. Refused with the size when the bank
+// would not hold it (the same build the Send does: nothing changes then)
+function commit() {
+  const it = editedItem(ed.out, ed.item || ed.base, ed.stored, { src: ed.src, p: { ...ed.p, loop: ed.p.loop ? [...ed.p.loop] : null } });
+  const at = ed.item ? items.indexOf(ed.item) : -1, next = at >= 0 ? items.map((x, i) => (i === at ? it : x)) : [...items, it];
+  try { build([...next, ...fset], rateChoice(), cache); } catch (e) {
+    cache.delete(it);
+    if (!(e instanceof TooLong)) throw e;
+    perr(`Too big for the FM-1: ${e.message.replace(/^too long: /, "")}. Trim it, pick a lower quality, or remove a sample.`);
+    return;
+  }
+  items = next;
+  ed.item = it;
+  ed.gone = false;
+  perr("");
+  say(at >= 0 ? `user ${at + 1} updated.` : `Added as user ${items.length}: send it to the FM-1.`);
+  render();
+}
+// a handle moved to sample i (dragged: it stops at the nearest legal place; snapped when asked)
+function cut(side, i, snap) { act(() => { ed.p[side] = moveCut(ed.mono, ed.p, side, i, snap, true); }); }
+function handleKey(side, ev) {
+  if (!ed || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+  const n = ed.mono.length, cur = ed.p[side], big = Math.max(1, Math.round(n / 100)), min = Math.min(MIN_TRIM, n);
+  const dir = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1, PageUp: 10, PageDown: -10 }[ev.key];
+  let at, snap = false;
+  if (dir && (ev.key === "PageUp" || ev.key === "PageDown")) { at = cur + dir * big; snap = snapOn(); }
+  else if (dir && ev.shiftKey) at = cur + dir;
+  else if (dir && snapOn()) at = nextZero(ed.mono, cur, dir);
+  else if (dir) at = cur + dir * big;
+  else if (ev.key === "Home") at = side === "start" ? 0 : ed.p.start + min;
+  else if (ev.key === "End") at = side === "start" ? ed.p.end - min : n;
+  else return;
+  ev.preventDefault();
+  cut(side, at, snap);
+}
+for (const side of ["start", "end"]) {
+  const h = $(side === "start" ? "hstart" : "hend");
+  const sampleAt = (ev) => { const r = $("pwsrc").getBoundingClientRect(); return Math.round(Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)) * ed.mono.length); };
+  const move = () => {
+    drag.raf = 0;
+    try { ed.p[side] = moveCut(ed.mono, ed.p, side, drag.at, snapOn(), true); } catch (e) { perr(e.message || String(e)); return; }
+    view();                                          // the bottom wave and the status follow once the handle rests
+    later();
+  };
+  h.onpointerdown = (ev) => { if (!ed) return; ev.preventDefault(); h.setPointerCapture(ev.pointerId); h.focus(); drag = { h, at: null, raf: 0 }; };
+  h.onpointermove = (ev) => {
+    if (!ed || !drag || drag.h !== h) return;
+    drag.at = sampleAt(ev);
+    if (!drag.raf) drag.raf = requestAnimationFrame(move);   // one move for each frame
+  };
+  h.onpointerup = h.onpointercancel = () => {
+    if (!drag || drag.h !== h) return;
+    if (drag.raf) { cancelAnimationFrame(drag.raf); move(); }
+    drag = null;
+    clearTimeout(laterTimer);
+    if (ed) perr(refresh());
+  };
+  h.onkeydown = (ev) => handleKey(side, ev);
+}
+$("pstart").onchange = (ev) => act(() => { ed.p.start = moveCut(ed.mono, ed.p, "start", num(ev.target), snapOn()); });
+$("pend").onchange = (ev) => act(() => { ed.p.end = moveCut(ed.mono, ed.p, "end", num(ev.target), snapOn()); });
+$("pfin").onchange = (ev) => act(() => { const v = num(ev.target); fadeSamples(v, ed.src.rate); ed.p.fadeIn = v; });
+$("pfout").onchange = (ev) => act(() => { const v = num(ev.target); fadeSamples(v, ed.src.rate); ed.p.fadeOut = v; });
+$("pch").onchange = (ev) => act(() => { const c = Number(ev.target.value); mixDown(ed.src.chs, c); ed.p.channel = c; setMono(); });
+$("prev").onchange = (ev) => act(() => { ed.p.reverse = ev.target.checked; });
+$("pnorm").onchange = (ev) => act(() => { ed.p.normTo = ev.target.checked ? target : null; });
+$("ppeak").onchange = (ev) => act(() => { const v = levelDb(num(ev.target)); checkTarget(v); target = v; ed.p.normTo = v; });
+$("pgain").onchange = (ev) => act(() => { const v = num(ev.target); checkGain(v); ed.p.gain = v; });
+$("ploopon").onchange = (ev) => act(() => { ed.p.loop = ev.target.checked ? checkLoop([ed.p.start, ed.p.end], ed.p.start, ed.p.end) : null; });
+$("plwhole").onclick = () => act(() => { ed.p.loop = checkLoop([ed.p.start, ed.p.end], ed.p.start, ed.p.end); });
+$("pls").onchange = (ev) => act(() => { ed.p.loop = moveLoop(ed.mono, { ...ed.p, loop: curLoop() }, "start", num(ev.target), snapOn()); });
+$("ple").onchange = (ev) => act(() => { ed.p.loop = moveLoop(ed.mono, { ...ed.p, loop: curLoop() }, "end", num(ev.target), snapOn()); });
+$("pploop").onchange = stopVoice;
+$("pplay").onclick = () => { if (voice) stopVoice(); else startVoice().catch((e) => perr(e.message || String(e))); };
+$("pdown").onclick = () => attempt(download);
+$("pcommit").onclick = () => attempt(commit);
+$("pclose").onclick = closePrep;
+$("prepopen").onclick = () => $("prepfile").click();
+$("prepfile").onchange = (ev) => { prepareFile(ev.target.files[0]); ev.target.value = ""; };
 
 // ---- the break pack: in the firmware until 0.7, found in the bank by name (dsp/sample.c); the files next to this page
 // (tools/make_pages.py copies app/samples/), stored as the factory bank kept them (tools/gen_samples.py RECORDINGS)

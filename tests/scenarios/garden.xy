@@ -1,0 +1,174 @@
+# The Garden page (app/garden.c): a plant a track. Reached by SELECT under HOME; every screen below goes through the layout audit.
+wait 300
+spin ALGO 2
+expect trk 3
+tap HOME
+expect page Arrange
+turn SELECT 1
+expect page Song
+turn SELECT 1
+expect page Garden
+shot idle.png
+# nothing sounding: no plant lit, no petal, none wilted
+wait 800
+expect gact3 0
+expect gact5 0
+expect gparts 0
+expect gwilt3 0
+expect gglitch 0
+turn SELECT 1
+expect page Arrange
+turn SELECT 2
+expect page Garden
+
+# a hit on T3 lights T3's plant, sheds its petals, rings its stem; no other plant
+tapkey w4
+wait 60
+expect gact3 >100
+expect gact5 0
+expect gparts >0
+shot hit.png
+wait 1800
+expect gparts 0
+expect gact3 <40
+
+# a muted track's plant wilts, the others stand; unmuted, it rises again
+midi B2 09 7F
+wait 1200
+expect mute 4
+expect gwilt3 >200
+expect gwilt5 0
+shot muted.png
+midi B2 09 00
+wait 1500
+expect mute 0
+expect gwilt3 <40
+
+# every track muted: every plant wilts
+midi B0 09 7F
+midi B1 09 7F
+midi B2 09 7F
+midi B3 09 7F
+midi B4 09 7F
+midi B5 09 7F
+midi B6 09 7F
+midi B7 09 7F
+wait 1500
+expect mute 255
+expect gwilt1 >200
+expect gwilt8 >200
+shot allmuted.png
+midi B0 09 00
+midi B1 09 00
+midi B2 09 00
+midi B3 09 00
+midi B4 09 00
+midi B5 09 00
+midi B6 09 00
+midi B7 09 00
+wait 100
+expect mute 0
+
+# a song playing (200 BPM, T3 on every other sixteenth), the glitch knob wild: the glitch schedule is the seed's, the same every run
+turn SELECT 1
+expect page Arrange
+bpm 200
+step 3 1 1 48 110
+step 3 1 3 52 110
+step 3 1 5 55 110
+step 3 1 7 52 110
+step 3 1 9 48 110
+step 3 1 11 60 110
+step 3 1 13 55 110
+step 3 1 15 64 110
+wait 400
+turn SELECT 2
+expect page Garden
+turn K1 2
+tap PLAY
+expect playing 1
+wait 2300
+expect gglitch >0
+shot glitch.png
+wait 700
+expect gglitch 0
+# the screen moves while it plays (the stars, the aurora, the fireflies)
+changes 800 10 100000
+
+# glitch off, the same song from its start: none where the first run had them (2.3 s, 3.75 s, 4.3 s, 5.9 s in); the
+# control, wild again, has the first of them back
+tap PLAY
+expect playing 0
+wait 2500
+turn K1 -3
+tap PLAY
+wait 2300
+expect gglitch 0
+wait 1450
+expect gglitch 0
+wait 550
+expect gglitch 0
+wait 1600
+expect gglitch 0
+tap PLAY
+wait 2500
+turn K1 3
+tap PLAY
+wait 2300
+expect gglitch >0
+tap PLAY
+settle
+
+# nothing sounding and nothing moving: the page draws nothing at all
+changes 800 0 0
+
+# MOTION still: nothing moves on the screen (no draw at all) and a hit does not ring the plant; a note, a playing song
+tap GLO
+turn SELECT 5
+expect page Setup
+tap SEL
+row MOTION
+turn ALGO 1
+expect still 1
+tap HOME
+tap HOME
+expect page Arrange
+turn SELECT 2
+expect page Garden
+wait 300
+expect gsame >-1
+tapkey w4
+wait 300
+expect gact3 0
+expect gparts 0
+expect gsame 1
+tap PLAY
+wait 2000
+shot still.png
+expect gact3 0
+expect gglitch 0
+expect gsame 1
+changes 1000 0 0
+tap PLAY
+settle
+
+# MOTION back on: the same hit moves the state (so the still run's gsame above is not vacuous)
+tap GLO
+turn SELECT 5
+expect page Setup
+tap SEL
+row MOTION
+turn ALGO -1
+expect still 0
+tap HOME
+tap HOME
+expect page Arrange
+turn SELECT 2
+expect page Garden
+wait 1500
+expect gsame >-1
+tapkey w4
+wait 100
+expect gsame 0
+expect gact3 >100
+shot hit_moving.png

@@ -239,6 +239,7 @@ typedef struct {
     volatile uint8_t song_pos, song_rep;
     volatile uint8_t ppat[NSEQT];     /* each track's pattern (the scene's, or cued per track) */
     volatile uint16_t mute;           /* bit t */
+    volatile uint16_t morph;          /* the scene morph: target scene << 8 | percent, 0 off (one word: the UI writes it) */
     volatile uint8_t ext, clock, send_notes;   /* clock: SEQ_CLK_* */
     volatile uint8_t metronome;       /* 0 off, 1 while recording, 2 on */
     volatile uint8_t rec;             /* live recording: the keys write steps */
@@ -338,6 +339,9 @@ void seq_cue_scene(seq_t *s, int scene, int at_end);   /* at the next bar line, 
                                                           * pattern (now, if stopped) */
 int seq_cue_left(const seq_t *s);              /* sixteenths before the cued scene's (0: the next), -1 none */
 void seq_set_scene(seq_t *s, int scene);       /* now: the scene's patterns, mutes, brain */
+int seq_morph_target(const seq_t *s);          /* the scene a morph blends toward: the next used one, wrapping; -1 none */
+void seq_morph(seq_t *s, int pct);             /* thin the steps of the tracks whose mute differs in the target scene: 0 off,
+                                                * 100 all the way (a scene landing, a stop: off) */
 void seq_bar_go(seq_t *s, int trk, int go, int from, int to);   /* jump to step GO and play the loop FROM .. TO (to 0 = all), at the next bar line (at once while stopped) */
 void seq_cue_pattern(seq_t *s, int trk, int pat);   /* one track's pattern at its wrap */
 float seq_tempo(const seq_t *s);

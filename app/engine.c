@@ -37,6 +37,7 @@ volatile uint8_t eng_step[NSEQT];
 volatile uint16_t eng_peak[NALLTRK];
 volatile uint8_t eng_drum_hit[NDRUM];
 volatile uint8_t eng_midi_hit[NTRK];
+volatile uint8_t eng_hit[NTRK], eng_hit_vel[NTRK];
 volatile uint8_t eng_voices, eng_voices_max = NVOICE;
 volatile uint32_t eng_guard_count;
 volatile uint8_t eng_usb_stereo;
@@ -260,6 +261,43 @@ static void cq_put(uint32_t type, uint32_t a, uint32_t b, uint32_t c)
  * lasts one block. */
 static struct { uint8_t type, knob[4], hp, lp, width; } fx_req[2];
 
+/* KNOB GLIDE (Setup): a knob turned while the sequencer plays walks its parameter to the new value over the bars set,
+ * on the sequencer's sixteenths (seq.step_tick: the interrupt counts them, the main loop reads them) instead of
+ * jumping. Main loop only, as engine_set: the queue has one producer. The project already holds the target; the engine's
+ * copy (ppar) is the walk, and a step lock still overlays it (apply_param, the synth's lock): the walk is the base. A
+ * walk is a function of the clock, so a frame that finds the queue busy loses nothing: the next one catches up. */
+#define KGLIDE_N 8
+static struct {
+    uint32_t t0, len;                  /* the sixteenth it began on, its length in sixteenths */
+    uint16_t param;
+    uint8_t trk, from, to;
+} kglide[KGLIDE_N];                    /* oldest first */
+static uint8_t kglide_n;
+
+static void param_put(int trk, int param, int val)
+{
+    ppar[trk][param] = (uint8_t)val;
+    cq_put(C_PARAM, (uint32_t)trk, (uint32_t)param & 0xFFu, (uint32_t)val | ((uint32_t)param >> 8) << 8);
+}
+static void kglide_cut(int i)
+{
+    for (kglide_n--; i < kglide_n; i++)
+        kglide[i] = kglide[i + 1];
+}
+static void kglide_end(int i)          /* ramp i lands on its target */
+{
+    param_put(kglide[i].trk, kglide[i].param, kglide[i].to);
+    kglide_cut(i);
+}
+static void kglide_drop(int trk, int param)    /* a value set by another way ends the walk it was on */
+{
+    for (int i = 0; i < kglide_n; i++)
+        if (kglide[i].trk == trk && kglide[i].param == param) {
+            kglide_cut(i);
+            return;
+        }
+}
+
 /* the knob's value into the contiguous array the synth and the sequencer read (one byte: safe beside
  * the interrupt), then the command, for what needs doing with it (a kind change, a unit told) */
 void engine_set(int trk, int param, int val)
@@ -270,17 +308,77 @@ void engine_set(int trk, int param, int val)
         val = 0;
     if (val > 255)
         val = 255;
-    ppar[trk][param] = (uint8_t)val;
-    cq_put(C_PARAM, (uint32_t)trk, (uint32_t)param & 0xFFu, (uint32_t)val | ((uint32_t)param >> 8) << 8);
+    kglide_drop(trk, param);
+    param_put(trk, param, val);
 }
 void engine_set_all(int trk)
 {
     int k;
     if (trk < 0 || trk >= NALLTRK)
         return;
+    for (k = kglide_n; k-- > 0;)       /* (ppar takes the project's values, the targets: its ramps are over) */
+        if (kglide[k].trk == trk)
+            kglide_cut(k);
     for (k = 0; k < NTP; k++)
         ppar[trk][k] = proj.trk[trk].par[k];
     cq_put(C_ALL, (uint32_t)trk, 0, 0);
+}
+/* val over bars bars (1..GLIDE_BARS_MAX); at once when the sequencer is stopped. From the engine's value now, so a
+ * turn on a walk in progress starts the new walk where the old one is. The ninth walk lands the oldest */
+void engine_glide(int trk, int param, int val, int bars)
+{
+    int i;
+    if (trk < 0 || trk >= NALLTRK || param < 0 || param >= NTP)
+        return;
+    if (val < 0)
+        val = 0;
+    if (val > 255)
+        val = 255;
+    if (!seq.playing || bars < 1) {
+        engine_set(trk, param, val);
+        return;
+    }
+    kglide_drop(trk, param);
+    if (ppar[trk][param] == val)
+        return;
+    if (kglide_n == KGLIDE_N)
+        kglide_end(0);
+    i = kglide_n++;
+    kglide[i].t0 = seq.step_tick;
+    kglide[i].len = (uint32_t)(bars > GLIDE_BARS_MAX ? GLIDE_BARS_MAX : bars) * 16u;
+    kglide[i].param = (uint16_t)param;
+    kglide[i].trk = (uint8_t)trk;
+    kglide[i].from = ppar[trk][param];
+    kglide[i].to = (uint8_t)val;
+}
+void engine_glide_land(void)
+{
+    while (kglide_n)
+        kglide_end(0);
+}
+/* each frame: every ramp to its linear value at the sixteenth now (rounded; the engine hears a change only); a stopped
+ * sequencer lands them. A restart from the top sets step_tick back, which makes the unsigned age huge: they land */
+void engine_glide_tick(void)
+{
+    uint32_t now = seq.step_tick;
+    if (!kglide_n || cq_w - cq_r > CQ - 2u * KGLIDE_N)
+        return;
+    if (!seq.playing) {
+        engine_glide_land();
+        return;
+    }
+    for (int i = 0; i < kglide_n;) {
+        uint32_t age = now - kglide[i].t0, len = kglide[i].len;
+        int d = (int)kglide[i].to - (int)kglide[i].from, v;
+        if (age >= len) {
+            kglide_end(i);
+            continue;
+        }
+        v = (int)kglide[i].from + (d * (int)age + (d > 0 ? (int)(len / 2u) : -(int)(len / 2u))) / (int)len;
+        if (v != ppar[kglide[i].trk][kglide[i].param])
+            param_put(kglide[i].trk, kglide[i].param, v);
+        i++;
+    }
 }
 void engine_key(int trk, int note, int on, int vel)
 {
@@ -534,9 +632,28 @@ static void pump_drum(int trk, int sound, int vel)
         eng_master_key(PB_T1 + trk, vel, 1);
     }
 }
+/* A note starting on a track, for the garden (the UI keeps the count it last saw and takes any difference as a hit). The
+ * velocity is stored before the count moves, so a reader that sees the new count sees a velocity at least as new */
+static void hit_mark(int trk, int vel)
+{
+    eng_hit_vel[trk] = (uint8_t)(vel < 1 ? 1 : vel > 127 ? 127 : vel);
+    eng_hit[trk] = (uint8_t)(eng_hit[trk] + 1u);
+}
 #ifdef PLAT_HOST
 static uint32_t host_drum_hits, host_note_ons;
 uint64_t eng_host_hash = 1469598103934665603ull;       /* FNV-1a of every output word (host.c SOUNDPLANT_HASH) */
+#endif
+#ifdef PLAT_WEB
+/* what the browser's garden reads (web.c): each track's hits counted, the last one's note (a kit: its sound) and
+ * velocity, and its loudest block since the page last looked. Plain stores: nothing here reaches the sound */
+static uint16_t web_hits[NTRK], web_peak[NALLTRK];
+static uint8_t web_note[NTRK], web_vel[NTRK];
+static void web_hit(int trk, int note, int vel)
+{
+    web_hits[trk]++;
+    web_note[trk] = (uint8_t)note;
+    web_vel[trk] = (uint8_t)vel;
+}
 #endif
 static void s_note_on(void *x, int trk, int note, int vel, int glide_ms, uint32_t tag)
 {
@@ -545,6 +662,10 @@ static void s_note_on(void *x, int trk, int note, int vel, int glide_ms, uint32_
     if (trk < 0 || trk >= NTRK || eng_drum[trk])
         return;
     DSP_FAR(synth_note_on)(SY, trk, note, vel, glide_ms, tag);   /* (in RAM: tools/size_fns.py RAM_SETS) */
+    hit_mark(trk, vel);
+#ifdef PLAT_WEB
+    web_hit(trk, note, vel);
+#endif
 #ifdef PLAT_HOST
     host_note_ons++;                                   /* (the host's load model: a note's set-up) */
 #endif
@@ -580,6 +701,10 @@ static void s_drum(void *x, int trk, int sound, int vel, int pitch_semi, int sho
     if (trk < 0 || trk >= NTRK || !eng_drum[trk] || sound < 0 || sound >= NDRUM)
         return;
     drumline_hit(DL(trk), sound, vel, pitch_semi + glfo_kit_semis(trk, sound), short_gate, long_tail || perf_tail[trk]);
+    hit_mark(trk, vel);
+#ifdef PLAT_WEB
+    web_hit(trk, sound, vel);
+#endif
 #ifdef PLAT_HOST
     host_drum_hits++;                                  /* (the host's load model: a hit's own cost) */
 #endif
@@ -687,8 +812,15 @@ static void s_midi(void *x, uint8_t st, uint8_t d1, uint8_t d2)
 {
     uint32_t cin = st >= 0xF0 ? 0x0Fu : (uint32_t)(st >> 4);
     (void)x;
-    if ((st & 0xF0) == 0x90 && d2 && (st & 15) < NTRK)
+    if ((st & 0xF0) == 0x90 && d2 && (st & 15) < NTRK) {
         eng_midi_hit[st & 15] = 255;                  /* (a MIDI track's picture: its port lights) */
+        if (epar[st & 15][TP_ENGINE] == EG_MIDI)      /* (the other engines' notes are counted where they sound) */
+            hit_mark(st & 15, d2);
+#ifdef PLAT_WEB
+        if (epar[st & 15][TP_ENGINE] == EG_MIDI)      /* (the other engines' notes are counted where they sound) */
+            web_hit(st & 15, d1, d2);
+#endif
+    }
     ENG_MIDI_OUT(cin | ((uint32_t)st << 8) | ((uint32_t)d1 << 16) | ((uint32_t)d2 << 24));
 }
 static void s_step(void *x, int trk, int step)
@@ -1744,6 +1876,10 @@ void engine_render(int32_t *out_lr, uint32_t n, uint32_t gain_q12)
         uint32_t q = (uint32_t)(fm_minf(trk_peak[p], 2.0f) * 16383.5f);
         if (q > eng_peak[p])
             eng_peak[p] = (uint16_t)q;
+#ifdef PLAT_WEB
+        if (q > web_peak[p])
+            web_peak[p] = (uint16_t)q;
+#endif
         trk_peak[p] = 0.0f;
     }
     eng_voices = (uint8_t)synth_voices_used(SY);

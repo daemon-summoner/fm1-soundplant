@@ -1,0 +1,181 @@
+# The bar tabs on Steps: each one is its bar's 16 steps as a 4 x 4 grid of dots, so the whole pattern shows at once. A hit
+# is a lit dot, a rest a dim one, a step past the pattern's end no dot; the playhead is the brightest dot, the bar it is in
+# has a bar of ink under its tab, the bar the cells show a white ring. tests/strip_check.py reads the frames this writes: a
+# shot's name says what it shows (t<track>_b<bar viewed>[_p<step playing, 0-based>][_s<kit sound>][_l<loop from>-<to>]).
+wait 300
+expect trk 1
+# T1, a kit: kick on every fourth step from the first, snare from the third, over two bars
+pat 1 1 32
+step 1 1 1 1
+step 1 1 5 1
+step 1 1 9 1
+step 1 1 13 1
+step 1 1 17 1
+step 1 1 21 1
+step 1 1 25 1
+step 1 1 29 1
+step 1 1 3 2
+step 1 1 7 2
+step 1 1 11 2
+step 1 1 15 2
+step 1 1 19 2
+step 1 1 23 2
+step 1 1 27 2
+step 1 1 31 2
+# T2: 64 steps; the first bar's first column, the second's top row and last step, the third's diagonal, the fourth's
+# last row and first step
+turn ALGO 1
+expect trk 2
+pat 2 1 64
+step 2 1 1 48
+step 2 1 5 48
+step 2 1 9 48
+step 2 1 13 48
+step 2 1 17 48
+step 2 1 18 48
+step 2 1 19 48
+step 2 1 20 48
+step 2 1 32 48
+step 2 1 33 48
+step 2 1 38 48
+step 2 1 43 48
+step 2 1 48 48
+step 2 1 49 48
+step 2 1 61 48
+step 2 1 62 48
+step 2 1 63 48
+step 2 1 64 48
+# T3: 64 steps, a hit exactly where T2 has none
+turn ALGO 1
+expect trk 3
+pat 3 1 64
+step 3 1 2 48
+step 3 1 3 48
+step 3 1 4 48
+step 3 1 6 48
+step 3 1 7 48
+step 3 1 8 48
+step 3 1 10 48
+step 3 1 11 48
+step 3 1 12 48
+step 3 1 14 48
+step 3 1 15 48
+step 3 1 16 48
+step 3 1 21 48
+step 3 1 22 48
+step 3 1 23 48
+step 3 1 24 48
+step 3 1 25 48
+step 3 1 26 48
+step 3 1 27 48
+step 3 1 28 48
+step 3 1 29 48
+step 3 1 30 48
+step 3 1 31 48
+step 3 1 34 48
+step 3 1 35 48
+step 3 1 36 48
+step 3 1 37 48
+step 3 1 39 48
+step 3 1 40 48
+step 3 1 41 48
+step 3 1 42 48
+step 3 1 44 48
+step 3 1 45 48
+step 3 1 46 48
+step 3 1 47 48
+step 3 1 50 48
+step 3 1 51 48
+step 3 1 52 48
+step 3 1 53 48
+step 3 1 54 48
+step 3 1 55 48
+step 3 1 56 48
+step 3 1 57 48
+step 3 1 58 48
+step 3 1 59 48
+step 3 1 60 48
+# T4: 40 steps, with hits written past the end (steps 41 to 64) that no dot may show
+turn ALGO 1
+expect trk 4
+pat 4 1 40
+step 4 1 3 48
+step 4 1 8 48
+step 4 1 17 48
+step 4 1 33 48
+step 4 1 40 48
+step 4 1 41 48
+step 4 1 45 48
+step 4 1 48 48
+step 4 1 49 48
+step 4 1 64 48
+# the kit, then the sound shown changed with its black key
+tap SEQ
+expect page Steps
+turn ALGO -3
+expect trk 1
+wait 100
+shot t1_b0.png
+tapkey b1
+wait 100
+shot t1_b0_s2.png
+# T2: the ring moves with OCT, the playhead is on a rest of the second bar, then on the last step (a hit); stopped, neither
+# the playhead nor the bar of ink is drawn
+turn ALGO 1
+expect trk 2
+wait 100
+shot t2_b0.png
+tap OCT+
+tap OCT+
+wait 100
+shot t2_b2.png
+tap PLAY
+expect playing 1
+bars 1.3125
+wait 30
+expect step 2 20
+shot t2_b2_p20.png
+bars 2.6875
+wait 30
+expect step 2 63
+shot t2_b2_p63.png
+tap PLAY
+expect playing 0
+wait 100
+shot t2_b2_stop.png
+# T3 and T4
+turn ALGO 1
+expect trk 3
+wait 100
+shot t3_b2.png
+turn ALGO 1
+expect trk 4
+wait 100
+shot t4_b2.png
+# T2 edited behind the screen's back (no key): a hit cleared in the first bar, one added, the pattern cut to 40 steps
+turn ALGO -2
+expect trk 2
+step 2 1 13 0
+step 2 1 2 48
+wait 100
+shot t2_b2_edit.png
+pat 2 1 40
+wait 100
+shot t2_b2_cut.png
+# and whole again with a loop over its last two bars: the hits outside it are thinner
+pat 2 1 64
+turn SELECT 1
+expect page Bar
+press SEQ
+key b2 down
+wait 60
+key b3 down
+wait 60
+key b2 up
+key b3 up
+release SEQ
+expect loop 2 33 64
+turn SELECT -1
+expect page Steps
+wait 100
+shot t2_b3_l33-64.png

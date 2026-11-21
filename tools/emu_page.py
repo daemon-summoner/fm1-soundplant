@@ -14,18 +14,27 @@ after a line "<!-- emu-page: NAME -->":
   end          put in at the end of <main> (the help)
 
 What happens on the page while it runs (its keys, its MIDI, ...) is app/web/emu/app.js and app_worklet.js, which
-fm1-base's build loads with the emulator's parts. Every place it puts something must be in the page exactly once, so
-a change to fm1-base's page shows here as an error, not as a page without its help.
+fm1-base's build loads with the emulator's parts. The garden (garden.js and what it imports, loaded when the Garden
+button is first pressed) is copied beside them, as fm1-base's build copies only those two, and so is the Preset lab's
+module (presets.js). The demo projects the picker offers (demos/, from tools/make_demos.py: it builds the host simulator
+first when that is missing or out of date) and the lab's list of the factory presets (presets.json, tools/make_presets.py)
+are made beside the page. Every place it puts something must be in the page exactly once, so a change to fm1-base's page shows
+here as an error, not as a page without its help.
 
     tools/emu_page.py            (./build.sh --web runs it)
 """
 import re
+import shutil
 import sys
 from pathlib import Path
+
+import make_demos
+import make_presets
 
 ROOT = Path(__file__).resolve().parents[1]
 PAGE = ROOT / "app" / "build" / "emu" / "index.html"
 PARTS = ROOT / "app" / "web" / "emu" / "page.html"
+MODULES = ("garden.js", "garden_core.js", "garden_gl.js", "presets.js")
 
 
 def sections(text):
@@ -77,7 +86,11 @@ def main():
     if "end" in parts:
         page = once(page, "</main>", parts["end"] + "\n</main>", "</main>")
     PAGE.write_text(page)
-    print(f"emu      page: fm1-base's, with {', '.join(parts)} from {PARTS.relative_to(ROOT)}")
+    for f in MODULES:
+        shutil.copyfile(PARTS.parent / f, PAGE.parent / f)
+    print(f"emu      page: fm1-base's, with {', '.join(parts)} from {PARTS.relative_to(ROOT)}; the modules: {', '.join(MODULES)}")
+    make_presets.main([str(PAGE.parent / "presets.json")])
+    return make_demos.main([str(PAGE.parent / "demos")])
 
 
 if __name__ == "__main__":

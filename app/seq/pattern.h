@@ -87,6 +87,7 @@ void kit_set(step_t *st, uint32_t mask);
 void kit_toggle(step_t *st, int sound);           /* on or off; a fresh step's velocity 100 */
 int kit_add(step_t *st, int sound);               /* 1: added (0: there already, or not a sound) */
 int kit_first(const step_t *st);                  /* the lowest sound on the step, 0 none */
+void euclid(uint8_t *out, int k, int n);          /* out[0..n-1]: 1 on k steps spread evenly (Bjorklund's: a hit first) */
 
 enum { TS_HALF, TS_1, TS_2, TS_3, TS_4, TS_5, TS_6, TS_8, TS_16, NTS };   /* track scale: sixteenths a step */
 /* groove types (the project's): swing, lilt, weave, stretch, drunk, jitter, accent, lazy, push pull, sway, swell

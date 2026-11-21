@@ -95,6 +95,9 @@ void app_splash(void);
 void app_redraw(void);
 #define APP_SYSEX                       /* the user sample bank over USB-MIDI (samples.c: F0 7D 46 4C) */
 int app_sysex(const uint8_t *p, uint32_t n);
+#ifdef PLAT_WEB
+#define APP_WEB                         /* the browser emulator's own exports (web.c: the tracks' state for the garden page, the preset lab's picks) */
+#endif
 
 /* the host simulator's part (host.c): SoundPlant's checks and commands, the screen reader's dump */
 #ifdef PLAT_HOST
@@ -180,6 +183,7 @@ typedef struct {
                                          * [1] the theme, [2] bits (pages.c): 1 REC's mode, 2 SCENES SWITCH
                                          * (SCENES_AT_END), 4 AUTOSAVE_OFF, 8 LOOP_FREE, 16 CC_OUT_OFF, 32 SCENES_OUT, 64 BT_AUDIO_ON, 128 BT_MIDI_OFF (bt.c);
                                          * [3] bits: 1 CC_IN_ENDLESS;
+                                         * [8] KNOB GLIDE: the bars (0 off, 1..64: engine.h GLIDE_BARS_MAX);
                                          * [4..7] the save count (project.c: the slot saved or loaded last opens at
                                          * power-on) */
     uint8_t master[NMS];                /* fx.h MS_*: format 4's twelve end where these sixteen end */

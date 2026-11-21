@@ -386,3 +386,11 @@ settle
 shot engine_voile.png
 key w4 up
 wait 800
+# ---- the Garden: the three tracks' plants, the song playing
+tap HOME
+turn SELECT 2
+tap PLAY
+wait 2600
+shot garden.png
+tap PLAY
+settle

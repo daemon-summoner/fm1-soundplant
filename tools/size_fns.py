@@ -36,7 +36,7 @@ import sys
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[1]
-SIZE_FILES = ["app/ui.c", "app/pages.c", "app/project.c", "app/lz.c", "app/samples.c", "app/gfx_soundplant.c", "app/app.c",
+SIZE_FILES = ["app/ui.c", "app/pages.c", "app/project.c", "app/lz.c", "app/samples.c", "app/gfx_soundplant.c", "app/garden.c", "app/app.c",
               "app/plat_soundplant.c", "base/device/panel.c", "base/device/main_fm1.c", "base/device/gfx.c",
               "base/device/storage.c", "base/bsp/chip/ota.c", "base/device/announce.c", "base/device/backup.c"]
 # (voice_chunk and voice_subblock left it 2026-11-14: a voice's set-up every 64 / 16 samples, 16 % and 7 % of its time

@@ -68,6 +68,8 @@ static const theme_t *theme = &THEMES[THEME_PRISM];
 #define CC_IN_ENDLESS 1u                               /* proj.rsv[3]: CCs in from endless encoders, each a turn
                                                         * (midicc.c cc_delta; absolute by default) */
 #define MOTION_STILL 2u                                /* proj.rsv[3]: no easing, glide or fade: every move lands at once */
+/* proj.rsv[8]: KNOB GLIDE, the bars a turned knob's value takes to get there while the sequencer plays (0 off) */
+static int glide_bars(void) { return proj.rsv[8] <= GLIDE_BARS_MAX ? proj.rsv[8] : 0; }
 #define K_BG theme->bg
 #define K_PANEL theme->panel
 #define K_PANEL2 theme->panel2
@@ -196,6 +198,7 @@ static int32_t mv16s(float v)                        /* a shown size or place in
     return an.still ? (q + 8) & ~15 : q;
 }
 
+#include "garden.h"
 /* the pages (the spec's Buttons table): a button opens its first page; SELECT turns them. EDIT: the engine
  * (a drum track: the shown key's knobs) and Play (a drum track: the key's model, random, pan, volume); ENV: the
  * envelope, the filter, the filter envelope (a drum track: the shown key's envelope and filter, then the kit's
@@ -205,11 +208,15 @@ static int32_t mv16s(float v)                        /* a shown size or place in
  * oscillator 2, level, sub, noise; rayon's fall); a kit or an FX track Engine and Play; the conductor Engine, Play (routing), Sub (Follow) */
 enum { P_ARRANGE, P_SONG, P_STEPS, P_BAR, P_ENGINE, P_PLAY, P_PLAY2, P_SUB, P_ENV, P_FILTER, P_ENV2, P_KITF, P_CHARACTER, P_SENDS,
        P_FX1, P_FX2, P_THROWS, P_LFO, P_LFO2, P_PLAYERS, P_PLAYERS2, P_PLAYERS3, P_WEAVE, P_MIX, P_MASTER, P_MASTER2, P_MASTER3, P_GLFO, P_SETUP,
-       P_STATUS, NPAGES };
+       P_STATUS, P_GARDEN, NPAGES };
 static const char *const PAGE_NAME[NPAGES] = {"Arrange", "Song", "Steps", "Bar", "Engine", "Play", "Play 2", "Sub", "Envelope",
                                               "Filter", "Filter env", "Kit filter", "Character", "Sends", "FX I",
                                               "FX II", "Throws", "LFO", "LFO 2", "Players", "Players 2", "Hold", "Weave", "Mix",
-                                              "Master EQ", "Master color", "Master out", "LFO", "Setup", "Debug"};
+                                              "Master EQ", "Master color", "Master out", "LFO", "Setup", "Debug", "Garden"};
+/* the Garden page's knobs: how often a glitch comes, and the song's seed moved (this session's: not in the project) */
+static const char *const GLITCH_NAME[GG_N] = {"off", "soft", "lively", "wild"};
+static uint8_t garden_glitch = GG_SOFT, garden_seed;
+static void draw_garden(void);
 static char *s_cat(char *b, const char *s);
 static char *num_s(uint32_t v, char *b);
 static const char *const GLFO_SHAPE[NGS + 1] = {"off", "sine", "triangle", "saw up", "saw down", "square", "random"};
@@ -243,6 +250,8 @@ static const struct { uint8_t btn, first, n; } PAGE_BTN[] = {
 #define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
 static int page_group(int p)
 {
+    if (p == P_GARDEN)
+        return 0;                                    /* (HOME's third page, past the run of its first two) */
     for (uint32_t i = 0; i < NPAGE_BTN; i++)
         if (p >= PAGE_BTN[i].first && p < PAGE_BTN[i].first + PAGE_BTN[i].n)
             return (int)i;
@@ -365,6 +374,7 @@ static struct {
     uint8_t pick_engine, pick_slot, pick_fx, pick_weave, pick_save;   /* (pick_save: SAVE TO's slot) */
     uint8_t pick_kit, pick_kslot;                    /* a kit track's KIT (0..3 factory, 4.. user) and SAVE KIT */
     uint8_t pick_bt;                                 /* Bluetooth audio's FORGET: the remembered device */
+    uint8_t pick_euclid;                             /* Steps' EUCLID: the hits (0: four; read through euclid_hits) */
     uint8_t pick_clear, pick_paste;
     int8_t pick_shift, pick_rot;                     /* SHIFT NOTES' semitones (-24..24) and ROTATE's steps (-16 left ..
                                                       * 16 right), never 0 (0: the first's, 1) */        /* Steps' CLEAR (notes, locks, both), ROTATE (forward, back),
@@ -390,7 +400,7 @@ enum { A_CLEAR_NOTES, A_CLEAR_LOCKS, A_CLEAR_BOTH, A_COPY_PAT, A_PASTE_PAT, A_RO
        A_KIT, A_SAVE_KIT, A_MIDI_CC, A_USB_HOST, A_BT_MIDI, A_BT_AUDIO, A_BT_ADEV, A_BT_DEVICE, A_BT_DEV, A_BT_LOOK,
        A_BT_FORGET, A_BT_DISCONNECT, A_CLEAR, A_ROTATE, A_PASTE, A_COPY_EMPTY, A_CLEAR_BAR,
        A_COPY_SOUND, A_PASTE_SOUND, A_COPY_KEY, A_PASTE_KEY, A_COPY_SCENE, A_PASTE_SCENE, A_DUP_SLOT, A_KIT_FILTER,
-       A_SHIFT, A_LARGE_TYPE, A_CC_IN, A_FX_WIDTH, A_MOTION, NACTIONS };
+       A_SHIFT, A_LARGE_TYPE, A_CC_IN, A_FX_WIDTH, A_MOTION, A_EUCLID, A_GLIDE, NACTIONS };
 static const char *const ACTION_NAME[NACTIONS] = {
     "CLEAR NOTES", "CLEAR LOCKS", "CLEAR NOTES AND LOCKS", "COPY PATTERN", "PASTE PATTERN", "ROTATE FORWARD",
     "ROTATE BACK", "DUPLICATE BAR", "ENGINE", "PRESET", "SCRAMBLE", "SAVE AS PRESET", "RESET SOUND", "FOLLOWS CONDUCTOR",
@@ -401,7 +411,8 @@ static const char *const ACTION_NAME[NACTIONS] = {
     "PASTE LOCKS ONLY", "DOUBLE PATTERN", "CLEAR LOCKS", "CC OUT", "SCENES OUT", "KIT", "SAVE KIT", "KNOB CC",
     "USB PORT", "BT MIDI", "BT AUDIO", "AUDIO DEVICE", "MIDI DEVICE", "DEVICE", "LOOK AGAIN", "FORGET", "DISCONNECT",
     "CLEAR", "ROTATE", "PASTE", "COPY TO EMPTY", "CLEAR BAR", "COPY SOUND", "PASTE SOUND", "COPY DRUM", "PASTE DRUM",
-    "COPY SCENE", "PASTE SCENE", "DUPLICATE SLOT", "KIT FILTER", "SHIFT NOTES", "LARGE TYPE", "CC IN", "PING WIDTH", "MOTION"};
+    "COPY SCENE", "PASTE SCENE", "DUPLICATE SLOT", "KIT FILTER", "SHIFT NOTES", "LARGE TYPE", "CC IN", "PING WIDTH", "MOTION",
+    "EUCLID", "KNOB GLIDE"};
 static const char *const CLEAR_WHAT[3] = {"notes", "locks", "notes and locks"};
 /* a pick ALGORITHM sets at once (a setting: SEL only leaves the list), as against a choice SEL then carries out */
 static int pick_sets(int a)
@@ -410,7 +421,7 @@ static int pick_sets(int a)
     case A_FOLLOW: case A_USB_AUDIO: case A_COUNT_IN: case A_THEME: case A_LARGE_TYPE: case A_PLAYMODE: case A_FTYPE:
     case A_FX_HP: case A_FX_LP: case A_FX_SEND: case A_PUMP_BY: case A_PUMP_REL: case A_PUMP_ACC: case A_LEVEL:
     case A_SCENE_AT: case A_AUTOSAVE: case A_MIDI_OUT: case A_LOOP_FREE: case A_CC_OUT: case A_SCENES_OUT: case A_MIDI_CC:
-    case A_USB_HOST: case A_KIT_FILTER: case A_CC_IN: case A_FX_WIDTH: case A_MOTION:
+    case A_USB_HOST: case A_KIT_FILTER: case A_CC_IN: case A_FX_WIDTH: case A_MOTION: case A_GLIDE:
         return 1;
     default:
         return 0;
@@ -869,6 +880,8 @@ static int x_page(int t)                             /* the engine has a second 
 static int group_n(int g)
 {
     int trk = sel_trk(), b = PAGE_BTN[g].btn;
+    if (b == B_HOME)
+        return 3;                                    /* Arrange, Song, Garden */
     if (b == B_SEQ && trk == AUX_WEAVE)
         return 1;                                    /* (WEAVE's steps: no Bar page) */
     if (b == B_EDIT)                                 /* (grp_page: the conductor's Sub third; a kit, an FX track: two) */
@@ -901,6 +914,8 @@ static int wv_cued(int t) { return proj.trk[t].rsv[3] & 1u; }   /* PLAYS: 0 alwa
 static int wv_kind(int t) { return t == AUX_PUNCH ? WK_FX : is_drum(t) ? WK_KIT : WK_MEL; }
 static int grp_page(int g, int i)
 {
+    if (PAGE_BTN[g].btn == B_HOME && i == 2)
+        return P_GARDEN;
     if ((PAGE_BTN[g].btn == B_ENV || PAGE_BTN[g].btn == B_LFO) && is_midi(sel_trk()))
         return P_ENGINE;                             /* (a MIDI track has no sound to shape: its knobs instead) */
     if (PAGE_BTN[g].btn == B_EDIT && sel_trk() == AUX_BRAIN)   /* Engine, Play (routing), Sub (Follow) */
@@ -1920,6 +1935,13 @@ static void aux_engine_knobs(knob_t *k, int trk)
         fx_knobs(k, trk);
     }
 }
+static char *morph_pct(char *b) { return s_cat(num_s(seq.morph & 0xFFu, b), "%"); }
+static void morph_view(knob_t *k)                    /* HOME held on Arrange and Song: K3 is the scene morph */
+{
+    char m[8];
+    morph_pct(m);
+    kv(k, "MORPH", m, seq.morph & 0xFFu, 100);
+}
 static void page_knobs(knob_t *k)
 {
     int trk = sel_trk(), p = ui.page;
@@ -1977,6 +1999,8 @@ static void page_knobs(knob_t *k)
             } else
                 kn(&k[3], pn, cur_pat(trk) + 1, NPATT);
         }
+        if (home_held())
+            morph_view(&k[2]);
         break;
     case P_SONG: {
         const song_t *sg = &pats.song;
@@ -1990,6 +2014,8 @@ static void page_knobs(knob_t *k)
             kv(&k[2], "BARS", "-", 0, 0);
         }
         kv(&k[3], "AT END", sg->loop ? "loop" : "stop", 0, 0);
+        if (home_held())
+            morph_view(&k[2]);
         break;
     }
     case P_STEPS:
@@ -2131,6 +2157,10 @@ static void page_knobs(knob_t *k)
         break;
     case P_STATUS:
         kv(&k[0], "CORES", proj.one_core ? "one" : "two", 0, 0);
+        break;
+    case P_GARDEN:
+        kname(&k[0], "GLITCH", GLITCH_NAME, garden_glitch, GG_N);
+        kn(&k[1], "SEED", garden_seed, 99);
         break;
     default:                                         /* the sound pages: every knob through tp_info_par */
         if (!is_aux(trk))
@@ -2369,9 +2399,13 @@ static void page_tag(char *t)
         e = num_s((uint32_t)cur_scene() + 1u, s_cat(t, "S"));
         if (seq.cue != 0xFFu && seq.cue != seq.scene)
             num_s((uint32_t)seq.cue + 1u, s_cat(e, ">next S"));
+        else if (seq.morph)
+            morph_pct(s_cat(num_s((uint32_t)(seq.morph >> 8) + 1u, s_cat(e, ">morph S")), " "));
         break;
     case P_SONG:
-        num_s((uint32_t)pats.song.len, s_cat(t, "song>slots "));
+        e = num_s((uint32_t)pats.song.len, s_cat(t, "song>slots "));
+        if (seq.morph)
+            morph_pct(s_cat(e, ">morph "));
         break;
     case P_STEPS: case P_BAR:
         track_crumb(t);
@@ -2410,7 +2444,7 @@ static void page_tag(char *t)
             s_cat(s_cat(e, ">"), fx_pick_name(pick));
         break;
     }
-    case P_MASTER: case P_MASTER2: case P_MASTER3: case P_GLFO: case P_SETUP: case P_STATUS:
+    case P_MASTER: case P_MASTER2: case P_MASTER3: case P_GLFO: case P_SETUP: case P_STATUS: case P_GARDEN:
         s_cat(t, "all tracks");
         break;
     default:
@@ -2431,6 +2465,7 @@ static void draw_tag(void)
     page_tag(t);
     h = hash_s(hash_u(2166136261u, ui.page | (uint32_t)n << 8 | (uint32_t)big << 7), t);
     if (big && ui.page == P_ARRANGE) {               /* (the scenes there: which, cued, their use) */
+        h = hash_u(h, seq.morph);
         h = hash_u(h, (uint32_t)cur_scene() | (uint32_t)seq.cue << 8 | (uint32_t)(seq_cue_left(&seq) + 1) << 16 |
                           (uint32_t)seq.cue_end << 31 | (uint32_t)(ui.scene_pg & 1) << 30);
         for (int i = 0; i < NSCENE; i++)
@@ -2470,8 +2505,9 @@ static void draw_tag(void)
                 s_cat(num_s((uint32_t)(left + 4) / 4, s_cat(e, " in ")), "");
             else if (seq.cue_end)
                 s_cat(e, " at end");
-        }
-        text_fit(8, cap_y(0, TAG_H, &FONT_S), &FONT_S, q, r - 104, cue != 0xFF && cue != sc ? K_TEXT : K_DIM);
+        } else if (seq.morph)                        /* a morph under way: toward which, how far */
+            morph_pct(s_cat(num_s((uint32_t)(seq.morph >> 8) + 1u, s_cat(e, " > ")), " morph "));
+        text_fit(8, cap_y(0, TAG_H, &FONT_S), &FONT_S, q, r - 104, (cue != 0xFF && cue != sc) || seq.morph ? K_TEXT : K_DIM);
         cv_blit(0, TAG_Y);
         return;
     }
@@ -2555,7 +2591,7 @@ static void page_footer(char *t)
         return;
     }
     if (home_held()) {
-        s_cat(t, "REC undo|PLAY redo|KNOBS fine");
+        s_cat(t, ui.page == P_ARRANGE || ui.page == P_SONG ? "REC undo|PLAY redo|KNOB 3 morph" : "REC undo|PLAY redo|KNOBS fine");
         return;
     }
     switch (ui.page) {
@@ -2621,7 +2657,7 @@ static void page_footer(char *t)
     case P_SETUP:
         s_cat(t, "SEL Bluetooth|KEYS play");
         break;
-    case P_MASTER: case P_MASTER2: case P_STATUS:
+    case P_MASTER: case P_MASTER2: case P_STATUS: case P_GARDEN:
         s_cat(t, "KEYS play");
         break;
     case P_SENDS:
@@ -2948,8 +2984,10 @@ static const struct { uint8_t btn; uint32_t pages; const char *title, *l1, *l2; 
      "KNOB 2 and 4 for their values. Let go of the step when done."},
     {B_GLO, PG_ANY, "Mix", "Tap a black key to mute, hold to solo, tap twice to keep it.",
      "Turn SELECT for the master and Setup."},
-    {B_HOME, PG_ANY, "Arrange", "Press white keys for scenes, black keys to mute.",
-     "Press SEL for projects. Hold it, press REC to undo, PLAY to redo."},
+    {B_HOME, PG(P_GARDEN), "Garden", "A plant for each track: a hit rings it, mute wilts it.",
+     "KNOB 1 sets the glitches, KNOB 2 the seed. Press SEL for projects."},
+    {B_HOME, PG_ANY, "Arrange", "White keys are scenes, black keys mute. Press SEL for projects.",
+     "Hold HOME: REC undo, PLAY redo, KNOB 3 morph, white 1 to 3 loads."},
     {B_SEL, PG_ANY, "Lists", "Actions, then knobs. Press SEL to run one.",
      "Turn SELECT to move, ALGORITHM to change it."},
     {B_SAVE, PG_STEPS, "Save", "Tap to save. Hold a step and press SEL to clear its locks.",
@@ -3188,6 +3226,16 @@ static void list_page_section(int p)              /* a page's knobs under its na
         lst.n = (uint8_t)n;
 }
 static int pick_amount(int v) { return v ? v : 1; }   /* SHIFT NOTES', ROTATE's amount (never 0) */
+static int euclid_steps(int trk)                  /* the steps EUCLID spreads its hits over: the pattern's */
+{
+    const tpat_t *tp = tpat(trk);
+    return tp->len < 1 ? 1 : tp->len > NSTEP ? NSTEP : tp->len;
+}
+static int euclid_hits(int trk)                   /* EUCLID's hits: the pick (four at first), the pattern's steps at most */
+{
+    int k = ui.pick_euclid ? ui.pick_euclid : 4, n = euclid_steps(trk);
+    return k > n ? n : k;
+}
 /* Steps and Bar: the pattern's actions, then the bar's */
 static void list_steps(int trk)
 {
@@ -3203,6 +3251,11 @@ static void list_steps(int trk)
     if (paste && clip_kind == CK_PAT)
         list_add(ACTION_NAME[A_PASTE], ui.pick_paste & 1u ? "locks only" : "pattern", LK_PICK, A_PASTE);
     list_add(ACTION_NAME[A_CLEAR], CLEAR_WHAT[ui.pick_clear % 3u], LK_PICK, A_CLEAR);
+    {
+        static char eu_t[4];
+        num_s((uint32_t)euclid_hits(trk), eu_t);
+        list_add(ACTION_NAME[A_EUCLID], eu_t, LK_PICK, A_EUCLID);
+    }
     {
         int r = pick_amount(ui.pick_rot);
         num_s((uint32_t)(r < 0 ? -r : r), s_cat(rot_t, r < 0 ? "L" : "R"));
@@ -3226,7 +3279,7 @@ static void list_steps(int trk)
 static void list_home(int keep)
 {
     static char slot_t[24], save_t[24], scl_t[12];
-    for (int i = 0; i < 2; i++)
+    for (int i = keep == P_GARDEN ? 2 : 0; i < 2; i++)   /* (the Garden: the projects only) */
         if ((i == 0) == (keep == P_SONG)) {
             list_head("song");
             list_add(ACTION_NAME[A_PLAY_SONG], 0, LK_ACTION, A_PLAY_SONG);
@@ -3343,7 +3396,7 @@ static void list_mix(int g)
 /* GLO's Setup and Debug: the FM-1's own settings, Bluetooth first */
 static void list_setup(int g)
 {
-    static char bmid_t[24], baud_t[24];
+    static char bmid_t[24], baud_t[24], kg_t[12];
     list_head("Bluetooth");
     list_add(ACTION_NAME[A_BT_MIDI], bt.midi ? "on" : "off", LK_PICK, A_BT_MIDI);   /* (two pairs: on / off, then
                                                                                   * where devices are chosen) */
@@ -3367,6 +3420,9 @@ static void list_setup(int g)
     list_add(ACTION_NAME[A_MOTION], proj.rsv[3] & MOTION_STILL ? "still" : "smooth", LK_PICK, A_MOTION);
     list_add(ACTION_NAME[A_AUTOSAVE], proj.rsv[2] & AUTOSAVE_OFF ? "off" : "on", LK_PICK, A_AUTOSAVE);
     list_add(ACTION_NAME[A_LOOP_FREE], proj.rsv[2] & LOOP_FREE ? "drift" : "in time", LK_PICK, A_LOOP_FREE);
+    if (glide_bars())
+        s_cat(s_cat(num_s((uint32_t)glide_bars(), kg_t), " bar"), glide_bars() > 1 ? "s" : "");
+    list_add(ACTION_NAME[A_GLIDE], glide_bars() ? kg_t : "off", LK_PICK, A_GLIDE);
     if (group_n(g) > 6)
         list_page_knobs(P_STATUS, 15u);
     list_add(ACTION_NAME[A_PANIC], 0, LK_ACTION, A_PANIC);
@@ -3428,7 +3484,7 @@ static void list_build(void)
                 s_cat(keep_t, "none empty");
             list_add(ACTION_NAME[A_WEAVE], keep_t, LK_ACTION, A_WEAVE);
         }
-    } else if (keep == P_ARRANGE || keep == P_SONG) {
+    } else if (keep == P_ARRANGE || keep == P_SONG || keep == P_GARDEN) {
         list_home(keep);
     } else if (fx_page(keep)) {                     /* an effect: the type, its filter, the feed into FX II, the
                                                      * delay's PING WIDTH */
@@ -3897,6 +3953,11 @@ static void draw_song(void)
 #define ST_L2 (LARGE ? 23 : 20)
 #define ST_MK 30
 #define ST_TICK (LARGE ? 29 : 26)  /* a kit's ticks' row */
+/* the bar tabs, a row of squares ending at the cells' right edge: each bar's 16 steps as a 4 x 4 grid of 2 px dots (pitch 3),
+ * one ring and one pixel of gap in from its edge */
+#define TAB_W 15
+#define TAB_P 17
+#define TAB_X (ST_X + 8 * ST_CW - 2 - 3 * TAB_P - TAB_W)
 /* a cell's line: 15 px in large type when it fits the cell (25 px: no number now), else today's */
 static const felucca_font_t *st_font(const char *s) { return LARGE && text_w(&LFONT_S, s) <= 25 ? &LFONT_S : &FONT_XS; }
 /* a cell's text: its notes or chord, the shown drum sound, a throw track's effect (draw_steps) */
@@ -4115,18 +4176,26 @@ static void draw_steps_as(void)
             if (nm[0])
                 x = text_fit(x, 0, &FONT_XS, nm, 96, K_TEXT) + 8;
             if (t[0])
-                text_fit(x, 0, &FONT_XS, t, (nm[0] ? 168 : 232) - x, K_DIM);
+                text_fit(x, 0, &FONT_XS, t, (nm[0] ? TAB_X - 4 : 232) - x, K_DIM);
         }
-        if (band == &BANDS[0]) {
-            int nb = (tp->len + 15) / 16, pb = ph / 16;
+        if (band == &BANDS[0]) {                         /* the bars, each a miniature: a hit, a rest, the playhead, and
+                                                          * outside the loop a hit thinner; the bar viewed in a white ring,
+                                                          * the bar playing under a bar of ink */
+            int lf, le;
+            pat_loop(tp, &lf, &le);
             for (int b = 0; b < NBAR; b++) {
-                int32_t x = 176 + b * 14;
-                uint16_t c = b < nb ? K_DIM : K_LINE;
-                cv_round(x - 1, 0, 12, 15, 4, b == pb && playing() ? K_NOW : c);
+                int32_t x = TAB_X + b * TAB_P;
+                cv_round(x, 0, TAB_W, TAB_W, 3, K_PANEL);
                 if (b == ui.bar)
-                    cv_frame(x - 1, 0, 12, 15, 4, K_SEL, b == pb && playing() ? K_NOW : c);
-                num_s((uint32_t)b + 1u, t);
-                text_c(x + 5, cap_y(0, 15, &FONT_XS), &FONT_XS, t, b == ui.bar || (b == pb && playing()) ? K_BG : K_TEXT);
+                    cv_frame(x, 0, TAB_W, TAB_W, 3, K_SEL, K_PANEL);
+                if (playing() && b == ph / 16)
+                    cv_rect(x, TAB_W + 1, TAB_W, 2, K_NOW);
+                for (int i = 0; i < 16; i++) {
+                    int s = b * 16 + i;
+                    if (s < tp->len)
+                        cv_rect(x + 2 + i % 4 * 3, 2 + i / 4 * 3, 2, 2,
+                                playing() && s == ph ? K_NOW : !cell_on(tp, trk, s) ? K_LINE : s < lf || s >= le ? K_TINT : K_NOW_T);
+                }
             }
         }
         for (int i = 0; i < 16; i++) {
@@ -6615,6 +6684,7 @@ static void draw_page(void)
     case P_MASTER2: draw_master_color(); break;
     case P_GLFO: draw_glfo(); break;
     case P_SETUP: draw_setup(); break;
+    case P_GARDEN: draw_garden(); break;
     default: draw_status(); break;
     }
 }

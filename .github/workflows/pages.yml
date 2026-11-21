@@ -69,6 +69,10 @@ jobs:
           test "${#pkgs[@]}" -eq 1
           test -f "app/build/soundplant-${tag#v}.fwsc" -a -f "app/build/soundplant-${tag#v}-res.bin"
 
+      # the emulator page's demo songs are played in it (tools/make_demos.py, run by the emulator's build)
+      - name: The host simulator
+        run: sh build.sh --host
+
       - name: The emulator, built and tested
         env:
           TAG: ${{ steps.release.outputs.tag }}
@@ -80,6 +84,7 @@ jobs:
           sh build.sh "${args[@]}"
           node tests/host/emu_test.mjs app/build/emu/app.wasm
           node tests/host/emu_page_test.mjs app/build/emu
+          sh tests/host/demos_test.sh
 
       - name: The site
         env:

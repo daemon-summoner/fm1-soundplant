@@ -5,6 +5,10 @@
 // control does on hover, and SoundPlant's computer keys: Space PLAY, Enter REC, / SEQ, as everywhere on the page, not
 // only on the panel. A control reached with Tab keeps Space and Enter for itself (it presses that control); any other
 // focus (the knob the page focuses when it switches on, a click, a touch) does not, so Space is PLAY from the first key.
+// The Garden button opens garden.js (the night garden: a plant per track, drawn from the snapshots app_worklet.js sends
+// while it is open); it is loaded then, not with the page. The demo songs box loads a song into the running firmware.
+// The Preset lab (presets.js: the page lists the factory presets as it loads; here it is joined to the firmware once that is on)
+// puts a preset on a track of the running firmware and plays it on the panel's keys.
 
 // the projects the page kept before it was fm1-base's (its own key), moved to fm1-base's page's key once
 const OLD_STORE = "xy-emu-store", STORE = "soundplant-emu-store";
@@ -69,8 +73,237 @@ function keyboard() {
   }, true);
 }
 
-export function attach() {
+// the open garden (garden.js open()'s controller), or null
+let garden = null;
+
+// the garden's snapshots, from app_worklet.js (the worklet's { type: "app" } messages)
+export function message(m) {
+  if (m.garden && garden) garden.snapshot(m.garden, m.at);
+}
+
+// the Garden button: on once the emulator is running (the worklet's "ready"), and straight away with #garden in the address
+function gardenButton(ctx) {
+  const button = document.getElementById("garden-open");
+  const toggle = async () => {
+    if (garden) { garden.close(); return; }
+    button.disabled = true;
+    try {
+      const mod = await import(new URL("./garden.js", import.meta.url));
+      garden = mod.open({ node: ctx.node, ac: ctx.ac, onclose() { garden = null; button.setAttribute("aria-pressed", "false"); } });
+      button.setAttribute("aria-pressed", "true");
+    } catch (e) {
+      ctx.status("The garden could not open: " + (e && e.message || e));
+    } finally {
+      button.disabled = false;
+    }
+  };
+  button.addEventListener("click", toggle);
+  ctx.node.port.addEventListener("message", (e) => {
+    if (e.data.type !== "ready") return;
+    button.disabled = false;
+    if (location.hash === "#garden") toggle();
+  });
+  ctx.node.port.start();
+}
+
+// ---- the demo songs (tools/make_demos.py): demos/demos.json lists them, each a backup image (the emulator part "backup"
+// restores it into the running firmware). The picker box is in page.html; it asks before it replaces the three projects and
+// the presets, keeps what it replaced for Undo, and for Load and play presses the panel's buttons the way a player would.
+const UNDO_DEPTH = 8;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// a tap of a panel button: the page's own press and let go (a press lasts at least 50 ms: the firmware reads every 16)
+async function tapButton(bit) {
+  holdDown("demo", "btn", bit);
+  await sleep(80);
+  letGo("demo");
+  await sleep(150);
+}
+
+// the song from its first slot, from whatever page the panel is on: SEQ is the Steps page and closes a list or a question,
+// HOME from any page but Arrange is Arrange, and one step of SELECT is the Song page, where PLAY plays the song
+async function playSong() {
+  await tapButton(BTN.SEQ);
+  await tapButton(BTN.HOME);
+  turn(knobs.SELECT, 1);
+  await sleep(150);
+  await tapButton(BTN.PLAY);
+}
+
+// what the firmware answers to a restore (backup_worklet.js)
+function restoreText(rc) {
+  if (rc === 10) return "SoundPlant is playing: press PLAY (or Space) to stop it, then load the song.";
+  if (rc === 3) return "The emulator did not take that song: it is from another build of SoundPlant. Reload the page and try again.";
+  return "That song's file is damaged. Nothing was changed.";
+}
+
+function demoPicker(ctx) {
+  const $ = (id) => document.getElementById(id);
+  const set = $("demos-set"), list = $("demos-list"), play = $("demo-play"), load = $("demo-load"), undo = $("demo-undo"),
+    confirm = $("demos-confirm"), yes = $("demo-yes"), no = $("demo-no"), note = $("demos-status"), problem = $("demos-error");
+  let demos = [], ready = false, busy = false, pending = null;
+  const undos = [];                                       // the images the loads replaced, the last on top
+
+  const say = (text) => { problem.textContent = ""; note.textContent = text; };
+  const fail = (text) => { note.textContent = ""; problem.textContent = text; ctx.status(text); };
+  const chosen = () => demos.find((d) => d.id === (list.querySelector("input:checked") || {}).value);
+  const refresh = () => {
+    const free = ready && demos.length > 0 && !busy;
+    set.disabled = !free;
+    play.disabled = load.disabled = !free || !chosen() || !confirm.hidden;
+    undo.hidden = undos.length === 0;
+    undo.disabled = !free || !confirm.hidden;
+  };
+
+  // the firmware's answers to the picker's questions come to the page's own handler: take them first, so that the page's
+  // part for the backup (which would save a file for every "make") sees only the buttons it made itself
+  const port = ctx.node.port, page = port.onmessage, waiting = [];
+  port.onmessage = (e) => {
+    const m = e.data;
+    if (m && m.type === "app" && m.part === "backup" && waiting.length) waiting.shift()(m);
+    else page.call(port, e);
+  };
+  const ask = (m, transfer) => new Promise((resolve, reject) => {
+    const answer = (reply) => { clearTimeout(timer); resolve(reply); };
+    const timer = setTimeout(() => {
+      waiting.splice(waiting.indexOf(answer), 1);
+      reject(new Error("The emulator did not answer."));
+    }, 4000);
+    waiting.push(answer);
+    port.postMessage({ type: "app", part: "backup", ...m }, transfer || []);
+  });
+  const restore = async (image) => {
+    const m = await ask({ cmd: "restore", image }, [image]);
+    if (m.none) throw new Error("This build of SoundPlant has no backup, so it cannot load songs.");
+    return m.restored;
+  };
+  // the controls are disabled while a job runs, which drops the focus to the page: give it back when nothing took it
+  // (to the picked song when the control is gone: the last Undo hides its button)
+  const guard = async (job) => {
+    const had = document.activeElement;
+    busy = true;
+    refresh();
+    try { await job(); } catch (e) { fail(e && e.message || String(e)); } finally {
+      busy = false;
+      refresh();
+      if (document.activeElement === document.body && had !== document.body) {
+        const back = had.hidden || had.disabled ? list.querySelector("input:checked") || list.querySelector("input") : had;
+        if (back) back.focus();
+      }
+    }
+  };
+
+  const closeConfirm = () => { confirm.hidden = true; pending = null; refresh(); };
+  const begin = (andPlay) => guard(async () => {
+    const demo = chosen();
+    if (!demo) return;
+    ctx.status("");
+    say("");
+    const now = await ask({ cmd: "make" });                // the projects as saved: what Undo puts back, and whether it plays
+    if (now.none) throw new Error("This build of SoundPlant has no backup, so it cannot load songs.");
+    if (now.playing) {
+      fail(`SoundPlant is playing: press PLAY (or Space) to stop it, then load ${demo.genre}.`);
+      return;
+    }
+    pending = { demo, andPlay, before: now.backup, opener: andPlay ? play : load };
+    $("demos-confirm-text").textContent = `Load ${demo.genre} (${demo.bpm} bpm)? It replaces your three projects and your presets in this browser, ` +
+      "and what you have not saved with SAVE is lost. Undo puts back what was saved.";
+    yes.textContent = andPlay ? "Replace and play" : "Replace";
+    confirm.hidden = false;
+    refresh();
+    yes.focus();
+  });
+  const confirmed = () => {
+    const { demo, andPlay, before, opener } = pending;
+    closeConfirm();
+    return guard(async () => {
+      const res = await fetch(new URL(`demos/${demo.file}`, import.meta.url));
+      if (!res.ok) throw new Error(`The song ${demo.file} could not be fetched (${res.status}).`);
+      const rc = await restore(await res.arrayBuffer());
+      if (rc !== 0) {
+        fail(restoreText(rc));
+        return;
+      }
+      undos.push(before);
+      if (undos.length > UNDO_DEPTH) undos.shift();
+      if (andPlay) {
+        await playSong();
+        say(`${demo.genre} is playing from the top: ${demo.bpm} bpm. Press PLAY to stop it.`);
+      } else {
+        say(`${demo.genre} is loaded: ${demo.bpm} bpm. For the whole song: HOME, turn SELECT to Song, PLAY.`);
+      }
+    }).then(() => opener.focus());
+  };
+  const undoLast = () => guard(async () => {
+    ctx.status("");
+    const image = undos.at(-1).slice(0);
+    const rc = await restore(image);
+    if (rc !== 0) {
+      fail(restoreText(rc));
+      return;
+    }
+    undos.pop();
+    say(undos.length ? "Your previous projects are back. Undo goes back one more load." : "Your projects and presets are back.");
+  });
+
+  play.addEventListener("click", () => begin(true));
+  load.addEventListener("click", () => begin(false));
+  yes.addEventListener("click", confirmed);
+  no.addEventListener("click", () => {
+    const { opener } = pending;
+    closeConfirm();
+    say("Nothing was changed.");
+    opener.focus();
+  });
+  undo.addEventListener("click", undoLast);
+  confirm.addEventListener("keydown", (e) => { if (e.key === "Escape") no.click(); });
+  list.addEventListener("change", () => { if (!confirm.hidden) closeConfirm(); refresh(); });
+
+  port.addEventListener("message", (e) => {
+    if (e.data.type !== "ready") return;
+    ready = true;
+    $("demos-off").hidden = true;
+    refresh();
+  });
+  port.start();
+
+  fetch(new URL("demos/demos.json", import.meta.url)).then((res) => {
+    if (!res.ok) throw new Error(`demos/demos.json: ${res.status}`);
+    return res.json();
+  }).then((found) => {
+    demos = found;
+    for (const d of demos) {
+      const tile = document.createElement("label"), pick = document.createElement("input"), name = document.createElement("b"),
+        why = document.createElement("small");
+      tile.className = "demo";
+      pick.type = "radio";
+      pick.name = "demo";
+      pick.value = d.id;
+      name.id = `demo-${d.id}-name`;
+      name.textContent = `${d.genre}, ${d.bpm} bpm`;
+      why.id = `demo-${d.id}-why`;
+      why.textContent = d.blurb;
+      pick.setAttribute("aria-labelledby", name.id);
+      pick.setAttribute("aria-describedby", why.id);
+      tile.append(pick, name, why);
+      list.append(tile);
+    }
+    refresh();
+  }).catch((e) => fail(`The demo songs could not be listed: ${e && e.message || e}`));
+}
+
+// the Preset lab (presets.js, loaded by the page already: the same module) takes the running firmware
+function presetLab(ctx) {
+  import(new URL("./presets.js", import.meta.url))
+    .then((lab) => lab.connect(ctx))
+    .catch((e) => ctx.status("The Preset lab could not start: " + (e && e.message || e)));
+}
+
+export function attach(ctx) {
   moveStore();
   tips();
   keyboard();
+  gardenButton(ctx);
+  demoPicker(ctx);
+  presetLab(ctx);
 }

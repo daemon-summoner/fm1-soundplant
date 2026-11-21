@@ -392,7 +392,8 @@ static inline float cho_tap(const fxslot_t *f, float p)      /* the short line, 
  * the send that far into the line's past (a slot not read yet: every tap reads further back), so their output is
  * where it would have been, but for the line's rounding: the delay and the chorus add it to the feedback already
  * there (one int16 rounding more, and the delay's soft clip on the sum read back), the plate's combs likewise (its
- * 12 bits) */
+ * 12 bits). The plate runs in two copies, `lagged` a constant in each (reverb_run, called from do_reverb): the test on
+ * the lag is out of its sample loop */
 static inline int16_t add16(int16_t a, float x)                /* a + x on the int16 line (x in its units) */
 {
     float v = (float)a + x * 16384.0f;
@@ -586,7 +587,8 @@ static void do_phaser(fxslot_t *f, const float *x, float *ol, float *orr, int m)
     f->pal = al; f->par_ = ar; f->pzl = zl; f->pzr = zr;
 }
 
-static void do_reverb(fxslot_t *f, const float *x, float *ol, float *orr, int m, int any, int lag)
+static inline __attribute__((always_inline)) void reverb_run(fxslot_t *f, const float *x, float *ol, float *orr,
+                                                              int m, int any, int lag, const int lagged)
 {
     const float damp = f->pc[3], fb = f->pc[4], hpk = 0.017f;                          /* ~120 Hz on the send */
     const float tlk = f->pc[2], thk = f->pc[5];                                        /* the tone's filters */
@@ -639,7 +641,7 @@ static void do_reverb(fxslot_t *f, const float *x, float *ol, float *orr, int m,
             acc += v_;                                                                         \
             accr += NEG ? -v_ : v_;                                                            \
             MD = v_ + (MD - v_) * damp;                                                        \
-            if (LAG) {                        /* the send into the comb's past, its feedback here */ \
+            if (lagged) {                     /* the send into the comb's past, its feedback here */ \
                 int32_t q_ = P - LAG < 0 ? P - LAG + (CAP) : P - LAG, j_;                     \
                 k_ = (int32_t)(MD * fb * 2048.0f);                                             \
                 j_ = (int32_t)B[q_] + (int32_t)(y * 2048.0f);                                  \
@@ -703,6 +705,13 @@ static void do_reverb(fxslot_t *f, const float *x, float *ol, float *orr, int m,
     f->rtl[0] = fm_flush(tl0); f->rtl[1] = fm_flush(tl1);
     f->rtr[0] = fm_flush(th0); f->rtr[1] = fm_flush(th1);
     f->rquiet = quiet;
+}
+static void do_reverb(fxslot_t *f, const float *x, float *ol, float *orr, int m, int any, int lag)
+{
+    if (lag)
+        reverb_run(f, x, ol, orr, m, any, lag, 1);
+    else
+        reverb_run(f, x, ol, orr, m, any, 0, 0);
 }
 
 /* an SPU mode: the send decimated to 22.05 kHz, a tick of the console's reverb every second sample, its two

@@ -3016,6 +3016,74 @@ static void t_pattern_helpers(void)
     printf("ok %s\n", cur);
 }
 
+static void euclid_str(char *s, int k, int n)     /* E(k, n) as "x..x..x." */
+{
+    uint8_t h[NSTEP];
+    euclid(h, k, n);
+    for (int i = 0; i < n; i++)
+        s[i] = h[i] ? 'x' : '.';
+    s[n] = 0;
+}
+
+static void t_euclid(void)
+{
+    static const struct { int k, n; const char *want; } known[] = {
+        {3, 8, "x..x..x."}, {5, 8, "x.xx.xx."}, {4, 16, "x...x...x...x..."}, {7, 16, "x..x.x.x..x.x.x."},
+        {5, 12, "x..x.x..x.x."}, {7, 12, "x.xx.x.xx.x."}, {9, 16, "x.xx.x.x.xx.x.x."}, {5, 16, "x..x..x..x..x..."},
+        {2, 5, "x.x.."}, {3, 7, "x.x.x.."}, {4, 9, "x.x.x.x.."}, {8, 16, "x.x.x.x.x.x.x.x."},
+        {1, 6, "x....."}, {0, 5, "....."}, {5, 5, "xxxxx"}, {1, 1, "x"}, {0, 1, "."},
+        {7, 8, "xxxxxxx."}};           /* (one rest: it falls last, the hits first) */
+    char s[NSTEP + 1];
+    uint8_t h[NSTEP + 8];
+    cur = "euclid";
+    for (unsigned i = 0; i < sizeof known / sizeof known[0]; i++) {
+        euclid_str(s, known[i].k, known[i].n);
+        if (strcmp(s, known[i].want)) {
+            printf("E(%d,%d) = %s, wanted %s\n", known[i].k, known[i].n, s, known[i].want);
+            CHECK(0);
+        }
+    }
+    for (int n = 1; n <= NSTEP; n++)
+        for (int k = 0; k <= n; k++) {
+            int first = -1, prev = -1, lo = NSTEP, hi = 0, hits = 0;
+            memset(h, 0xAA, sizeof h);
+            euclid(h, k, n);
+            for (int i = n; i < NSTEP + 8; i++)
+                CHECK(h[i] == 0xAA);         /* nothing written past step n */
+            for (int i = 0; i < n; i++) {
+                CHECK(h[i] <= 1);
+                if (!h[i])
+                    continue;
+                hits++;
+                if (prev >= 0) {
+                    lo = i - prev < lo ? i - prev : lo;
+                    hi = i - prev > hi ? i - prev : hi;
+                } else
+                    first = i;
+                prev = i;
+            }
+            CHECK(hits == k);
+            if (!k)
+                continue;
+            CHECK(first == 0);               /* the classic phase: a hit on the first step */
+            lo = n - prev + first < lo ? n - prev + first : lo;   /* (the gap that wraps round) */
+            hi = n - prev + first > hi ? n - prev + first : hi;
+            CHECK(hi - lo <= 1);             /* every gap is n / k down or up */
+            CHECK(lo >= n / k && hi <= (n + k - 1) / k);
+        }
+    memset(h, 0xAA, sizeof h);               /* out of range: k clamped to 0..n, n to the pattern's longest */
+    euclid(h, 99, 4);
+    CHECK(h[0] == 1 && h[1] == 1 && h[2] == 1 && h[3] == 1 && h[4] == 0xAA);
+    euclid(h, -3, 4);
+    CHECK(!h[0] && !h[1] && !h[2] && !h[3] && h[4] == 0xAA);
+    memset(h, 0xAA, sizeof h);
+    euclid(h, 5, 0);
+    CHECK(h[0] == 0xAA);
+    euclid(h, 70, 100);
+    CHECK(h[NSTEP - 1] == 1 && h[NSTEP] == 0xAA);
+    printf("ok %s\n", cur);
+}
+
 static void t_weave(void)
 {
     static tpat_t a, b, o;
@@ -3190,6 +3258,151 @@ static void t_cue_scene(void)
     CHECK(S.cue == 0xFF);
     run_to(T16(64) + 100);
     CHECK(S.scene == 0);
+    printf("ok %s\n", cur);
+}
+
+/* the scene morph: the tracks whose mute differs from the next used scene's are thinned by the percent, the same steps
+ * every run; at 100 the scene is cued as a key would cue it and the morph is gone once it lands. Tracks: 1 plays now
+ * and the target mutes it, 2 is muted now and the target unmutes it, 3 plays in both, 4 is muted in both, 5 is a kit
+ * the target mutes. Scene 1 is the target (scene 2 stands unused: the target skips to the next used) */
+#define MBARS 8
+#define MSTEPS (MBARS * 16)
+static void morph_setup(void)
+{
+    reset();
+    par[4][TP_ENGINE] = EG_DRUMLINE;
+    for (int t = 0; t < 5; t++)
+        for (int i = 0; i < 16; i++)
+            note(t, i, t == 4 ? 1 : 60, 100);
+    P.scene[0].mute = S.mute = 1u << 1 | 1u << 3;
+    P.scene[3].used = 1;
+    P.scene[3].mute = 1u << 0 | 1u << 3 | 1u << 4;
+    start();
+}
+static int morph_times(int pct, int kind, int trk, uint32_t *at)   /* the sounds of a track over MBARS bars at pct */
+{
+    int n = 0;
+    morph_setup();
+    seq_morph(&S, pct);
+    run(MSTEPS * L16 - 100);
+    for (int i = 0; i < nev; i++)
+        if (ev[i].kind == kind && ev[i].trk == trk)
+            at[n++] = ev[i].t;
+    return n;
+}
+static ev_t snap[NEV];
+static int nsnap;
+static int log_after(const ev_t *e, int n, uint32_t from)   /* events at or after from: kind, track, a, time */
+{
+    int k = 0;
+    for (int i = 0; i < n; i++)
+        k += e[i].t >= from;
+    return k;
+}
+static int log_same_after(uint32_t from)   /* the log now and the snapshot, from a time on: the same events */
+{
+    int i = 0, j = 0;
+    while (1) {
+        while (i < nev && ev[i].t < from)
+            i++;
+        while (j < nsnap && snap[j].t < from)
+            j++;
+        if (i == nev || j == nsnap)
+            return i == nev && j == nsnap;
+        if (ev[i].kind != snap[j].kind || ev[i].trk != snap[j].trk || ev[i].a != snap[j].a || ev[i].t != snap[j].t)
+            return 0;
+        i++, j++;
+    }
+}
+static void t_morph(void)
+{
+    static uint32_t a[MSTEPS], b[MSTEPS], lo[MSTEPS], hi[MSTEPS];
+    int n, m;
+    cur = "morph";
+    /* 0: every track plays as a project without a morph does, and the word stays 0 */
+    morph_setup();
+    seq_morph(&S, 0);
+    CHECK(S.morph == 0);
+    run(MSTEPS * L16 - 100);
+    CHECK(count(E_ON, 0) == MSTEPS && count(E_ON, 1) == 0 && count(E_GHOST, 1) == MSTEPS);
+    CHECK(count(E_ON, 2) == MSTEPS && count(E_ON, 3) == 0 && count(E_DRUM, 4) == MSTEPS);
+    /* 50: about half of the steps of a track the target mutes sound, those and only those every run; the thinned
+     * steps are ghosts (the muted-step path), none lost */
+    n = morph_times(50, E_ON, 0, a);
+    CHECK(n > MSTEPS * 3 / 10 && n < MSTEPS * 7 / 10);
+    CHECK(count(E_GHOST, 0) == MSTEPS - n);
+    stop();
+    CHECK(S.morph == 0);
+    m = morph_times(50, E_ON, 0, b);
+    CHECK(n == m && !memcmp(a, b, (size_t)n * sizeof a[0]));
+    /* the target unmutes track 2: its steps come in, about half, and a step let in at 25 % is in at 50 % */
+    n = morph_times(25, E_ON, 1, lo);
+    m = morph_times(50, E_ON, 1, hi);
+    CHECK(n > MSTEPS / 10 && n < MSTEPS * 2 / 5 && m > MSTEPS * 3 / 10 && m < MSTEPS * 7 / 10);
+    for (int i = 0, j = 0; i < n; i++, j++) {
+        while (j < m && hi[j] != lo[i])
+            j++;
+        CHECK(j < m);
+    }
+    /* the kit the target mutes thins through the kit's own path */
+    n = morph_times(50, E_DRUM, 4, a);
+    CHECK(n > MSTEPS * 3 / 10 && n < MSTEPS * 7 / 10 && count(E_GHOST, 4) == MSTEPS - n);
+    /* a track whose mute is the same in both scenes is not touched, at any percent */
+    morph_setup();
+    seq_morph(&S, 50);
+    run(MSTEPS * L16 - 100);
+    CHECK(count(E_ON, 2) == MSTEPS && count(E_GHOST, 2) == 0 && count(E_ON, 3) == 0 && count(E_GHOST, 3) == MSTEPS);
+    /* 100: the scene cued, the tracks as in it from the first step; the bar line lands it and the morph is gone;
+     * from there on the events are those of a plain cue */
+    morph_setup();
+    seq_cue_scene(&S, 3, 0);
+    run(4 * 16 * L16);
+    memcpy(snap, ev, (size_t)nev * sizeof ev[0]);
+    nsnap = nev;
+    morph_setup();
+    seq_morph(&S, 100);
+    seq_cue_scene(&S, 3, 0);
+    run(4 * 16 * L16);
+    CHECK(log_after(ev, nev, 16 * L16 + 100) > 0 && log_same_after(16 * L16 + 100));
+    CHECK(S.morph == 0 && S.scene == 3 && S.mute == (1u << 0 | 1u << 3 | 1u << 4));
+    CHECK(!log_same_after(0));                   /* (the bar before it differs: that is the morph) */
+    /* one used scene: no target, the control does nothing */
+    reset();
+    for (int i = 0; i < 16; i++)
+        note(0, i, 60, 100);
+    S.mute = 0;
+    CHECK(seq_morph_target(&S) == -1);
+    start();
+    seq_morph(&S, 50);
+    CHECK(S.morph == 0);
+    run(MSTEPS * L16 - 100);
+    CHECK(count(E_ON, 0) == MSTEPS);
+    /* the target is the next used scene, wrapping */
+    morph_setup();
+    CHECK(seq_morph_target(&S) == 3);
+    S.scene = 3;
+    CHECK(seq_morph_target(&S) == 0);
+    seq_morph(&S, 40);
+    CHECK(S.morph == (0u << 8 | 40u));
+    /* off: a stop, a scene switch (a key, a project load) */
+    morph_setup();
+    seq_morph(&S, 50);
+    run(L16);
+    CHECK(S.morph != 0);
+    stop();
+    CHECK(S.morph == 0);
+    morph_setup();
+    seq_morph(&S, 50);
+    seq_set_scene(&S, 0);
+    run(L16);
+    CHECK(S.morph == 0);
+    reset();
+    P.scene[1].used = 1;
+    seq_morph(&S, 50);
+    CHECK(S.morph != 0);
+    seq_set_scene(&S, 0);
+    seq_advance(&S, 0, &sink);
+    CHECK(S.morph == 0);
     printf("ok %s\n", cur);
 }
 
@@ -3414,10 +3627,12 @@ static void t_hit_rec(void)                       /* a sound recorded back onto 
 int main(void)
 {
     t_pattern_helpers();
+    t_euclid();
     t_phase();
     t_cue_bar();
     t_flam();
     t_cue_scene();
+    t_morph();
     t_weave();
     t_timing();
     t_scale();

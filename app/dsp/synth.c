@@ -513,10 +513,10 @@ static void rayon_prep(voice_t *v)
 }
 /* rayon's sine, sin(2 pi ph) for any phase: folded to a quarter turn, then a degree-7 polynomial in turns (max error
  * 7.4e-7, -123 dB; fitted on [-1/4, 1/4]). About half the multiplies of fastmath's fm_sin_turns (2 pi, then degree 13),
- * which rayon calls two or three times a sample */
-static inline float sin_q7(float ph)
+ * which rayon calls two or three times a sample. x = ph - floor(ph + 0.5): the phase in [-1/2, 1/2] */
+static inline float sin_q7_x(float x)
 {
-    float x = ph - fm_floorf(ph + 0.5f), x2;
+    float x2;
     if (x > 0.25f)
         x = 0.5f - x;
     else if (x < -0.25f)
@@ -524,32 +524,54 @@ static inline float sin_q7(float ph)
     x2 = x * x;
     return x * (((-7.099341583e+01f * x2 + 8.134076691e+01f) * x2 - 4.133714294e+01f) * x2 + 6.283164024e+00f);
 }
-static void rayon_run(voice_t *v, float *xl, float *xr, int m)
+/* ph - floor(ph + 0.5). narrow: ph + 0.5 is known to lie in [0, 2), where the floor is 0 or 1 and a compare gives it
+ * without fm_floorf's float to int and back */
+static inline float wrap_q7(float ph, const int narrow)
+{
+    const float t = ph + 0.5f;
+    return ph - (narrow ? (t >= 1.0f ? 1.0f : 0.0f) : fm_floorf(t));
+}
+/* the modulator, the carrier and the tine. narrow: the call's phases and depths keep every argument of wrap_q7 inside
+ * [0, 2) (rayon_run's guard): the carrier's phase is in [0, 1), the modulator's output within 1.000001 either side
+ * (the polynomial's overshoot), so ph + 0.5 stays in [0.02, 1.98] for a feedback up to 0.4 and an index up to 0.48 */
+SY_INLINE void rayon_loop(voice_t *v, float *xl, int m, const int narrow)
 {
     const cfg_t *c = &v->c;
     float cp = v->o[0], mp = v->o[1], fbv = v->o[2];
     float dc = c->ex[0], dm = c->ex[1], idx = c->ex[2] * 0.25f, fb = c->ex[3] * 0.25f, tl = c->ex[4] * v->o[7];
     int i;
-    (void)xr;
     for (i = 0; i < m; i++) {
         float mo;
         mp = step1(mp, dm);
         cp = step1(cp, dc);
-        mo = sin_q7(mp + fbv * fb);
+        mo = sin_q7_x(wrap_q7(mp + fbv * fb, narrow));
         fbv = mo;
-        xl[i] = sin_q7(cp + mo * idx);
+        xl[i] = sin_q7_x(wrap_q7(cp + mo * idx, narrow));
     }
     if (tl > 1e-4f) {                            /* the tine, added */
         float tp = v->o[6], dt = c->ex[5];
         for (i = 0; i < m; i++) {
             tp = step1(tp, dt);
-            xl[i] += sin_q7(tp) * tl;
+            xl[i] += sin_q7_x(wrap_q7(tp, narrow)) * tl;
         }
         v->o[6] = tp;
     }
     v->o[0] = cp;
     v->o[1] = mp;
     v->o[2] = fbv;
+}
+static void rayon_run(voice_t *v, float *xl, float *xr, int m)
+{
+    const cfg_t *c = &v->c;
+    (void)xr;
+    /* (a voice's first call may hold another engine's numbers: any test failing, or a NaN, takes the general loop) */
+    if (v->o[0] >= 0.0f && v->o[0] < 1.0f && v->o[1] >= 0.0f && v->o[1] < 1.0f && v->o[2] >= -1.001f &&
+        v->o[2] <= 1.001f && c->ex[0] >= 0.0f && c->ex[0] <= 0.5f && c->ex[1] >= 0.0f && c->ex[1] <= 0.5f &&
+        fm_fabsf(c->ex[2]) <= 1.92f && fm_fabsf(c->ex[3]) <= 1.6f &&
+        (c->ex[4] * v->o[7] <= 1e-4f || (v->o[6] >= 0.0f && v->o[6] < 1.0f && c->ex[5] >= 0.0f && c->ex[5] <= 0.5f)))
+        rayon_loop(v, xl, m, 1);
+    else
+        rayon_loop(v, xl, m, 0);
 }
 static void rayon_chunk(voice_t *v)              /* the fall, the tine's decay */
 {

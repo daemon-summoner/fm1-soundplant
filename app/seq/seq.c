@@ -1402,6 +1402,29 @@ static void scene_read(seq_t *s, int k, uint8_t *next)
     brain_chord_from_deg(s);              /* a scene stores the degree, not the chord: the triad on it */
     s->wv_ppat = (uint8_t)(sc->weave % NPATT);
     s->scene = (uint8_t)k;
+    s->morph = 0;
+}
+
+/* the scene morph: a track the target scene mutes keeps playing, thinned by the percent; one it unmutes stays silent,
+ * its steps let through by the percent. A step's roll is a function of the track, pass and position only (the same
+ * steps every run), and a step let through at one percent is let through at every higher one. */
+#define MORPH_SEED 0x6D0F27BDu
+static int morph_muted(const seq_t *s, int t, uint32_t mo)
+{
+    const seq_trk_t *tr = &s->t[t];
+    uint32_t m = s->mute >> t & 1u;
+    if ((m ^ s->P->scene[(mo >> 8) % NSCENE].mute >> t) & 1u) {
+        uint32_t roll = st_hash(MORPH_SEED ^ (uint32_t)t << 24 ^ (uint32_t)tr->pass << 8 ^ tr->pos) % 100u;
+        m ^= roll < (mo & 0xFFu);
+    }
+    return m || punch_muted(s, t);
+}
+static inline int muted_now(const seq_t *s, int t)
+{
+    uint32_t mo = s->morph;
+    if (mo)
+        return morph_muted(s, t, mo);
+    return (s->mute >> t & 1u) || punch_muted(s, t);
 }
 
 static int song_plays(const seq_t *s) { return s->song_on && s->P->song.len > 0; }
@@ -1788,7 +1811,7 @@ static void kit_group(seq_t *s, int t, const step_t *st, int p, uint32_t L, uint
     }
     if (!m || tr->fill_on)
         return;
-    if ((s->mute >> t & 1u) || punch_muted(s, t)) {
+    if (muted_now(s, t)) {
         if (o->ghost)
             for (b = m; b; b &= b - 1u)
                 o->ghost(o->ctx, t, __builtin_ctz(b), st->vel ? st->vel : 100);
@@ -1877,7 +1900,7 @@ static void kit_step(seq_t *s, int t, const step_t *st, int p, uint32_t L, uint3
         kit_group(s, t, st, p, L, carry, 1u << i, &gi[i], gi[i].ok && cond_plays(s, t, hs[i]->cond), &jumped, &bent, o);
     }
     tr->ramp_deg = 0;
-    quiet = (s->mute >> t & 1u) || punch_muted(s, t) || tr->fill_on;
+    quiet = muted_now(s, t) || tr->fill_on;
     if (!quiet)                       /* the pulses: their sounds again, on this step */
         for (b = cov; b; b &= b - 1u) {
             kit_rt_t *r = &R[i = __builtin_ctz(b)];
@@ -1972,7 +1995,7 @@ static void fire_step(seq_t *s, int t, const seq_sink_t *o)
      * (a jump works on an empty or muted step, which happens without playing) */
     if (retrig && trig_ok)
         happens = cond_plays(s, t, st->cond);
-    plays = happens && !(s->mute >> t & 1u) && !punch_muted(s, t) && !tr->fill_on &&
+    plays = happens && !muted_now(s, t) && !tr->fill_on &&
             (rnd ? step_slot_on(tp, cover ? lp : p) : !step_empty(st));
     if (happens && !plays && !drum && t == brain_src(s))
         brain_set_near_notes(s, st->note, SN);   /* (a FOLLOW track muted still sets the chords) */
@@ -2020,7 +2043,7 @@ static void fire_step(seq_t *s, int t, const seq_sink_t *o)
     } else {
         tr->ramp_deg = 0;
         if (happens && t < NTRK && o->ghost && !tr->fill_on && !step_empty(st) &&
-            ((s->mute >> t & 1u) || punch_muted(s, t)))
+            muted_now(s, t))
             ghost_notes(s, t, st, o);
     }
 next:
@@ -3190,6 +3213,7 @@ static void do_stop(seq_t *s, const seq_sink_t *o)
     s->playing = 0;
     s->count_in = 0;
     s->rec_wait = 0;
+    s->morph = 0;
     for (t = 0; t < NSEQT; t++) {
         seq_trk_t *tr = &s->t[t];
         cancel_offs(s, t, o);
@@ -3764,6 +3788,22 @@ void seq_set_scene(seq_t *s, int scene)
 {
     if (scene >= 0 && scene < NSCENE)
         s->req_scene = (uint8_t)scene;
+}
+
+int seq_morph_target(const seq_t *s)
+{
+    for (int i = 1; i < NSCENE; i++) {
+        int k = (s->scene + i) % NSCENE;
+        if (s->P->scene[k].used)
+            return k;
+    }
+    return -1;
+}
+
+void seq_morph(seq_t *s, int pct)
+{
+    int k = seq_morph_target(s);
+    s->morph = k < 0 || pct <= 0 ? 0 : (uint16_t)(k << 8 | (pct > 100 ? 100 : pct));
 }
 
 void seq_cue_pattern(seq_t *s, int trk, int pat)

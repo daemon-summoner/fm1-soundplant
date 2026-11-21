@@ -19,6 +19,125 @@ Play SoundPlant, a pocket groovebox firmware for the M-VAVE FM-1, in your browse
 .start button { background: #00e1ff; color: #04050c; }
 .hit:focus-visible { outline-color: #00e1ff; }
 .help p, .help ul { color: var(--muted); }
+/* the Night Garden (garden.js): the canvas fills the window, the FM-1 docks in the corner and stays playable, and the
+   page's other parts step aside while html.garden-on */
+#garden-open[disabled] { opacity: .55; cursor: not-allowed; }
+.garden { position: fixed; inset: 0; z-index: 10; background: #06070f; color: #ebebf5; font: 600 .92rem/1.3 "Barlow", "Helvetica Neue", Arial, sans-serif;
+          --ink: #ebebf5; --muted: #a9adc8; --card: rgba(255, 255, 255, .09); --ground: #06070f; --focus: #79adff; --bad: #ff8a73; }
+.garden[hidden] { display: none; }
+.garden canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; background: #06070f; }
+.garden.idle { cursor: none; }
+.garden-top { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; flex-direction: column; gap: .6rem; }
+.garden-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; transition: opacity .5s; }
+.garden.idle .garden-bar:not(:focus-within) { opacity: 0; }
+.garden-title { font: 700 1.15rem/1 "Barlow Semi Condensed", "Barlow", sans-serif; letter-spacing: .04em; margin-right: .4rem; text-shadow: 0 0 12px #00e1ff; }
+.garden-bar button, .garden-bar .garden-int { font: inherit; color: var(--ink); background: rgba(6, 7, 15, .6); border: 1px solid rgba(235, 235, 245, .35);
+              border-radius: 8px; padding: .3em .8em; min-height: 2.2em; cursor: pointer; backdrop-filter: blur(6px); }
+.garden-bar .garden-int { display: inline-flex; padding: 0; gap: 0; overflow: hidden; cursor: default; }
+.garden-bar .garden-int button { border: 0; border-radius: 0; background: transparent; backdrop-filter: none; }
+.garden-bar button[aria-pressed="true"] { background: #00e1ff; color: #04050c; border-color: #00e1ff; }
+.garden-bar button:disabled { opacity: .45; cursor: not-allowed; }
+.garden-bar button[hidden] { display: none; }
+.garden-bar #garden-close { margin-left: auto; }
+.garden-hint { margin: 0; color: var(--muted); text-shadow: 0 1px 8px #000; pointer-events: none; }
+.garden-hint[hidden] { display: none; }
+.garden-alert { margin: 0; color: var(--bad); font-weight: 600; text-shadow: 0 1px 8px #000; }
+.garden-alert:empty { display: none; }
+html.garden-on, html.garden-on body { overflow: hidden; height: 100%; background: #06070f; }
+html.garden-on .lm-top, html.garden-on main > header, html.garden-on .turn, html.garden-on .speak, html.garden-on .help,
+html.garden-on #session, html.garden-on #reset, html.garden-on #cpu { display: none; }
+html.garden-on { --gw: min(36vw, 400px); }
+html.garden-on.garden-panel-large { --gw: min(64vw, 760px); }
+html.garden-on .devicebox { position: fixed; right: 12px; bottom: 12px; width: var(--gw); z-index: 20; overflow: visible; border-radius: 12px;
+                            box-shadow: 0 0 0 1px rgba(255, 255, 255, .1), 0 10px 40px rgba(0, 0, 0, .65); }
+html.garden-on .device { min-width: 0; }
+html.garden-on.garden-panel-off .devicebox { visibility: hidden; }
+html.garden-on .bar { position: fixed; left: 12px; bottom: 12px; z-index: 20; margin: 0; max-width: calc(100vw - var(--gw) - 36px); padding: .45rem .7rem;
+                      background: rgba(6, 7, 15, .68); border-radius: 12px; backdrop-filter: blur(6px); color: #a9adc8;
+                      --ink: #ebebf5; --muted: #a9adc8; --card: rgba(255, 255, 255, .09); --ground: #06070f; --focus: #79adff; --bad: #ff8a73; }
+html.garden-on.garden-panel-off .bar { max-width: calc(100vw - 24px); }
+/* the LCD popped out of its panel (Screen: large / huge); the page's fitScreen re-draws it at the new size.
+   --sb, --sr: its bottom and right edge; --sw: its side. Large floats above the docked board (the panel is 1000 x 640);
+   huge sits left of the board, above the status bar, as tall as the window allows. Hidden panel: the board's room is free. */
+html.garden-on { --sb: calc(var(--gw) * .64 + 24px); --sr: 12px; --sw: 0px; }
+html.garden-on.garden-panel-off { --sb: 4.6rem; }
+html.garden-on.garden-screen-pop { --sw: max(160px, min(46vw, 480px, 100vh - var(--sb) - 5.5rem)); }
+html.garden-on.garden-screen-pop.garden-screen-huge { --sb: 4.6rem; --sr: calc(var(--gw) + 24px); --sw: max(160px, min(100vw - var(--gw) - 36px, 100vh - 10.1rem)); }
+html.garden-on.garden-screen-pop.garden-screen-huge.garden-panel-off { --sr: 12px; --sw: max(160px, min(100vw - 24px, 100vh - 10.1rem)); }
+html.garden-on.garden-screen-pop .device canvas { position: fixed; left: auto; top: auto; right: var(--sr); bottom: var(--sb); width: var(--sw); height: var(--sw);
+                                                   z-index: 21; visibility: visible; border-radius: 6px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .16), 0 10px 40px rgba(0, 0, 0, .65); }
+@media (max-width: 700px) {
+  html.garden-on { --gw: min(70vw, 400px); }
+  html.garden-on.garden-panel-large { --gw: calc(100vw - 24px); }
+  html.garden-on .bar { bottom: calc(var(--gw) * .64 + 24px); max-width: calc(100vw - 24px); }
+  html.garden-on.garden-panel-off .bar { bottom: 12px; }
+  html.garden-on { --sb: calc(var(--gw) * .64 + 24px + 4.6rem); }
+  html.garden-on.garden-panel-off { --sb: 4.6rem; }
+  html.garden-on.garden-screen-pop { --sw: max(160px, min(100vw - 24px, 100vh - var(--sb) - 5.5rem)); }
+  html.garden-on.garden-screen-pop.garden-screen-huge { --sb: calc(var(--gw) * .64 + 24px + 4.6rem); --sr: 12px; --sw: max(160px, min(100vw - 24px, 100vh - var(--sb) - 5.5rem)); }
+  html.garden-on.garden-screen-pop.garden-screen-huge.garden-panel-off { --sb: 4.6rem; }
+}
+@media (prefers-reduced-motion: reduce) { .garden-bar { transition: none; } }
+</style>
+<style>
+/* the demo songs (app.js): a tile for each, picked with the mouse or the arrow keys, then loaded into the running FM-1 */
+.demos { margin: 1.6rem 0 0; padding: 1rem 1.2rem; background: var(--card); border: 1px solid var(--rule); border-radius: 14px; }
+.demos h2 { font: 600 1.1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .3rem; }
+.demos p { margin: 0 0 .7rem; max-width: 64ch; color: var(--muted); }
+.demos fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.demos legend { padding: 0; margin: 0 0 .4rem; font-weight: 600; }
+.demos-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); gap: .5rem; }
+.demo { display: block; position: relative; padding: .5rem .7rem .55rem 2.1rem; border: 1px solid var(--rule); border-radius: 10px; background: var(--ground); cursor: pointer; }
+.demo input { position: absolute; left: .75rem; top: .72rem; margin: 0; }
+.demo b { font-weight: 600; }
+.demo small { display: block; color: var(--muted); font-size: .85rem; line-height: 1.35; }
+.demo:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.demo:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
+.demos fieldset:disabled .demo { opacity: .55; cursor: not-allowed; }
+.demos-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin: .8rem 0 0; }
+.demos button { font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--muted); border-radius: 8px; padding: .3em .8em; cursor: pointer; min-height: 2.2em; }
+.demos button.primary { background: #00e1ff; color: #04050c; border-color: #00e1ff; }
+.demos button:disabled { opacity: .5; cursor: not-allowed; }
+.demos [hidden] { display: none; }
+.demos-confirm { margin: .8rem 0 0; padding: .7rem .9rem; border: 1px solid var(--accent); border-radius: 10px; }
+.demos-confirm p { margin: 0; color: var(--ink); }
+.demos-confirm .demos-actions { margin-top: .6rem; }
+.demos p.demos-status, .demos p.demos-error { margin: .7rem 0 0; }
+.demos p.demos-error { color: var(--bad); font-weight: 600; }
+.demos-status:empty, .demos-error:empty { display: none; }
+html.garden-on .demos { display: none; }
+</style>
+<style>
+/* the Preset lab (presets.js): the factory presets in tiles by engine, a filter box, the track to put one on, and what the firmware
+   has on it now; hidden while the garden is open, as the demo box is */
+.presets { margin: 1.6rem 0 0; padding: 1rem 1.2rem; background: var(--card); border: 1px solid var(--rule); border-radius: 14px; }
+.presets h2 { font: 600 1.1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .3rem; }
+.presets h3 { font: 600 1rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 1.1rem 0 .15rem; }
+.presets p { margin: 0 0 .7rem; max-width: 64ch; color: var(--muted); }
+.presets [hidden] { display: none; }
+.presets-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .8rem; margin: 0 0 .5rem; }
+.presets-bar label { font-weight: 600; }
+.presets-bar input, .presets-bar select { font: inherit; color: var(--ink); background: var(--ground); border: 1px solid var(--muted); border-radius: 8px; padding: .3em .6em; min-height: 2.2em; min-width: 0; }
+.presets-bar input { flex: 1 1 12rem; max-width: 22rem; }
+.presets button { font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--muted); border-radius: 8px; padding: .3em .8em; cursor: pointer; min-height: 2.2em; }
+.presets button:disabled { opacity: .5; cursor: not-allowed; }
+.presets :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.presets-now { margin: .3rem 0 0; padding: .5rem .8rem; border: 1px solid var(--rule); border-radius: 10px; background: var(--ground); }
+.presets-now b { font-weight: 600; }
+.presets-now-title { margin: 0 0 .3rem; color: var(--ink); }
+.presets-now-knobs { display: flex; flex-wrap: wrap; gap: .3rem 1.2rem; }
+.presets-now-knobs span { display: inline-flex; gap: .4rem; align-items: baseline; }
+.presets-now-knobs small { color: var(--muted); }
+.preset-items { list-style: none; margin: .4rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); gap: .4rem; }
+.preset-items .preset { display: block; width: 100%; height: 100%; text-align: left; padding: .4rem .7rem .45rem; background: var(--ground); border-radius: 10px; }
+.preset b { font-weight: 600; }
+.preset small { display: block; color: var(--muted); font-size: .85rem; line-height: 1.3; }
+.preset[aria-disabled="true"] { cursor: default; }
+.preset[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.presets p.presets-status, .presets p.presets-error, .presets p.presets-count { margin: .5rem 0 0; }
+.presets p.presets-error { color: var(--bad); font-weight: 600; }
+.presets-status:empty, .presets-error:empty { display: none; }
+html.garden-on .presets { display: none; }
 </style>
 <!-- emu-page: header -->
 <!-- emu-page: top -->
@@ -27,14 +146,88 @@ Play SoundPlant, a pocket groovebox firmware for the M-VAVE FM-1, in your browse
   <h1>SoundPlant</h1>
   <p>a pocket groovebox for the FM-1, in the browser: the same code the FM-1 runs</p>
 </header>
+<!-- emu-page: bar -->
+<button type="button" id="garden-open" aria-pressed="false" aria-describedby="garden-why" disabled>Garden</button>
+<span id="garden-why" class="sr">Open the night garden: a plant for each track that moves with what the track plays. Available once the emulator is on.</span>
 <!-- emu-page: end -->
+<section class="demos" id="demos" aria-labelledby="demos-h">
+  <h2 id="demos-h">Demo songs</h2>
+  <p id="demos-intro">Songs in different styles, made with SoundPlant's own sounds. One loads into the FM-1 above and replaces your three projects and your presets; Undo puts them back. <span id="demos-off">Switch the FM-1 on to pick one.</span></p>
+  <fieldset id="demos-set" disabled>
+    <legend>Pick a song</legend>
+    <div class="demos-list" id="demos-list"></div>
+  </fieldset>
+  <div class="demos-actions">
+    <button type="button" class="primary" id="demo-play" disabled>Load and play</button>
+    <button type="button" id="demo-load" disabled>Load only</button>
+    <button type="button" id="demo-undo" hidden>Undo the last load</button>
+  </div>
+  <div class="demos-confirm" id="demos-confirm" role="group" aria-labelledby="demos-confirm-text" hidden>
+    <p id="demos-confirm-text"></p>
+    <div class="demos-actions">
+      <button type="button" class="primary" id="demo-yes">Replace</button>
+      <button type="button" id="demo-no">Cancel</button>
+    </div>
+  </div>
+  <p class="demos-status" id="demos-status" role="status"></p>
+  <p class="demos-error" id="demos-error"></p>
+</section>
+<section class="presets" id="presets" aria-labelledby="presets-h">
+  <h2 id="presets-h">Preset lab</h2>
+  <p id="presets-intro">Every factory sound, by engine. Pick one to put it on a track of the FM-1 above and hear a short phrase; the panel's knobs then shape it, and the list follows. It replaces that track's sound in your project, which the FM-1 autosaves like any change; hold HOME and press REC to undo it. <span id="presets-off">Switch the FM-1 on to hear them; you can look and filter until then.</span></p>
+  <div class="presets-bar">
+    <label for="presets-search">Find a sound</label>
+    <input type="search" id="presets-search" autocomplete="off" aria-describedby="presets-count presets-hint">
+    <label for="presets-track">Put it on</label>
+    <select id="presets-track" disabled>
+      <option value="0">T1</option><option value="1">T2</option><option value="2">T3</option><option value="3">T4</option>
+      <option value="4">T5</option><option value="5">T6</option><option value="6">T7</option><option value="7">T8</option>
+    </select>
+    <button type="button" id="presets-again" disabled>Play again</button>
+  </div>
+  <p class="presets-count" id="presets-count" role="status"></p>
+  <p id="presets-hint">Arrow keys move through the list, Enter plays the sound. With the list focused, the computer keys Q to I and A to K play it too.</p>
+  <div class="presets-now" id="presets-now" role="group" aria-labelledby="presets-now-title">
+    <p class="presets-now-title" id="presets-now-title">The FM-1 is off.</p>
+    <div class="presets-now-knobs" id="presets-now-knobs"></div>
+  </div>
+  <p class="presets-status" id="presets-status" role="status"></p>
+  <p class="presets-error" id="presets-error" role="alert"></p>
+  <div id="presets-list"></div>
+</section>
+<script type="module">
+import("./presets.js").then((lab) => lab.start()).catch((e) => {
+  const text = `The presets could not be listed: ${e && e.message || e}`;
+  document.getElementById("presets-error").textContent = text;
+  showAlert(text);
+});
+</script>
+<section class="garden" id="garden" aria-label="Night Garden" hidden>
+  <div class="garden-top">
+  <div class="garden-bar" role="toolbar" aria-label="Night Garden">
+    <span class="garden-title">Night Garden</span>
+    <span class="garden-int" role="group" aria-label="Intensity">
+      <button type="button" data-intensity="calm" aria-pressed="false">Calm</button>
+      <button type="button" data-intensity="trippy" aria-pressed="true">Trippy</button>
+      <button type="button" data-intensity="wild" aria-pressed="false">Wild</button>
+    </span>
+    <button type="button" id="garden-regrow">Regrow</button>
+    <button type="button" id="garden-panel">Panel: small</button>
+    <button type="button" id="garden-screen">Screen: docked</button>
+    <button type="button" id="garden-full">Full screen</button>
+    <button type="button" id="garden-close">Close</button>
+  </div>
+  <p class="garden-hint" id="garden-hint">Press <kbd>Space</kbd> to play, or fill in some steps: every track grows its own plant and the plants play what the tracks play.</p>
+  <p class="garden-alert" id="garden-alert" role="alert"></p>
+  </div>
+</section>
 <section class="help">
   <div>
     <h2>Buttons</h2>
     <ul>
       <li><b>SEQ</b> the steps: on a drum track, a black key picks the sound and the white keys are steps 1–16.</li>
       <li><b>SEQ</b> held, play notes, let go, then press steps: the notes go on them.</li>
-      <li><b>HOME</b> held is the shift key: a step for its tricks, a key for a throw, <b>REC</b> undo, <b>PLAY</b> redo.</li>
+      <li><b>HOME</b> held is the shift key: <b>REC</b> undo, <b>PLAY</b> redo, white key 1–3 loads a project.</li>
       <li><b>EDIT</b> the sound, <b>ENV</b> envelope and filter, <b>FX</b> sends, <b>LFO</b>, <b>ARP</b> players, <b>GLO</b> mix and master.</li>
       <li><b>PLAY</b> start / stop. <b>REC</b> held while playing records; stopped, a tap starts step record.</li>
       <li><b>SEL</b> the page's list: copy, paste, weave, presets.</li>
@@ -60,8 +253,35 @@ Play SoundPlant, a pocket groovebox firmware for the M-VAVE FM-1, in your browse
     </ul>
   </div>
   <div>
+    <h2>Garden</h2>
+    <p>The <b>Garden</b> button under the panel opens a night garden with a plant for each track. A plant plucks, blooms and
+      scatters pollen when its track plays; its filter opens it, its sends haze and echo it, a mute wilts it. The patterns
+      seed the garden, so every song grows its own; <b>Regrow</b> plants another. <b>Calm</b>, <b>Trippy</b> and <b>Wild</b>
+      set how much the camera moves and how often it glitches (with reduced motion on, it stays Calm). <b>Screen</b> pops
+      the FM-1's own screen out of the small panel: large, above the board, or huge, beside it. The garden only
+      draws and listens: it never changes the sound. It needs WebGL 2.</p>
+  </div>
+  <div>
+    <h2>Demo songs</h2>
+    <p>The <b>Demo songs</b> box under the panel loads a song into the running FM-1, all made with SoundPlant's factory sounds.
+      <b>Load and play</b> goes to the Song page and plays the song from its first slot (SEQ, HOME, SELECT, PLAY: the same buttons
+      you can press yourself); <b>Load only</b> leaves it for you to look at. A song replaces all three projects and the user
+      presets, so the page asks first, and <b>Undo</b> puts back what you had saved. It will not load while the FM-1 plays: stop
+      it first. To see a song grow, load it, then open the Garden.</p>
+  </div>
+  <div>
+    <h2>Preset lab</h2>
+    <p>The <b>Preset lab</b> under the demo songs lists SoundPlant's factory presets, by engine, from the firmware's own table. Click one, or
+      press <kbd>Enter</kbd> on it, and it goes on the track you pick (the one the FM-1 has selected to begin with) and plays a short phrase;
+      <b>Play again</b> repeats it. With the list focused, <kbd>Q</kbd> to <kbd>I</kbd> and <kbd>A</kbd> to <kbd>K</kbd> play the sound, as
+      they do on the panel, and <b>KNOB 1 to 4</b> (or a click and drag on them) shape it: the lab shows what each knob is called and where it
+      stands. <b>Find a sound</b> filters by name, engine, role or genre. The lab steps aside while the garden is open.</p>
+  </div>
+  <div>
     <h2>Saving</h2>
     <p>SAVE keeps your projects in this browser, as the FM-1 keeps them in its memory. Factory reset forgets them.
+      <b>Save backup</b> writes the projects and presets to a file (the backup page and tool of the FM-1 read it too);
+      <b>Load backup…</b> puts one back.
       It is the firmware, not a recording: what you hear is SoundPlant running, at the FM-1's 44.1 kHz.
       The idea of running FM-1 firmware in the browser comes from <a href="https://www.groove-os.com/">Groove OS</a>'s emulator.</p>
   </div>

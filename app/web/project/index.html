@@ -1,0 +1,939 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MPL-2.0
+     SoundPlant's project editor: a .soundplant backup (the file the backup page saves) opened in the browser, one of its
+     three project slots edited, and saved as a backup again. A slot's tempo, its tracks' names, levels and pans, the 64-step
+     patterns, the scenes (which pattern each track plays, which are muted) and the song are edited here; the rest of the
+     file is written back as it was. A pattern, or a scene, is saved as a MIDI file, and a MIDI file imported into a pattern
+     with a preview of what it makes. The container and the project's layout are soundplant_project.js, the MIDI files
+     soundplant_midi.js (both inlined at the placeholder below by tools/make_pages.py; tests/host/project_web.mjs checks them
+     against the firmware simulator's images and restores edited ones in it). Nothing leaves the browser: the files are read
+     and written here. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project · SoundPlant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap">
+<style>
+  :root { --ground: #f3f4fb; --ink: #0c0e24; --muted: #545b86; --rule: #d2d6ee; --card: #fff; --now: #e4e7f7; --wave: #8a90b8;
+          --accent: #6a2ee8; --on-accent: #fff; --bad: #c4162a; color-scheme: light; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --ground: #06070f; --ink: #eef1ff; --muted: #8e96cd; --rule: #242850; --card: #0e1022;
+      --now: #1a1d3a; --wave: #5560a0; --accent: #00e1ff; --on-accent: #04050c; --bad: #ff5a5a; color-scheme: dark; }
+  }
+  :root[data-theme="dark"] { --ground: #06070f; --ink: #eef1ff; --muted: #8e96cd; --rule: #242850; --card: #0e1022;
+    --now: #1a1d3a; --wave: #5560a0; --accent: #00e1ff; --on-accent: #04050c; --bad: #ff5a5a; color-scheme: dark; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--ground); color: var(--ink); padding-inline: 16px; padding-block: 48px 64px;
+         font: 400 16px/1.6 "Barlow", "Helvetica Neue", Arial, sans-serif; }
+  main { max-width: 56rem; margin: 0 auto; }
+  h1 { font: 700 2.4rem/1 "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 1rem; }
+  h2 { font: 700 1.3rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 2rem 0 .5rem; }
+  h3 { font: 700 1.05rem "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .4rem; }
+  .card > h3:not(:first-child) { margin-top: 1.1rem; }
+  p { margin: 0 0 1rem; }
+  a { color: var(--accent); }
+  .small { color: var(--muted); font-size: .9rem; }
+  button { font: 600 15px "Barlow", sans-serif; background: var(--accent); color: var(--on-accent); border: 0; border-radius: 999px;
+           padding: 7px 18px; cursor: pointer; }
+  button.quiet { background: none; color: var(--ink); border: 1px solid var(--rule); }
+  button.link { background: none; color: var(--muted); border: 0; padding: 2px 4px; text-decoration: underline; font-weight: 400;
+                font-size: 14px; border-radius: 4px; }
+  button:disabled { opacity: .35; cursor: default; }
+  select, input[type=text], input[type=number] { font: inherit; font-size: 14px; color: var(--ink); background: var(--card);
+                             border: 1px solid var(--rule); border-radius: 6px; padding: 2px 6px; }
+  input[type=range] { accent-color: var(--accent); margin: 0; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  input[type=file] { display: none; }
+  .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 0 0 1rem; }
+  #status { color: var(--muted); font-size: 15px; }
+  #alert { font-weight: 600; font-size: 15px; color: var(--bad); }
+  #alert:empty { display: none; }
+  .drop { border: 2px dashed var(--rule); border-radius: 10px; padding: 14px 16px; margin: 0 0 1rem; }
+  .drop.over { border-color: var(--accent); background: var(--now); }
+  .drop p { margin: 0; }
+  .drop .bar { margin: 0 0 .6rem; }
+  #confirm { border: 1px solid var(--bad); border-radius: 10px; background: var(--card); padding: 10px 14px; margin: 0 0 1rem; }
+  #confirm p { margin: 0 0 .6rem; font-weight: 600; }
+  #confirm .bar { margin: 0; }
+  .slots { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 .8rem; padding: 0; border: 0; min-width: 0; }
+  .slots legend { font: 700 1.05rem "Barlow Semi Condensed", sans-serif; padding: 0; margin: 0 0 4px; }
+  .slots label { border: 1px solid var(--rule); border-radius: 999px; padding: 3px 16px; cursor: pointer; background: var(--card);
+                 display: inline-flex; gap: 8px; align-items: center; }
+  .slots label:has(input:checked) { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .slots label:has(input:disabled) { opacity: .4; cursor: default; }
+  .slots label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .slots input { accent-color: var(--accent); margin: 0; }
+  #valid { margin: 0 0 .4rem; padding: 8px 14px; border: 1px solid var(--rule); border-radius: 8px; background: var(--card); font-size: 15px; }
+  #valid.bad { border-color: var(--bad); color: var(--bad); font-weight: 600; }
+  #fileinfo { margin: 0 0 1rem; }
+  .card, fieldset.card { border: 1px solid var(--rule); border-radius: 10px; background: var(--card); padding: 12px 16px 14px;
+                         margin: 0 0 1rem; min-width: 0; }
+  fieldset.card legend { font: 700 1.05rem "Barlow Semi Condensed", sans-serif; padding: 0 6px; }
+  .pgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: 8px 16px; align-items: end; }
+  .pgrid label { display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: var(--muted); min-width: 0; }
+  .pgrid label.chk { flex-direction: row; align-items: center; gap: 6px; color: var(--ink); }
+  #mprev .pgrid label.chk { grid-column: 1 / -1; }
+  .pgrid input[type=number], .pgrid input[type=text], .pgrid select { width: 100%; box-sizing: border-box; }
+  .pgrid input[type=range] { width: 100%; }
+  .pgrid .val { float: right; color: var(--ink); font-weight: 600; }
+  .pgrid label .row { display: flex; justify-content: space-between; gap: 8px; }
+  .tracks { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 12px; margin: 0 0 1rem; }
+  .tracks fieldset.card { margin: 0; }
+  .tracks .pgrid { grid-template-columns: 1fr; }
+  .grid { display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 4px; margin: .6rem 0 1rem; }
+  @media (max-width: 40rem) { .grid { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
+  .cell { --base: var(--card); position: relative; min-width: 0; height: 3rem; padding: 0; border-radius: 6px; color: var(--ink);
+          border: 1px solid var(--rule); font: 600 .78rem/1 "Barlow", sans-serif; text-transform: none;
+          background: linear-gradient(to top, color-mix(in srgb, var(--accent) 45%, transparent) var(--v, 0%), var(--base) var(--v, 0%)); }
+  .cell.beat { --base: var(--now); }
+  .cell.on { border-color: var(--accent); }
+  .cell.out { opacity: .45; }
+  .cell.sel { box-shadow: 0 0 0 2px var(--ink); }
+  .cell .n { position: absolute; left: 4px; top: 2px; font-weight: 400; font-size: .62rem; color: var(--muted); }
+  .cell .t { position: absolute; inset: auto 0 6px 0; text-align: center; text-transform: capitalize; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 .8rem; }
+  .chip { background: none; color: var(--ink); border: 1px solid var(--rule); padding: 3px 12px; font-size: 14px; }
+  .chip[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .srow { display: grid; grid-template-columns: minmax(5rem, 1fr) minmax(0, 8rem) auto; gap: 6px 16px; align-items: center;
+          padding: 6px 0; border-top: 1px solid var(--rule); }
+  .srow label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+  .srow .trlabel { font-weight: 600; overflow-wrap: anywhere; }
+  #song { list-style: none; margin: 0 0 .8rem; padding: 0; border-top: 1px solid var(--rule); }
+  .part { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--rule); }
+  .part .num { font: 700 1.05rem "Barlow Semi Condensed", sans-serif; color: var(--muted); width: 2.2em; }
+  .part label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+  .part .acts { display: inline-flex; flex-wrap: wrap; gap: 2px; margin-left: auto; }
+  input[type=number] { width: 5.5em; }
+  .empty { color: var(--muted); padding: 12px 0; }
+  .card.preview { border-color: var(--accent); margin: .8rem 0 1rem; }
+  #mprevh:focus { outline: none; }
+  .strip { display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 2px; margin: .4rem 0 .8rem; }
+  .strip i { display: block; height: 14px; border-radius: 3px; background: var(--now); }
+  .strip i.on { background: var(--accent); }
+  .notes { margin: 0 0 .8rem; padding-left: 1.2rem; font-size: 14px; }
+  .notes:empty { display: none; }
+  #mmsg { margin: .2rem 0 .6rem; }
+  #mmsg:empty { display: none; }
+  #mmsg.bad { color: var(--bad); font-weight: 600; }
+  .notes li { margin: 0 0 .2rem; }
+  details.small summary { cursor: pointer; }
+  .pgrid > button { justify-self: start; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Project</h1>
+  <p>Edit a SoundPlant project in your browser: the tempo, the tracks' names, levels and pans, the steps of every pattern,
+    the scenes and the song. Open a backup of your FM-1, change what you like, save it, and put it back with
+    <a href="../backup/">the Backup page</a>.</p>
+  <p class="small">Make the backup first with the Backup page: it saves the FM-1's three projects, its presets and its samples in
+    one <code>.soundplant</code> file. Nothing is sent anywhere: the file is read and written in this page.</p>
+
+  <div class="drop" id="drop">
+    <div class="bar">
+      <button id="open" type="button">Open a backup</button>
+      <button id="save" type="button" disabled>Save the backup</button>
+      <button class="quiet" id="revert" type="button" disabled>Undo all changes</button>
+    </div>
+    <p class="small">or drop a <code>.soundplant</code> file here (a <code>.mid</code> file too, once a backup is open).</p>
+  </div>
+  <div class="bar">
+    <span id="status" role="status"></span>
+    <span id="alert" role="alert"></span>
+  </div>
+  <div id="confirm" hidden>
+    <p id="confirmtext"></p>
+    <div class="bar">
+      <button id="confirmyes" type="button">Drop my changes and open it</button>
+      <button class="quiet" id="confirmno" type="button">Keep editing</button>
+    </div>
+  </div>
+  <input type="file" id="file" accept=".soundplant,application/octet-stream" aria-label="A SoundPlant backup to open" tabindex="-1">
+
+  <div id="editor" hidden>
+    <fieldset class="slots" id="slots">
+      <legend>Project slot</legend>
+      <label><input type="radio" name="slot" value="0"><span>Slot 1</span></label>
+      <label><input type="radio" name="slot" value="1"><span>Slot 2</span></label>
+      <label><input type="radio" name="slot" value="2"><span>Slot 3</span></label>
+    </fieldset>
+    <p id="valid"></p>
+    <p id="fileinfo" class="small"></p>
+
+    <fieldset class="card">
+      <legend>Project</legend>
+      <div class="pgrid">
+        <label>Tempo (BPM)<input type="number" id="tempo" min="40" max="300" step="0.1" inputmode="decimal" autocomplete="off"></label>
+        <label>Starts on scene<select id="startscene"></select></label>
+      </div>
+    </fieldset>
+
+    <h2 id="tracksh">Tracks</h2>
+    <div class="tracks" id="tracks" role="group" aria-labelledby="tracksh"></div>
+
+    <h2 id="stepsh">Steps</h2>
+    <div class="card">
+      <div class="pgrid">
+        <label>Track<select id="trk"></select></label>
+        <label>Pattern<select id="pat"></select></label>
+        <label>Steps in the pattern<input type="number" id="plen" min="1" max="64" step="1" inputmode="numeric" autocomplete="off"></label>
+        <label>Each step lasts<select id="pscale"></select></label>
+        <label>Note length (% of a step)<input type="number" id="pnlen" min="0" max="100" step="1" inputmode="numeric" autocomplete="off"></label>
+        <label><span id="penlabel">Note to toggle</span><select id="pen"></select></label>
+      </div>
+      <div class="grid" id="grid" role="group" aria-label="Steps"></div>
+      <p class="small">Arrow keys move over the steps. Space or Enter turns the chosen note or sound on or off on a step. A step past the end of the
+        pattern turns on and makes the pattern longer.</p>
+      <div id="stepbox">
+        <h3 id="stepname">Step 1</h3>
+        <div class="chips" id="kitbtns" role="group" aria-label="Sounds on this step" hidden></div>
+        <div class="chips" id="notechips" role="group" aria-label="Notes on this step"></div>
+        <div class="pgrid">
+          <label>Velocity (0 to 127)<input type="number" id="svel" min="0" max="127" step="1" inputmode="numeric" autocomplete="off"></label>
+          <label>Length (steps, empty: the pattern's)<input type="number" id="slen" min="0.25" max="64" step="0.25" inputmode="decimal" autocomplete="off"></label>
+          <label>Nudge (ticks, 24 to a step)<input type="number" id="snudge" min="-12" max="12" step="1" inputmode="numeric" autocomplete="off"></label>
+          <label>Plays<select id="scond"></select></label>
+          <button class="quiet" id="sclear" type="button">Clear this step</button>
+        </div>
+      </div>
+    </div>
+
+    <h2 id="sceneh">Scenes</h2>
+    <div class="card">
+      <div class="pgrid">
+        <label>Scene<select id="scene"></select></label>
+        <label class="chk"><input type="checkbox" id="sceneused"> In use</label>
+      </div>
+      <p class="small">What this scene plays: each track's pattern, and which tracks are muted in it.</p>
+      <div id="scenerows"></div>
+    </div>
+
+    <h2 id="songh">Song</h2>
+    <div class="card">
+      <div class="pgrid">
+        <label class="chk"><input type="checkbox" id="songloop"> Loop the song</label>
+        <span class="small" id="songinfo"></span>
+      </div>
+      <ol id="song" aria-labelledby="songh"></ol>
+      <div class="bar"><button class="quiet" id="partadd" type="button">Add a part</button></div>
+    </div>
+
+    <h2 id="midih">MIDI</h2>
+    <div class="card">
+      <div class="pgrid">
+        <label>Track<select id="mtrk"></select></label>
+        <label>Pattern<select id="mpat"></select></label>
+      </div>
+      <h3>Export</h3>
+      <div class="pgrid">
+        <label>What to save<select id="mscope"></select></label>
+        <label id="mscenelabel" hidden>Scene<select id="mscene"></select></label>
+        <button id="mexport" type="button">Save as a MIDI file</button>
+      </div>
+      <ul class="notes" id="mexreport" aria-label="What the file does not carry"></ul>
+      <h3>Import</h3>
+      <div class="bar">
+        <button id="mimport" type="button">Import a MIDI file</button>
+        <button class="quiet" id="mundo" type="button" disabled>Undo the import</button>
+      </div>
+      <p class="small" id="mmsg" aria-hidden="true"></p>
+      <input type="file" id="mfile" accept=".mid,.midi,audio/midi,audio/x-midi" aria-label="A MIDI file to import" tabindex="-1">
+      <div class="card preview" id="mprev" role="group" aria-labelledby="mprevh" hidden>
+        <h3 id="mprevh" tabindex="-1">Import preview</h3>
+        <div class="pgrid">
+          <label>MIDI track<select id="mitrack"></select></label>
+          <label>Channel<select id="michan"></select></label>
+          <label>Each step lasts<select id="miscale"></select></label>
+          <label>Note lengths<select id="milens"></select></label>
+          <label class="chk"><input type="checkbox" id="minudge" checked> Keep off-grid timing as nudge</label>
+          <label class="chk"><input type="checkbox" id="mitempo"> <span id="mitempotext">Take the file's tempo</span></label>
+        </div>
+        <p id="misum"></p>
+        <div class="strip" id="mistrip" aria-hidden="true"></div>
+        <ul class="notes" id="mireport" aria-label="What the import could not hold"></ul>
+        <div class="bar">
+          <button id="miapply" type="button">Apply</button>
+          <button class="quiet" id="micancel" type="button">Cancel</button>
+        </div>
+      </div>
+      <details class="small">
+        <summary>What goes into the file, and what comes back</summary>
+        <p>A pattern is written at the project's tempo, 384 ticks to a quarter note, as one MIDI track after a first one that holds the
+          tempo. A scene is one MIDI track for each track it plays (muted tracks left out), each for one pass of its pattern. A
+          melodic track is on the MIDI channel of its number and a kit on channel 10. Each step's velocity, length and nudge are kept,
+          and so are its up to four notes. On import the pattern's step size sets the grid; a note between steps is kept as the step's
+          nudge, or moved onto the step if you turn that off. A groove, a step's condition and tricks, the loop window and the
+          parameter lanes are not in the file, and a MIDI file has none of them to give.</p>
+        <p id="mmap"></p>
+      </details>
+    </div>
+  </div>
+
+  <h2>Using it</h2>
+  <p class="small">Open a backup (the button, or drop the file on the box), then pick a slot. A slot that is empty on the FM-1 can't be
+    chosen. The line under the slots says whether the backup can be saved as it is: the values are checked against what the FM-1
+    stores, and the flash the three projects take is counted (they share 20 sectors; a slot's patterns hold up to 22 KB packed).
+    "Save the backup" makes a new file named after the one you opened; the original is never touched.</p>
+  <p class="small">On the steps, pick the track and the pattern, then a note (or a sound, on a kit track), and move over the grid with
+    the arrow keys: Space or Enter turns the note on or off on that step. With the mouse, a click turns a step on or off, and a click
+    on a step that is on selects it first. The panel under the grid edits the step you are on: its velocity, how long it holds,
+    a nudge ahead of or behind the beat, and when it plays (always, a chance, or a cycle such as 2:4). A step can hold four notes.</p>
+  <p class="small">A track's mute belongs to the scene, as on the FM-1: the Scenes section says which pattern each track plays in a
+    scene and which tracks that scene mutes. The song is a list of scenes, each for a number of bars; "Add a part" copies the one
+    before it. Parts are numbered from 1 and the song plays them in order.</p>
+  <p class="small">In the MIDI section, pick a track and a pattern. "Save as a MIDI file" writes it (or every track of a scene) as a
+    Standard MIDI file. "Import a MIDI file" reads one into that pattern: you see the steps it makes and what it could not hold (notes
+    past step 64, more than four at once, drum notes with no kit sound, timing it rounded, other channels) before you press Apply,
+    and "Undo the import" takes it back until you change something else.</p>
+  <h2>What it edits, and what it keeps</h2>
+  <p class="small">Edited here: the tempo, the scene the project starts on, the eight tracks' names, levels and pans, the eight patterns
+    of every track with each step's notes, velocity, length, nudge and condition, the patterns' lengths, step sizes and note lengths, the
+    32 scenes (in use, patterns, mutes) and the song. Not edited, and written back exactly as they were: the tracks' sounds, the
+    conductor, the throws, the weave, the parameter lanes and the steps' tricks, the kit hits' settings, the presets, the samples, and
+    any other parts of the file. A project's name (the old project name field) is not read by the FM-1 any more, so it is not shown;
+    the tracks have names to edit instead.</p>
+  <p class="small">Only projects in the format this SoundPlant saves can be opened. If one is older, load it on the FM-1, save it
+    there, and make the backup again.</p>
+  <h2>Putting it back</h2>
+  <p class="small">Restore the saved file with <a href="../backup/">the Backup page</a>: it writes the projects back after the FM-1 says yes
+    on its screen, and replaces what is in them. Keep the original backup until you have heard the edited project on your FM-1.</p>
+  <p class="small">Also from the command line, in <a href="https://github.com/daemon-summoner/fm1-soundplant">the source</a>:
+    the same file format is read by <code>base/tools/fm1_backup.py</code>. SoundPlant is MPL-2.0, built on fm1-base and felucca-bsp,
+    from Felucca by Leo Kuroshita (Hügelton Instruments). <a href="../manual/">The manual</a>.</p>
+</main>
+<script type="module">
+/*LIB*/
+(() => {
+const $ = (id) => document.getElementById(id);
+function say(t) { $("alert").textContent = ""; $("status").textContent = t; }
+function fail(t) { $("status").textContent = ""; $("alert").textContent = t; }
+function report(e) {
+  fail(e.message || String(e));
+  if (!(e instanceof ProjectError)) console.error(e);
+}
+// an event's handler: an error (a ProjectError's message, or a bug's) goes to the alert, whether it is thrown now or later
+function guarded(fn) {
+  return (...a) => {
+    try {
+      const r = fn(...a);
+      if (r && typeof r.catch === "function") r.catch(report);
+    } catch (e) { report(e); }
+  };
+}
+const on = (target, type, fn) => target.addEventListener(type, guarded(fn));
+function el(tag, props = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") n.className = v;
+    else if (k === "text") n.textContent = v;
+    else if (v === true) n.setAttribute(k, "");
+    else if (v !== false && v != null) n.setAttribute(k, v);
+  }
+  n.append(...kids);
+  return n;
+}
+function options(select, items, value) {
+  select.replaceChildren(...items.map(([v, t]) => el("option", { value: String(v), text: t })));
+  select.value = String(value);
+}
+const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+const KB = (b) => `${(b / 1024).toFixed(1)} KB`;
+
+// the file as opened, the model being edited, and what the page is looking at
+let model = null, original = null, fileName = "", bytes = null, dirty = false, pending = null;
+let staged = null, preview = null, lastImport = null;
+let slotN = 0, trk = 0, pat = 0, sel = 0, scn = 0, penNote = 60, penSound = 1;
+let cells = [];
+const cur = () => model.slots[slotN];
+const curPat = () => cur().patterns[trk][pat];
+const isKit = () => isKitTrack(cur(), trk);
+const trackText = (t) => `${t + 1}${cur().tracks[t].name ? ` ${cur().tracks[t].name}` : ""}`;
+const SCALE_TEXT = SCALE_SIXTEENTHS.map((s) => (s === 0.5 ? "half a sixteenth" : s === 1 ? "a sixteenth" : `${s} sixteenths`));
+const PATTERN_ITEMS = Array.from({ length: NPATT }, (_, k) => [k, String(k + 1)]);
+const SCENE_ITEMS = () => cur().scenes.map((s, k) => [k, `${k + 1}${s.used ? "" : " (unused)"}`]);
+const panText = (p) => (p === 64 ? "center" : p < 64 ? `left ${64 - p}` : `right ${p - 64}`);
+
+// ---- what the page says about the model: the problems it has, or the flash it takes; Save saves the bytes checked here
+function refresh() {
+  const bad = validate(model);
+  let text, ok = false;
+  bytes = null;
+  if (bad.length) {
+    text = `Not valid, ${count(bad.length, "problem", "problems")}. ${bad[0]}${bad.length > 1 ? ` (and ${bad.length - 1} more)` : ""}.`;
+  } else {
+    try {
+      bytes = encode(model);
+      const m = measure(model), s = m.slots[slotN];
+      ok = true;
+      text = `Valid. The three slots take ${m.sectors} of the ${m.pool} flash sectors the FM-1 has for them; slot ${slotN + 1}'s patterns pack to ${KB(s.packed)} of ${KB(s.cap)}.`;
+    } catch (e) {
+      if (!(e instanceof ProjectError)) throw e;
+      text = `Not valid. ${e.message}`;
+    }
+  }
+  const v = $("valid");
+  if (v.textContent !== text) v.textContent = text;
+  v.classList.toggle("bad", !ok);
+  $("save").disabled = !ok;
+  $("revert").disabled = !dirty;
+  $("fileinfo").textContent = `${fileName}, slot ${slotN + 1}${dirty ? ", with changes you haven't saved" : ""}.`;
+}
+function touch() { lastImport = null; paintUndo(); dirty = true; refresh(); }
+
+// ---- project and tracks
+function renderProject() {
+  $("tempo").value = (cur().tempoX10 / 10).toFixed(1);
+  options($("startscene"), SCENE_ITEMS(), cur().scene);
+}
+function renderTracks() {
+  const box = $("tracks");
+  box.replaceChildren();
+  cur().tracks.slice(0, NTRK).forEach((t, k) => {
+    const name = el("input", { type: "text", maxlength: NAME_LEN - 1, placeholder: `track ${k + 1}`, autocomplete: "off", spellcheck: "false" });
+    name.value = t.name;
+    const level = el("input", { type: "range", min: 0, max: 127, step: 1 });
+    level.value = t.par[TP.LEVEL];
+    const lv = el("span", { class: "val", "aria-hidden": "true", text: String(t.par[TP.LEVEL]) });
+    const pan = el("input", { type: "range", min: 0, max: 127, step: 1 });
+    pan.value = t.par[TP.PAN];
+    pan.setAttribute("aria-valuetext", panText(t.par[TP.PAN]));
+    const pv = el("span", { class: "val", "aria-hidden": "true", text: panText(t.par[TP.PAN]) });
+    on(name, "input", () => { t.name = name.value; paintTrackNames(); touch(); });
+    on(level, "input", () => { t.par[TP.LEVEL] = +level.value; lv.textContent = level.value; touch(); });
+    on(pan, "input", () => {
+      t.par[TP.PAN] = +pan.value;
+      pv.textContent = panText(+pan.value);
+      pan.setAttribute("aria-valuetext", pv.textContent);
+      touch();
+    });
+    box.append(el("fieldset", { class: "card" },
+      el("legend", { text: `Track ${k + 1}: ${ENGINE_NAMES[t.par[TP.ENGINE]] || "?"}` }),
+      el("div", { class: "pgrid" },
+        el("label", {}, "Name", name),
+        el("label", {}, el("span", { class: "row" }, "Level", lv), level),
+        el("label", {}, el("span", { class: "row" }, "Pan", pv), pan))));
+  });
+}
+// the track names where they are listed (the track picker, the scenes' rows)
+function paintTrackNames() {
+  for (const id of ["trk", "mtrk"]) [...$(id).options].forEach((o, t) => { o.textContent = trackText(t); });
+  document.querySelectorAll(".trlabel").forEach((n) => { n.textContent = `Track ${trackText(+n.dataset.t)}`; });
+}
+
+// ---- steps
+const stepSounds = (st) => DRUM_SOUND_NAMES.filter((_, k) => kitHas(st, k + 1));
+const stepNames = (st, kit) => (kit ? stepSounds(st) : st.notes.filter(Boolean).map(noteName));
+function paintCell(i) {
+  const p = curPat(), st = p.steps[i], c = cells[i], names = stepNames(st, isKit()), on = names.length > 0;
+  c.classList.toggle("on", on);
+  c.classList.toggle("out", i >= p.len);
+  c.setAttribute("aria-pressed", String(on));
+  c.style.setProperty("--v", on ? `${Math.round(st.vel / 127 * 100)}%` : "0%");
+  c.lastChild.textContent = on ? (isKit() ? names[0].slice(0, 2) : names[0]) + (names.length > 1 ? "+" : "") : "";
+  c.setAttribute("aria-label", `Step ${i + 1}, ${on ? `${names.join(" ")}, velocity ${st.vel}` : "empty"}${i >= p.len ? ", past the end of the pattern" : ""}`);
+}
+function paintGrid() {
+  $("grid").setAttribute("aria-label", `Steps of track ${trackText(trk)}, pattern ${pat + 1}`);
+  for (let i = 0; i < NSTEP; i++) paintCell(i);
+}
+function select(i) {
+  cells[sel].tabIndex = -1;
+  cells[sel].classList.remove("sel");
+  cells[sel].removeAttribute("aria-current");
+  sel = i;
+  cells[sel].tabIndex = 0;
+  cells[sel].classList.add("sel");
+  cells[sel].setAttribute("aria-current", "true");
+  paintStepBox();
+}
+function paintPatternFields() {
+  const p = curPat();
+  $("plen").value = p.len;
+  options($("pscale"), SCALE_TEXT.map((t, k) => [k, t]), p.scale);
+  $("pnlen").value = p.nlen;
+}
+function paintPen() {
+  const kit = isKit();
+  $("penlabel").textContent = kit ? "Sound to toggle" : "Note to toggle";
+  options($("pen"), kit ? DRUM_SOUND_NAMES.map((n, k) => [k + 1, `${k + 1} ${n}`])
+                        : Array.from({ length: 127 }, (_, k) => [k + 1, `${noteName(k + 1)} (${k + 1})`]), kit ? penSound : penNote);
+}
+const condItems = (cond) => {
+  const vals = new Set([0, 10, 25, 50, 75, 90, cond]);
+  for (let k = 0; k < COND_NAB; k++) vals.add(COND_AB + k);
+  return [...vals].sort((a, b) => a - b).map((v) => [v, v === 0 ? "every time" : condText(v)]);
+};
+function paintStepBox() {
+  const p = curPat(), st = p.steps[sel], kit = isKit(), names = stepNames(st, kit), full = names.length > 0;
+  $("stepname").textContent = `Step ${sel + 1}${sel >= p.len ? ", past the end of the pattern" : ""}${full ? "" : ", empty"}`;
+  $("kitbtns").hidden = !kit;
+  $("notechips").hidden = kit;
+  if (kit) {
+    [...$("kitbtns").children].forEach((b, k) => b.setAttribute("aria-pressed", String(kitHas(st, k + 1))));
+  } else {
+    const chips = $("notechips");
+    chips.replaceChildren(...st.notes.filter(Boolean).map((n) => {
+      const b = el("button", { type: "button", class: "chip", "aria-label": `Remove ${noteName(n)}`, text: `${noteName(n)} ×` });
+      on(b, "click", () => { toggleNote(p, sel, n); stepChanged(); cells[sel].focus(); });
+      return b;
+    }));
+    if (!full) chips.append(el("span", { class: "small", text: "No notes: turn the step on with Space or Enter." }));
+  }
+  for (const id of ["svel", "slen", "snudge", "scond", "sclear"]) $(id).disabled = !full;
+  $("svel").value = full ? st.vel : "";
+  $("slen").value = full && st.len ? stepLenQuarters(st.len) / 4 : "";
+  $("snudge").value = full ? st.nudge : "";
+  options($("scond"), condItems(st.cond), full ? st.cond : 0);
+}
+function stepChanged() { paintCell(sel); paintStepBox(); touch(); }
+function toggleStep(i) {
+  const p = curPat(), was = p.len;
+  if (isKit()) toggleKitSound(p, i, penSound);
+  else if (!toggleNote(p, i, penNote)) { fail(`Step ${i + 1} already holds ${SN} notes: remove one first.`); return; }
+  if (p.len !== was) { paintPatternFields(); paintGrid(); } else paintCell(i);
+  paintStepBox();
+  touch();
+}
+function renderSteps() {
+  trk = 0;
+  sel = 0;
+  options($("trk"), cur().tracks.slice(0, NTRK).map((_, t) => [t, trackText(t)]), trk);
+  options($("pat"), PATTERN_ITEMS, pat);
+  paintPatternFields();
+  paintPen();
+  paintGrid();
+  select(0);
+}
+function pickPattern() { paintPatternFields(); paintGrid(); select(sel); }
+function buildGrid() {
+  const grid = $("grid");
+  cells = Array.from({ length: NSTEP }, (_, i) => {
+    const c = el("button", { type: "button", class: `cell${i % 4 === 0 ? " beat" : ""}`, tabindex: -1 },
+      el("span", { class: "n", "aria-hidden": "true", text: String(i + 1) }), el("span", { class: "t", "aria-hidden": "true" }));
+    // a click on a step that is on selects it; the keyboard (detail 0) and a click on the step already chosen toggle it
+    on(c, "click", (e) => {
+      const toggle = e.detail === 0 || sel === i || !stepNames(curPat().steps[i], isKit()).length;
+      select(i);
+      if (toggle) toggleStep(i);
+    });
+    return c;
+  });
+  grid.replaceChildren(...cells);
+  on(grid, "keydown", (e) => {
+    const cols = getComputedStyle(grid).gridTemplateColumns.split(" ").length;
+    const to = { ArrowLeft: sel - 1, ArrowRight: sel + 1, ArrowUp: sel - cols, ArrowDown: sel + cols,
+                 Home: sel - sel % cols, End: sel - sel % cols + cols - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    if (to >= 0 && to < NSTEP) { select(to); cells[to].focus(); }
+  });
+  $("kitbtns").replaceChildren(...DRUM_SOUND_NAMES.map((n, k) => {
+    const b = el("button", { type: "button", class: "chip", "aria-pressed": "false", text: n });
+    on(b, "click", () => { toggleKitSound(curPat(), sel, k + 1); stepChanged(); });
+    return b;
+  }));
+}
+
+// ---- scenes
+function renderScenes() {
+  options($("scene"), SCENE_ITEMS(), scn);
+  paintSceneRows();
+}
+function paintSceneRows() {
+  const sc = cur().scenes[scn], box = $("scenerows");
+  $("sceneused").checked = sc.used === 1;
+  box.replaceChildren(...Array.from({ length: NTRK }, (_, t) => {
+    const pt = el("select", { "aria-label": `Track ${t + 1} pattern in scene ${scn + 1}` });
+    options(pt, PATTERN_ITEMS, sc.pat[t]);
+    const mute = el("input", { type: "checkbox", "aria-label": `Mute track ${t + 1} in scene ${scn + 1}` });
+    mute.checked = (sc.mute >> t & 1) === 1;
+    on(pt, "change", () => { sc.pat[t] = +pt.value; touch(); });
+    on(mute, "change", () => { sc.mute = mute.checked ? sc.mute | 1 << t : sc.mute & ~(1 << t); touch(); });
+    return el("div", { class: "srow" },
+      el("span", { class: "trlabel", "data-t": t, text: `Track ${trackText(t)}` }),
+      el("label", {}, "Pattern", pt),
+      el("label", {}, mute, "Mute"));
+  }));
+}
+
+// ---- song
+function renderSong() {
+  const g = cur().song, list = $("song");
+  $("songloop").checked = g.loop === 1;
+  songInfo();
+  $("partadd").disabled = g.len >= NSONG;
+  list.replaceChildren(...g.slots.slice(0, g.len).map((s, k) => {
+    const scene = el("select", { "aria-label": `Part ${k + 1} scene` });
+    options(scene, cur().scenes.map((_, n) => [n, String(n + 1)]), Math.min(s.scene, NSCENE - 1));
+    const rep = el("input", { type: "number", min: 1, max: SONG_BARS, step: 1, inputmode: "numeric", autocomplete: "off", "aria-label": `Part ${k + 1} bars` });
+    rep.value = s.rep;
+    const act = (label, text, fn) => {
+      const b = el("button", { type: "button", class: "quiet", "aria-label": `${label} part ${k + 1}`, text });
+      on(b, "click", fn);
+      return b;
+    };
+    on(scene, "change", () => { s.scene = +scene.value; touch(); });
+    on(rep, "input", () => {
+      if (Number.isFinite(rep.valueAsNumber)) { s.rep = Math.round(rep.valueAsNumber); songInfo(); touch(); }
+    });
+    on(rep, "change", () => { rep.value = s.rep; });
+    const up = act("Move", "Up", () => moveSong(k, -1)), down = act("Move", "Down", () => moveSong(k, 1));
+    up.disabled = k === 0;
+    down.disabled = k === g.len - 1;
+    return el("li", { class: "part" },
+      el("span", { class: "num", text: String(k + 1) }),
+      el("label", {}, "Scene", scene), el("label", {}, "Bars", rep),
+      el("span", { class: "acts" }, up, down, act("Copy", "Copy", () => copySong(k)), act("Remove", "Remove", () => removeSong(k))));
+  }));
+}
+function songInfo() {
+  const g = cur().song;
+  $("songinfo").textContent = `${count(g.len, "part", "parts")}, ${count(g.slots.slice(0, g.len).reduce((a, s) => a + s.rep, 0), "bar", "bars")} in all.`;
+}
+function songChanged() { renderSong(); touch(); }
+function moveSong(k, by) {
+  const s = cur().song.slots;
+  [s[k], s[k + by]] = [s[k + by], s[k]];
+  songChanged();
+}
+function copySong(k) {
+  const g = cur().song;
+  if (g.len >= NSONG) throw new ProjectError(`The song holds ${NSONG} parts at most.`);
+  g.slots.splice(k + 1, 0, { ...g.slots[k] });
+  g.slots.length = NSONG;
+  g.len++;
+  songChanged();
+}
+function removeSong(k) {
+  const g = cur().song;
+  g.slots.splice(k, 1);
+  g.slots.push({ scene: 0, rep: 1 });
+  g.len--;
+  songChanged();
+}
+
+// ---- MIDI
+// a message of a MIDI action also stands under the buttons, where the person is looking (the status line is at the top of the page)
+function midiNote(t, bad) { $("mmsg").textContent = t; $("mmsg").classList.toggle("bad", bad); }
+function midiSay(t) { say(t); midiNote(t, false); }
+function midiFail(t) { fail(t); midiNote(t, true); }
+function onMidi(target, type, fn) {
+  on(target, type, async (...a) => {
+    try { await fn(...a); } catch (e) { midiNote(e.message || String(e), true); throw e; }
+  });
+}
+const MIDI_MAX = 4 * 1024 * 1024;
+function paintUndo() { $("mundo").disabled = !lastImport; }
+function renderMidi() {
+  options($("mtrk"), cur().tracks.slice(0, NTRK).map((_, t) => [t, trackText(t)]), trk);
+  options($("mpat"), PATTERN_ITEMS, pat);
+  options($("mscope"), [["pattern", "This pattern"], ["scene", "A whole scene"]], "pattern");
+  options($("mscene"), SCENE_ITEMS(), scn);
+  $("mscenelabel").hidden = true;
+  $("mexreport").replaceChildren();
+  midiNote("", false);
+  paintUndo();
+}
+function listLines(id, lines) {
+  $(id).replaceChildren(...lines.map((t) => el("li", { text: t })));
+}
+function exportMidi() {
+  const scene = $("mscope").value === "scene";
+  const opts = scene ? { slot: slotN, scene: +$("mscene").value } : { slot: slotN, track: +$("mtrk").value, pattern: +$("mpat").value };
+  const { bytes: midi, report: lines } = toMidi(model, opts);
+  const name = `${baseName()}-slot${slotN + 1}-${scene ? `scene${opts.scene + 1}` : `track${opts.track + 1}-pattern${opts.pattern + 1}`}.mid`;
+  download(midi, name, "audio/midi");
+  listLines("mexreport", lines.map((l) => l.text));
+  midiSay(`Saved ${name} (${count(midi.length, "byte", "bytes")}).${lines.length ? ` ${count(lines.length, "thing", "things")} the file does not carry: see the list.` : ""}`);
+}
+
+function closePreview() {
+  staged = null;
+  preview = null;
+  $("mprev").hidden = true;
+}
+function paintChannels() {
+  const per = new Map();
+  for (const n of staged.parsed.tracks[+$("mitrack").value].notes) per.set(n.ch, (per.get(n.ch) || 0) + 1);
+  const chans = [...per].sort((a, b) => a[0] - b[0]), kit = isKitTrack(cur(), +$("mtrk").value);
+  const best = chans.find(([c]) => (c === GM_DRUM_CHANNEL) === kit) || chans[0];
+  options($("michan"), [[-1, "All channels"], ...chans.map(([c, n]) => [c, `${c + 1} (${count(n, "note", "notes")})`])], best ? best[0] : -1);
+}
+function paintPreview(res) {
+  preview = res;
+  $("miapply").disabled = !res;
+  const strip = $("mistrip");
+  strip.replaceChildren();
+  if (!res) {
+    $("misum").textContent = "Nothing can be imported with these choices.";
+    listLines("mireport", []);
+    $("mitempo").disabled = true;
+    return;
+  }
+  const p = res.pattern;
+  $("misum").textContent = `${count(res.notes, "note", "notes")} on ${count(res.steps, "step", "steps")}, in a pattern of ${count(p.len, "step", "steps")}.`;
+  strip.replaceChildren(...p.steps.slice(0, p.len).map((st) => el("i", { class: stepIsEmpty(st) ? "" : "on" })));
+  strip.style.gridTemplateColumns = `repeat(${p.len > 16 ? 16 : p.len}, minmax(0, 1fr))`;
+  listLines("mireport", res.report.length ? res.report.map((l) => l.text) : ["Everything in the file fits."]);
+  const tempo = res.tempo;
+  $("mitempo").disabled = !tempo;
+  if (!tempo) $("mitempo").checked = false;
+  $("mitempotext").textContent = tempo
+    ? `Take the file's tempo: ${tempo.x10 / 10} BPM${tempo.clamped ? " (cut to what the FM-1 plays)" : ""}; the project's is ${cur().tempoX10 / 10}`
+    : "The file has no tempo to take";
+}
+function previewRun() {
+  const t = +$("mtrk").value;
+  let res = null;
+  try {
+    res = fromMidi(staged.raw, { slot: cur(), track: t, pattern: +$("mpat").value, midiTrack: +$("mitrack").value, channel: +$("michan").value,
+      scale: +$("miscale").value, nudge: $("minudge").checked, lengths: $("milens").value });
+  } catch (e) {
+    if (!(e instanceof MidiError)) throw e;
+    paintPreview(null);
+    midiFail(e.message);
+    return;
+  }
+  paintPreview(res);
+  midiSay(`Preview of ${staged.name} for track ${trackText(t)}, pattern ${+$("mpat").value + 1}: ${$("misum").textContent}${res.report.length ? ` ${count(res.report.length, "thing", "things")} to know: see the list.` : ""}`);
+}
+async function stageMidi(f) {
+  if (!model) throw new ProjectError("Open a backup first, then import the MIDI file into one of its patterns.");
+  if (f.size > MIDI_MAX) throw new MidiError(`${f.name} is ${KB(f.size)}. This page reads MIDI files up to ${KB(MIDI_MAX)}.`);
+  const raw = new Uint8Array(await f.arrayBuffer()), parsed = readMidi(raw);
+  const first = parsed.tracks.findIndex((x) => x.notes.length);
+  if (first < 0) throw new MidiError(`${f.name} has no notes in it.`);
+  staged = { raw, parsed, name: f.name };
+  options($("mitrack"), parsed.tracks.map((x, i) => [i, `${i + 1}${x.name ? ` ${x.name}` : ""} (${count(x.notes.length, "note", "notes")})`]), first);
+  options($("miscale"), SCALE_TEXT.map((s, k) => [k, s]), cur().patterns[+$("mtrk").value][+$("mpat").value].scale);
+  options($("milens"), [["file", "From the file"], ["pattern", "The pattern's own"]], "file");
+  $("minudge").checked = true;
+  $("mitempo").checked = false;
+  paintChannels();
+  $("mprev").hidden = false;
+  $("mprevh").textContent = `Import preview: ${f.name}`;
+  $("mprevh").focus();
+  previewRun();
+}
+function targetChanged() {
+  if (!staged) return;
+  $("miscale").value = String(cur().patterns[+$("mtrk").value][+$("mpat").value].scale);
+  paintChannels();
+  previewRun();
+}
+function repaintSlot() {
+  renderProject();
+  pickPattern();
+}
+function applyMidi() {
+  if (!preview) throw new ProjectError("There is nothing to apply: change the choices above.");
+  const t = +$("mtrk").value, p = +$("mpat").value, take = $("mitempo").checked && !$("mitempo").disabled;
+  const { name } = staged, res = preview;
+  const before = applyImport(cur(), t, p, res, take);
+  closePreview();
+  repaintSlot();
+  touch();
+  lastImport = { slot: slotN, before, label: `track ${trackText(t)}, pattern ${p + 1}` };
+  paintUndo();
+  midiSay(`Imported ${name} into track ${trackText(t)}, pattern ${p + 1}: ${count(res.notes, "note", "notes")} on ${count(res.steps, "step", "steps")}${take ? `, tempo ${cur().tempoX10 / 10} BPM` : ""}. "Undo the import" takes it back.`);
+  $("mimport").focus();
+}
+function cancelMidi() {
+  closePreview();
+  midiSay("Import cancelled: nothing changed.");
+  $("mimport").focus();
+}
+function undoImport() {
+  const rec = lastImport;
+  if (!rec) throw new ProjectError("There is no import to undo.");
+  revertImport(model.slots[rec.slot], rec.before);
+  repaintSlot();
+  touch();
+  midiSay(`Undid the import into ${rec.label}.`);
+  $("mimport").focus();
+}
+
+// ---- opening, saving
+function renderAll() {
+  const radios = [...document.querySelectorAll("#slots input")];
+  radios.forEach((r, n) => {
+    r.disabled = !model.slots[n];
+    r.checked = n === slotN;
+    r.nextElementSibling.textContent = `Slot ${n + 1}${model.slots[n] ? "" : " (empty)"}`;
+  });
+  scn = cur().scene;
+  pat = Math.min(cur().scenes[scn].pat[0], NPATT - 1);
+  $("editor").hidden = false;
+  renderProject();
+  renderTracks();
+  renderSteps();
+  renderScenes();
+  renderSong();
+  closePreview();
+  lastImport = null;
+  renderMidi();
+  refresh();
+}
+function install(next, keepSlot = false) {
+  model = next.model;
+  original = next.bytes;
+  fileName = next.name;
+  dirty = false;
+  pending = null;
+  $("confirm").hidden = true;
+  if (!keepSlot) slotN = model.slots.findIndex(Boolean);
+  renderAll();
+  say(`Opened ${fileName}: ${count(model.slots.filter(Boolean).length, "project", "projects")}.`);
+}
+async function stage(file) {
+  const raw = new Uint8Array(await file.arrayBuffer());
+  const next = { model: decode(raw), bytes: raw, name: file.name };
+  if (!next.model.slots.some(Boolean)) throw new ProjectError(`${file.name} has no projects in it: its three slots are empty.`);
+  if (model && dirty) {
+    pending = next;
+    $("confirmtext").textContent = `You have changes to ${fileName} that aren't saved. Open ${file.name} and drop them?`;
+    $("confirm").hidden = false;
+    $("confirmno").focus();
+    return;
+  }
+  install(next);
+}
+const baseName = () => fileName.replace(/\.soundplant$/i, "") || "soundplant";
+function saveName() {
+  return `${baseName()}-edited.soundplant`;
+}
+function download(data, name, type) {
+  const a = el("a", { href: URL.createObjectURL(new Blob([data], { type })), download: name });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+function save() {
+  refresh();
+  if (!bytes) throw new ProjectError("This backup can't be saved yet: see the line under the slots.");
+  const name = saveName();
+  download(bytes, name, "application/octet-stream");
+  dirty = false;
+  refresh();
+  say(`Saved ${name} (${KB(bytes.length)}). Restore it with the Backup page.`);
+}
+
+// ---- wiring
+buildGrid();
+on($("open"), "click", () => $("file").click());
+on($("file"), "change", async () => {
+  const f = $("file").files[0];
+  $("file").value = "";
+  if (f) await stage(f);
+});
+on($("save"), "click", save);
+on($("revert"), "click", () => {
+  install({ model: decode(original), bytes: original, name: fileName }, true);
+  say(`Undid every change: ${fileName} as you opened it.`);
+});
+on($("confirmyes"), "click", () => install(pending));
+on($("confirmno"), "click", () => { pending = null; $("confirm").hidden = true; say("Kept editing."); });
+const box = $("drop");
+for (const t of ["dragenter", "dragover"]) document.addEventListener(t, (e) => { e.preventDefault(); box.classList.add("over"); });
+document.addEventListener("dragleave", (e) => { if (!e.relatedTarget) box.classList.remove("over"); });
+on(document, "drop", async (e) => {
+  e.preventDefault();
+  box.classList.remove("over");
+  const f = e.dataTransfer && e.dataTransfer.files[0];
+  if (!f) return;
+  if (/\.midi?$/i.test(f.name)) await stageMidi(f);
+  else await stage(f);
+});
+window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+document.querySelectorAll("#slots input").forEach((r) => on(r, "change", () => {
+  if (!r.checked) return;
+  slotN = +r.value;
+  renderAll();
+  say(`Slot ${slotN + 1}.`);
+}));
+on($("tempo"), "input", () => {
+  const v = $("tempo").valueAsNumber;
+  if (Number.isFinite(v)) { cur().tempoX10 = Math.round(v * 10); touch(); }
+});
+on($("tempo"), "change", () => { $("tempo").value = (cur().tempoX10 / 10).toFixed(1); });
+on($("startscene"), "change", () => { cur().scene = +$("startscene").value; touch(); });
+on($("trk"), "change", () => { trk = +$("trk").value; paintPen(); pickPattern(); $("mtrk").value = String(trk); targetChanged(); });
+on($("pat"), "change", () => { pat = +$("pat").value; pickPattern(); $("mpat").value = String(pat); targetChanged(); });
+on($("pen"), "change", () => { if (isKit()) penSound = +$("pen").value; else penNote = +$("pen").value; });
+on($("plen"), "input", () => {
+  const v = $("plen").valueAsNumber;
+  if (Number.isFinite(v)) { curPat().len = Math.round(v); paintGrid(); paintStepBox(); touch(); }
+});
+on($("plen"), "change", () => { $("plen").value = curPat().len; });
+on($("pscale"), "change", () => { curPat().scale = +$("pscale").value; touch(); });
+on($("pnlen"), "input", () => {
+  const v = $("pnlen").valueAsNumber;
+  if (Number.isFinite(v)) { curPat().nlen = Math.round(v); touch(); }
+});
+on($("pnlen"), "change", () => { $("pnlen").value = curPat().nlen; });
+on($("svel"), "input", () => {
+  const v = $("svel").valueAsNumber;
+  if (Number.isFinite(v)) { curPat().steps[sel].vel = Math.round(v); paintCell(sel); touch(); }
+});
+on($("svel"), "change", () => { $("svel").value = curPat().steps[sel].vel; });
+on($("slen"), "input", () => {
+  const v = $("slen").valueAsNumber, st = curPat().steps[sel];
+  if ($("slen").validity.badInput) return;
+  if ($("slen").value === "") st.len = 0;
+  else if (Number.isFinite(v)) st.len = stepLenCode(Math.round(v * 4));
+  else return;
+  touch();
+});
+on($("slen"), "change", () => { const st = curPat().steps[sel]; $("slen").value = st.len ? stepLenQuarters(st.len) / 4 : ""; });
+on($("snudge"), "input", () => {
+  const v = $("snudge").valueAsNumber;
+  if (Number.isFinite(v)) { curPat().steps[sel].nudge = Math.round(v); touch(); }
+});
+on($("snudge"), "change", () => { $("snudge").value = curPat().steps[sel].nudge; });
+on($("scond"), "change", () => { curPat().steps[sel].cond = +$("scond").value; touch(); });
+on($("sclear"), "click", () => { clearStep(curPat(), sel); stepChanged(); cells[sel].focus(); });
+on($("scene"), "change", () => { scn = +$("scene").value; paintSceneRows(); });
+on($("sceneused"), "change", () => {
+  cur().scenes[scn].used = $("sceneused").checked ? 1 : 0;
+  options($("scene"), SCENE_ITEMS(), scn);
+  options($("startscene"), SCENE_ITEMS(), cur().scene);
+  options($("mscene"), SCENE_ITEMS(), +$("mscene").value);
+  touch();
+});
+on($("songloop"), "change", () => { cur().song.loop = $("songloop").checked ? 1 : 0; touch(); });
+on($("partadd"), "click", () => {
+  const g = cur().song, prev = g.len ? g.slots[g.len - 1] : null;
+  if (g.len >= NSONG) throw new ProjectError(`The song holds ${NSONG} parts at most.`);
+  g.slots[g.len] = { scene: prev ? prev.scene : cur().scene, rep: prev ? prev.rep : 4 };
+  g.len++;
+  songChanged();
+});
+
+$("mmap").textContent = `A kit's sounds are written as drum notes on channel 10: ${DRUM_SOUND_NAMES.map((n, k) => `${n} ${KIT_GM_NOTES[k]}`).join(", ")} ` +
+  "(string and fm have no General MIDI drum, so they take the two notes above its map). On import these are also read as sounds: " +
+  `${Object.entries(GM_DRUM_ALIASES).map(([n, k]) => `${n} as ${DRUM_SOUND_NAMES[k - 1]}`).join(", ")}.`;
+on($("mscope"), "change", () => { $("mscenelabel").hidden = $("mscope").value !== "scene"; });
+onMidi($("mexport"), "click", exportMidi);
+onMidi($("mimport"), "click", () => $("mfile").click());
+onMidi($("mfile"), "change", async () => {
+  const f = $("mfile").files[0];
+  $("mfile").value = "";
+  if (f) await stageMidi(f);
+});
+onMidi($("mtrk"), "change", targetChanged);
+onMidi($("mpat"), "change", targetChanged);
+onMidi($("mitrack"), "change", () => { paintChannels(); previewRun(); });
+for (const id of ["michan", "miscale", "milens", "minudge"]) onMidi($(id), "change", previewRun);
+onMidi($("miapply"), "click", applyMidi);
+onMidi($("micancel"), "click", cancelMidi);
+onMidi($("mprev"), "keydown", (e) => { if (e.key === "Escape") cancelMidi(); });
+onMidi($("mundo"), "click", undoImport);
+})();
+</script>
+</body>
+</html>

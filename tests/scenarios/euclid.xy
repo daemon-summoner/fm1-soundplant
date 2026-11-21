@@ -1,0 +1,172 @@
+# EUCLID on the Steps list: K hits spread as evenly as the pattern's steps allow, a hit on the first step. On a kit
+# only the shown sound is replaced (the others stay, a removed hit's own chance goes with it, a kept hit's stays); on a
+# melodic track the held keys fill the steps and what was on them goes; K is capped at the pattern's length; one
+# undo takes it back; a track with no note to write (THROW before any effect is played) is left alone and says why
+wait 300
+projnew
+expect trk 1
+# kit: the kick on 1 3 5 9 13, the snare on 3 5 7 11 15; chances of their own on the kick's 3, 5 and 13, the snare's 5
+hits 1 1 1 x.x.x...x...x...
+hits 1 1 2 ..x.x.x...x...x.
+chance 1 1 3 50 1
+chance 1 1 5 50 1
+chance 1 1 13 50 1
+chance 1 1 5 25 2
+expect kcond1.1.3.1 50
+tap SEQ
+listen
+tap SEL
+row EUCLID
+wait 100
+shot euclid_list.png
+# four hits the first time: the kick's 3 goes with its chance (the snare stays there), its 5 and 13 keep theirs
+tap SEL
+wait 100
+said EUCLID 4 in 16
+expect hits 1 1 1 x...x...x...x...
+expect hits 1 1 2 ..x.x.x...x...x.
+expect kcond1.1.3.1 0
+expect kcond1.1.5.1 50
+expect kcond1.1.13.1 50
+expect kcond1.1.5.2 25
+# undone in one step: the kick as it was, with the chance it had
+press HOME
+tap REC
+release HOME
+expect hits 1 1 1 x.x.x...x...x...
+expect hits 1 1 2 ..x.x.x...x...x.
+expect kcond1.1.3.1 50
+# five: the kick's 5 goes too, the snare keeps that step and its chance
+tap SEL
+row EUCLID
+spin ALGO 1
+tap SEL
+wait 100
+said EUCLID 5 in 16
+expect hits 1 1 1 x..x..x..x..x...
+expect hits 1 1 2 ..x.x.x...x...x.
+expect kcond1.1.5.1 0
+expect kcond1.1.13.1 50
+expect kcond1.1.5.2 25
+# the snare shown (black key 1): three hits replace its five, the kick stays as the five left it
+tapkey b1
+tap SEL
+row EUCLID
+spin ALGO -2
+tap SEL
+wait 100
+said EUCLID 3 in 16
+expect hits 1 1 2 x....x....x.....
+expect hits 1 1 1 x..x..x..x..x...
+expect kcond1.1.5.2 0
+# melodic: eight steps, a note on step 2 (replaced) and one on step 10 (past the pattern: stays); the keys held on EDIT
+# are what the hits write (K stays at three)
+spin ALGO 1
+expect trk 2
+pat 2 1 8
+step 2 1 2 70 100
+step 2 1 10 72 100
+tap EDIT
+key 0 down
+key 4 down
+wait 40
+key 0 up
+key 4 up
+tap SEQ
+tap SEL
+row EUCLID
+tap SEL
+wait 100
+said EUCLID 3 in 8
+expect hits 2 1 0 x..x..x.
+expect note 2 1 1 53
+expect noteat 2 1 1 2 57
+expect noteat 2 1 4 2 57
+expect note 2 1 2 0
+expect note 2 1 10 72
+# a random player keeps one note a step: the first of the keys
+knob 2 player rand
+tap SEL
+row EUCLID
+spin ALGO 2
+tap SEL
+wait 100
+said EUCLID 5 in 8
+expect hits 2 1 0 x.xx.xx.
+expect noteat 2 1 1 1 53
+expect noteat 2 1 1 2 0
+expect note 2 1 10 72
+# 64 steps, the snare shown: 13 hits over all of them, the kick's sixteen untouched
+spin ALGO -1
+expect trk 1
+pat 1 1 64
+tap SEL
+row EUCLID
+spin ALGO 8
+tap SEL
+wait 100
+said EUCLID 13 in 64
+expect hits 1 1 2 x....x....x....x....x....x....x....x....x....x....x....x....x...
+expect hits 1 1 1 x..x..x..x..x...................................................
+# K runs from one to the pattern's steps and no further: one hit, then every step
+tap SEL
+row EUCLID
+spin ALGO -100
+tap SEL
+wait 100
+said EUCLID 1 in 64
+expect hits 1 1 2 x...............................................................
+tap SEL
+row EUCLID
+spin ALGO 100
+tap SEL
+wait 100
+said EUCLID 64 in 64
+expect hits 1 1 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# the pattern cut to 8 steps: K (64) is read as 8, the third sound's hits on steps 9, 13 and 17 stay, the snare is not touched
+hits 1 1 3 ........x...x...x
+tapkey b2
+pat 1 1 8
+tap SEL
+row EUCLID
+tap SEL
+wait 100
+said EUCLID 8 in 8
+expect hits 1 1 3 xxxxxxxxx...x...x
+expect hits 1 1 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# one step: one hit, the fourth sound's hit on step 2 stays
+hits 1 1 4 .x
+tapkey b3
+pat 1 1 1
+tap SEL
+row EUCLID
+tap SEL
+wait 100
+said EUCLID 1 in 1
+expect hits 1 1 4 xx.
+# THROW has no effect to write until one is played on EDIT: left as it is, and it says so
+spin ALGO 9
+expect trk 10
+tap SEL
+row EUCLID
+spin ALGO -100
+spin ALGO 3
+tap SEL
+wait 100
+said NO EFFECT YET
+unsaid EUCLID
+expect hits 10 1 0 ................
+# with the effect played, every hit is that effect
+tap EDIT
+key 14 down
+wait 100
+key 14 up
+tap SEQ
+tap SEL
+row EUCLID
+tap SEL
+wait 100
+said EUCLID 4 in 16
+expect hits 10 1 0 x...x...x...x...
+expect note 10 1 1 18
+expect note 10 1 13 18

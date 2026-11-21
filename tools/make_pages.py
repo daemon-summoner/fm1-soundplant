@@ -15,6 +15,8 @@
                                 Edge, Web MIDI)
   samples/index.html            the user sample bank in the browser (app/web/samples/: add, replace, rename, reorder,
                                 remove; soundplant_samples.js inlined)
+  project/index.html            a backup's projects edited in the browser (app/web/project/: tempo, tracks, steps, scenes,
+                                song; soundplant_project.js inlined)
   firmware/soundplant-VERSION.fwsc    the package the installer writes; also the download
   firmware/soundplant-VERSION-res.bin the resource region beside it (the 909 cymbals, the wavetables, the large type), which the installer
                                 writes after it
@@ -137,6 +139,7 @@ SECTIONS = [
     ("manual/", "Manual"),
     ("install/", "Install"),
     ("samples/", "Samples"),
+    ("project/", "Project"),
     ("backup/", "Backup"),
     ("mirror/", "Mirror"),
 ]
@@ -223,10 +226,11 @@ two patterns together to get a third.</p>
 </div>
 __STATUS__
 <nav class="ways" aria-label="Get SoundPlant">
-  <a href="emu/"><strong>Try it in the browser</strong><span>Play it right here, with sound. It runs the same code as the FM-1, so you don't need one.</span></a>
+  <a href="emu/"><strong>Try it in the browser</strong><span>Play it right here, with sound, and watch a night garden grow from your tracks. It runs the same code as the FM-1, so you don't need one.</span></a>
   <a href="manual/"><strong>Read the manual</strong><span>Start with the ten-minute quick start, then look up any page or gesture.</span></a>
   <a href="install/"><strong>Install</strong><span>Connect your FM-1 by USB and install from Chrome or Edge. There's nothing to install on your computer.</span></a>
   <a href="samples/"><strong>Samples</strong><span>Load up to 32 of your own samples onto the FM-1, and rename, reorder or swap them any time.</span></a>
+  <a href="project/"><strong>Project</strong><span>Edit a backup of your projects on the computer: the tempo, the steps, the scenes and the song.</span></a>
   <a href="backup/"><strong>Backup</strong><span>Save your projects, presets and samples to a file, and load them back later.</span></a>
   <a href="mirror/"><strong>Mirror</strong><span>See the FM-1's screen live on your computer, and play its buttons, keys and knobs from there.</span></a>
 __DOWNLOAD__
@@ -256,7 +260,7 @@ owners; SoundPlant is not affiliated with any of them.</p>
 STATUS = """<div class="status"><strong>Version __VERSION__.</strong> You install and remove it like any other fm1-base
 firmware, and the installer can always put M-VAVE's own firmware back. Install at your own risk.</div>"""
 DOWNLOAD = """  <a href="firmware/__PKG__"><strong>Download __PKG__</strong><span>For the command-line installer: <code>python3 base/tools/fm1_install.py __PKG__</code></span></a>"""
-NOT_OUT = """<div class="status"><strong>Not released yet.</strong> The emulator, the manual, the samples, backup and mirror pages
+NOT_OUT = """<div class="status"><strong>Not released yet.</strong> The emulator, the manual, the samples, project, backup and mirror pages
 work now. The installer and the download come with the first release.</div>"""
 NOT_YET = """<!doctype html>
 <html lang="en">
@@ -468,18 +472,29 @@ def main(pkg, version, out):
     (out / "mirror" / "index.html").write_text(
         tools["mirror/index.html"], encoding="utf-8"
     )
-    # the samples page, its bank code (app/web/samples/soundplant_samples.js) inlined
+    # the samples page, its bank code (app/web/samples/soundplant_samples.js, then soundplant_prep.js) inlined
     spage = (SRC / "app" / "web" / "samples" / "index.html").read_text(encoding="utf-8")
     if spage.count("/*LIB*/") != 1:
         raise SystemExit("app/web/samples/index.html must contain /*LIB*/ once")
-    slib = strip_module(
-        (SRC / "app" / "web" / "samples" / "soundplant_samples.js").read_text(
-            encoding="utf-8"
-        )
+    slib = "\n".join(
+        strip_module((SRC / "app" / "web" / "samples" / f).read_text(encoding="utf-8"))
+        for f in ("soundplant_samples.js", "soundplant_prep.js")
     )
     (out / "samples").mkdir()
     (out / "samples" / "index.html").write_text(
         spage.replace("/*LIB*/", slib), encoding="utf-8"
+    )
+    # the project editor, its codec (app/web/project/soundplant_project.js, then soundplant_midi.js) inlined
+    ppage = (SRC / "app" / "web" / "project" / "index.html").read_text(encoding="utf-8")
+    if ppage.count("/*LIB*/") != 1:
+        raise SystemExit("app/web/project/index.html must contain /*LIB*/ once")
+    plib = "\n".join(
+        strip_module((SRC / "app" / "web" / "project" / f).read_text(encoding="utf-8"))
+        for f in ("soundplant_project.js", "soundplant_midi.js")
+    )
+    (out / "project").mkdir()
+    (out / "project" / "index.html").write_text(
+        ppage.replace("/*LIB*/", plib), encoding="utf-8"
     )
     # the break pack (out of the firmware since 0.7): the samples page's "Add the breaks" fetches these
     import gen_samples
@@ -535,13 +550,14 @@ def main(pkg, version, out):
         ("backup/index.html", "backup/"),
         ("mirror/index.html", "mirror/"),
         ("samples/index.html", "samples/"),
+        ("project/index.html", "project/"),
         ("emu/index.html", "emu/"),
     ):
         f = out / path
         f.write_text(dress(f.read_text(encoding="utf-8"), here), encoding="utf-8")
     (out / ".nojekyll").write_text("")
     print(
-        f"site: {out}: index.html, manual/, backup/, mirror/, samples/, emu/, words/, {made}"
+        f"site: {out}: index.html, manual/, backup/, mirror/, samples/, project/, emu/, words/, {made}"
     )
 
 

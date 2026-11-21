@@ -1,0 +1,131 @@
+# the scene morph, HOME held + K3 on Arrange and Song: the next used scene blended in by thinning the steps of the tracks
+# whose mutes differ (here the kit, muted in scene 2), 0 to 100; at 100 the scene is cued and the morph ends when it
+# lands. It says why when it cannot start, and goes back to 0 on a stop, a scene key, another page, the song
+wait 300
+bpm 120
+hits 1 1 1 xxxxxxxxxxxxxxxx
+tap HOME
+expect page Arrange
+listen
+# one scene: nothing to blend toward, and it says so
+press HOME
+spin K3 10
+said NEEDS 2 SCENES
+expect morph 0
+release HOME
+scenedef 2 1 1
+scenemute 2 x
+expect used 3
+# stopped: no steps to thin
+press HOME
+spin K3 10
+said PLAY FIRST
+expect morph 0
+release HOME
+tap PLAY
+bars 2
+expect drumhits >28
+expect drumhits <36
+# HOME held: K3 is MORPH, from 0
+press HOME
+wait 40
+shot morph_off.png
+spin K3 50
+expect morph 50
+expect morphto 2
+expect scene 1
+wait 40
+shot morph_half.png
+release HOME
+wait 40
+expect page Arrange
+shot morph_tag.png
+# the kit plays on, thinned: about half of four bars' steps, on top of the two bars before
+bars 4
+expect drumhits >50
+expect drumhits <80
+expect scene 1
+expect mute 0
+# back to 0: the scene as it was
+press HOME
+spin K3 -50
+expect morph 0
+expect morphto 0
+release HOME
+bars 1
+expect scene 1
+expect mute 0
+# the white key of the scene playing takes the morph off
+press HOME
+spin K3 30
+expect morph 30
+release HOME
+tapkey w0
+expect morph 0
+expect scene 1
+# another page takes it off; the Song page has the knob too
+press HOME
+spin K3 30
+release HOME
+turn SELECT 1
+expect page Song
+expect morph 30
+press HOME
+spin K3 10
+expect morph 40
+wait 40
+shot morph_song.png
+release HOME
+tap GLO
+expect page Mix
+expect morph 0
+tap HOME
+expect page Arrange
+# a stop takes it off
+press HOME
+spin K3 30
+release HOME
+tap PLAY
+expect playing 0
+expect morph 0
+tap PLAY
+bars 1
+# 100: scene 2 is cued like a white key's cue, the kit silent from the first step of the bar before it lands
+press HOME
+spin K3 100
+expect morph 100
+expect morphto 2
+said MORPH TO S2
+expect scene 1
+wait 40
+shot morph_full.png
+release HOME
+bars 1
+expect scene 2
+expect morph 0
+expect mute 1
+# the next scene wraps: scene 1. At 100 and turned back before the bar, the cue is withdrawn
+press HOME
+spin K3 100
+expect morphto 1
+spin K3 -10
+expect morph 90
+release HOME
+bars 1.5
+expect scene 2
+expect mute 1
+tap PLAY
+expect playing 0
+# a song plays its own scenes: no morph
+song 1:2 2:2
+songloop 1
+turn SELECT 1
+expect page Song
+tap PLAY
+bars 0.5
+press HOME
+spin K3 10
+said NOT IN SONG
+expect morph 0
+release HOME
+tap PLAY

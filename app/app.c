@@ -9,6 +9,7 @@
 #include "engine.c"
 #include "project.c"
 #include "pages.c"
+#include "garden.c"
 #include "ui.c"
 #include "midicc.c"
 #include "samples.c"
@@ -17,6 +18,8 @@
 #else
 static uint32_t render_t0(void);
 static uint32_t render_pct(uint32_t t0, uint32_t n);
+static void frame_begin(void);                  /* "cost": the UI frame's instructions (host.c) */
+static void frame_end(void);
 #if defined(PLAT_HOST) && !defined(PLAT_WEB)
 static void work_begin(void);
 static int work_end(uint32_t n);
@@ -153,7 +156,13 @@ void app_frame(void)
                                                      * the master alone) */
     eng_usb_stereo = proj.usb_full == 2;
     usb_host_poll();
+#ifdef PLAT_HOST
+    frame_begin();
+#endif
     ui_frame();
+#ifdef PLAT_HOST
+    frame_end();
+#endif
 }
 void app_input_only(void) { ui_input_only(); }
 void app_say(const char *a, const char *b) { ui_say(a, b); }

@@ -279,6 +279,44 @@ int kit_first(const step_t *st)
     return m ? __builtin_ctz(m) + 1 : 0;
 }
 
+/* Bjorklund: out[0..n-1] = 1 on the k steps (clamped to 0..n; n to 0..NSTEP) that spread them as evenly as n steps
+ * allow, a hit on step 0 whenever k > 0. Groups of a lone hit and a lone rest pair up, then the pairs with the
+ * leftovers, until one leftover group is left (or none): the groups played in turn are the rhythm */
+void euclid(uint8_t *out, int k, int n)
+{
+    uint8_t a[NSTEP], b[NSTEP], ab[NSTEP];
+    int la = 1, lb = 1, na, nb, i = 0, j;
+    n = n < 0 ? 0 : n > NSTEP ? NSTEP : n;
+    k = k < 0 ? 0 : k > n ? n : k;
+    a[0] = 1;
+    b[0] = 0;
+    na = k;
+    nb = n - k;
+    while (nb > 1 && na > 0) {
+        int pairs = na < nb ? na : nb, rest = na < nb ? nb - na : na - nb, lab = la + lb;
+        for (j = 0; j < la; j++)
+            ab[j] = a[j];
+        for (j = 0; j < lb; j++)
+            ab[la + j] = b[j];
+        if (na >= nb) {                   /* (the hits left over become the rests of the next round) */
+            for (j = 0; j < la; j++)
+                b[j] = a[j];
+            lb = la;
+        }
+        for (j = 0; j < lab; j++)
+            a[j] = ab[j];
+        la = lab;
+        na = pairs;
+        nb = rest;
+    }
+    for (; na > 0; na--)
+        for (j = 0; j < la; j++)
+            out[i++] = a[j];
+    for (; nb > 0; nb--)
+        for (j = 0; j < lb; j++)
+            out[i++] = b[j];
+}
+
 /* ----------------------------------------------------------------- weave --- */
 static int pat_n(const tpat_t *p) { return p->len < 1 ? 1 : p->len > NSTEP ? NSTEP : p->len; }
 static int onsets(const tpat_t *p, int upto)     /* the steps with notes before step upto */

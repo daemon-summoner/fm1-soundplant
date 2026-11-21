@@ -219,7 +219,7 @@ void project_random_sounds(uint32_t seed)
 #define DEV_BITS (4u | 8u | 16u | 32u | 64u | 128u)   /* rsv[2]: pages.c AUTOSAVE_OFF, LOOP_FREE, CC_OUT_OFF, SCENES_OUT,
                                                         * bt.c BT_AUDIO_ON, BT_MIDI_OFF */
 #define DEV_BITS3 3u                                   /* rsv[3]: pages.c CC_IN_ENDLESS, MOTION_STILL */
-static struct { uint8_t theme, bits, bits3, lights, clock, notes, usb; } dev;
+static struct { uint8_t theme, bits, bits3, lights, clock, notes, usb, glide; } dev;   /* (glide: rsv[8], KNOB GLIDE's bars) */
 void project_device_get(void)
 {
     dev.theme = proj.rsv[1];
@@ -229,6 +229,7 @@ void project_device_get(void)
     dev.clock = proj.clock;                               /* (Setup sets them and seq's together) */
     dev.notes = proj.send_notes;
     dev.usb = proj.usb_full;
+    dev.glide = proj.rsv[8];
 }
 void project_device_put(void)
 {
@@ -239,6 +240,7 @@ void project_device_put(void)
     proj.clock = dev.clock;
     proj.send_notes = dev.notes;
     proj.usb_full = dev.usb;
+    proj.rsv[8] = dev.glide;
 }
 
 void project_defaults(void)

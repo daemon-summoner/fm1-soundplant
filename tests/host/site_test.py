@@ -5,6 +5,7 @@ not there. With a directory it checks that site (CI checks what it deploys); wit
 first, from the emulator ./build.sh --web built.
   tests/host/site_test.py [SITE_DIR]      (tests/run_tests.sh runs it)"""
 
+import json
 import subprocess
 import sys
 from html.parser import HTMLParser
@@ -12,7 +13,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
-SECTIONS = ("emu", "manual", "install", "backup", "mirror", "samples")
+SECTIONS = ("emu", "manual", "install", "backup", "mirror", "samples", "project")
 EMU_FILES = (
     "index.html",
     "app.wasm",
@@ -20,7 +21,14 @@ EMU_FILES = (
     "app_worklet.js",
     "app.js",
     "app_own.js",
+    "garden.js",
+    "garden_core.js",
+    "garden_gl.js",
+    "presets.js",
+    "presets.json",
 )
+# a project's first part in each of the three slots (APP_BACKUP_OBJS: the presets, then 7 parts a slot)
+DEMO_PARTS = (2, 9, 16)
 bad = 0
 
 
@@ -57,6 +65,21 @@ def dead_links(site):
             if not target.is_file():
                 dead.append((str(page.relative_to(site)), url))
     return dead
+
+
+def image_problem(image):
+    """why a demo's file is not a backup this firmware restores whole (CRCs, magic, 22 parts, a project in each slot), or ''"""
+    sys.path.insert(0, str(ROOT / "base" / "tools"))
+    import fm1_backup
+
+    try:
+        _, objs = fm1_backup.parse(image)
+    except fm1_backup.BackupError as e:
+        return str(e)
+    if image[:4] != b"LM8B" or len(objs) != 22:
+        return f"magic {image[:4]!r} with {len(objs)} parts"
+    empty = [o for o, d in objs if o in DEMO_PARTS and not d]
+    return f"no project in parts {empty}" if empty else ""
 
 
 def make_site():
@@ -116,6 +139,128 @@ check(
 )
 emu = [f for f in EMU_FILES if not (site / "emu" / f).is_file()]
 check(f"the emulator has what it loads (missing: {', '.join(emu) or 'none'})", not emu)
+demo_dir = site / "emu" / "demos"
+listing = demo_dir / "demos.json"
+demos = json.loads(listing.read_text(encoding="utf-8")) if listing.is_file() else []
+check(
+    f"emu/demos/demos.json lists the demos ({len(demos)})",
+    len(demos) >= 10
+    and all(
+        isinstance(d.get("bpm"), int) and d.get("genre") and d.get("blurb")
+        for d in demos
+    )
+    and len({d["id"] for d in demos}) == len(demos),
+)
+problems = {
+    d["file"]: image_problem(
+        (demo_dir / d["file"]).read_bytes() if (demo_dir / d["file"]).is_file() else b""
+    )
+    for d in demos
+}
+check(
+    f"every listed demo is a whole backup with a project in all three slots ({[f for f, p in problems.items() if p][:3]})",
+    demos and not any(problems.values()),
+)
+files = {f.name for f in demo_dir.iterdir()} if demo_dir.is_dir() else set()
+check(
+    f"emu/demos/ holds the list and the demos and nothing else ({sorted(files - {d['file'] for d in demos} - {'demos.json'})})",
+    files == {d["file"] for d in demos} | {"demos.json"},
+)
+first = (demo_dir / demos[0]["file"]).read_bytes() if demos else b""
+damaged = bytearray(first)
+damaged[len(damaged) // 2] ^= 0xFF
+check(
+    "a demo with one byte changed is not a whole backup, nor is one cut short, nor an empty file",
+    first
+    and not image_problem(first)
+    and image_problem(bytes(damaged))
+    and image_problem(first[:-1])
+    and image_problem(b""),
+)
+emu_page = (
+    (site / "emu" / "index.html").read_text(encoding="utf-8")
+    if (site / "emu" / "index.html").is_file()
+    else ""
+)
+emu_app = (
+    (site / "emu" / "app_own.js").read_text(encoding="utf-8")
+    if (site / "emu" / "app_own.js").is_file()
+    else ""
+)
+check(
+    "emu/ has the demo picker, and its code loads the list from demos/demos.json",
+    all(
+        f'id="{i}"' in emu_page
+        for i in ("demos", "demo-play", "demo-load", "demo-undo", "demos-confirm")
+    )
+    and "demos/demos.json" in emu_app,
+)
+presets_file = site / "emu" / "presets.json"
+presets = (
+    json.loads(presets_file.read_text(encoding="utf-8"))
+    if presets_file.is_file()
+    else {}
+)
+table = ROOT / "app" / "build" / "gen" / "presets.h"
+rows = (
+    sum(
+        line.startswith('    {"')
+        for line in table.read_text(encoding="utf-8").splitlines()
+    )
+    if table.is_file()
+    else -1
+)
+
+
+def is_firmwares(lst):
+    """lst is one entry for each row of the firmware's table, in its order, each with its words"""
+    listed = lst.get("presets", [])
+    return (
+        rows > 0
+        and len(listed) == rows == lst.get("count")
+        and [p["index"] for p in listed] == list(range(rows))
+        and all(
+            p["name"] and p["engine"] in lst["engines"] and p["desc"] for p in listed
+        )
+        and {g["engine"] for g in lst["groups"]} == {p["engine"] for p in listed}
+    )
+
+
+short = {**presets, "presets": presets.get("presets", [])[1:]}
+over = {**presets, "count": presets.get("count", 0) + 1}
+gap = {
+    **presets,
+    "presets": [
+        {**p, "index": p["index"] + (p["index"] > 40)}
+        for p in presets.get("presets", [])
+    ],
+}
+check(
+    f"emu/presets.json lists the firmware's {rows} presets, each with a name, an engine and a line",
+    is_firmwares(presets),
+)
+check(
+    "a list one preset short, a count one over, or an index skipped is not the firmware's",
+    is_firmwares(presets)
+    and not is_firmwares(short)
+    and not is_firmwares(over)
+    and not is_firmwares(gap),
+)
+check(
+    "emu/ has the Preset lab, and the demos' folder has not taken its list",
+    all(
+        f'id="{i}"' in emu_page
+        for i in (
+            "presets",
+            "presets-search",
+            "presets-list",
+            "presets-count",
+            "presets-error",
+        )
+    )
+    and 'import("./presets.js")' in emu_page
+    and not (demo_dir / "presets.json").exists(),
+)
 dead = dead_links(site)
 check(
     f"every link between the site's pages lands on a file ({len(dead)} dead: {dead[:4]})",

@@ -151,6 +151,7 @@ Count the white keys 1 to 16 from the left, and the black keys 1 to 11. "Hold **
 | see the next bar | Press **OCT+** on Steps. (While **SEQ** is held, **PRESETS** sets the track's sound, so you can try notes before you write them; the keys play at the octave **OCT** set on the sound pages.) <!-- hint: press OCT+ --> |
 | move a whole pattern an octave | On Steps, hold **SEQ** and press **OCT−** or **OCT+**. Hold **HOME** and press **REC** to undo it. <!-- hint: hold SEQ; press OCT+ --> |
 | transpose a pattern, or rotate it | On Steps, press **SEL** and pick SHIFT NOTES (semitones) or ROTATE (steps). Turn **ALGORITHM** for how far, such as +4 or L2, and press **SEL**. |
+| spread hits evenly over a pattern | On Steps, press **SEL** and pick EUCLID. Turn **ALGORITHM** for how many hits, such as 5 in 16, and press **SEL**. On a kit it replaces only the sound shown. Then use ROTATE to move the rhythm along. |
 | play one bar of a long pattern, or jump about in it | Press **SEQ** and turn **SELECT** to the Bar page. Hold **SEQ** and press black key 1 to 4 to jump to that bar. Hold two of them to loop those bars, or tap one twice to loop that bar. <!-- hint: hold SEQ; black 1,2,3,4 --> |
 | set the track scale | On Steps, turn **KNOB 3**. Or, on the Bar page of a synth track, press a black key: 1, 2, 3, 4, 5, 6, 8, 16 sixteenths a step, or black key 9 for half a sixteenth. <!-- hint: turn KNOB 3 --> |
 | change the pattern | On Steps, turn **KNOB 1**. While it plays, the new pattern comes in at the next bar line. Until then, the knob reads NEXT 1>2 and the tag line says "next P2". |
@@ -169,6 +170,7 @@ Count the white keys 1 to 16 from the left, and the black keys 1 to 11. "Hold **
 | record live | Hold **REC** and press **PLAY**. Recording starts from step 1 straight away (after the count-in, if you set one). With COUNT on "on note", nothing moves until you play: your first note lands on step 1. |
 | record while playing | While it plays, hold **REC** and play: it records for as long as you hold **REC**. Hold **REC** and press **PLAY** to keep recording on. |
 | record a knob's motion | While it plays, on a sound page, hold **REC** and turn the knob. The motion is recorded for as long as you hold **REC**. |
+| make a knob glide to its value | Press **GLO**, go to Setup, press **SEL** and set KNOB GLIDE to 1 to 64 bars. While it plays, a knob you turn then walks to its new value over that many bars. |
 | set the click, count-in, quantize | While stopped, hold **REC** and turn the knobs: CLICK, COUNT, QUANT and MODE (overdub or replace). |
 | record step by step | While stopped, on Steps, tap **REC**. The red cursor starts after the last note. Each key (or chord) you play is written there, and the cursor moves on. **OCT+** skips a step and **OCT−** goes back. Hold **REC** and press **OCT+** to clear a step and move on, or **OCT−** to go back and clear one. Tap **REC** again to finish. |
 | undo | Hold **HOME** and press **REC**. Hold **HOME** and press **PLAY** to redo. |
@@ -187,7 +189,7 @@ Count the white keys 1 to 16 from the left, and the black keys 1 to 11. "Hold **
 | get new sounds for the band | Press **HOME**, press **SEL** and pick RANDOMIZE PRESETS: T2 to T8 each get a random preset for their part. Press **SEL** for yes. |
 | save | SoundPlant saves by itself when it is stopped and quiet. **SAVE** saves at once. Hold **SAVE** and press white key 1 to 3 to save to that slot. <!-- hint: press SAVE --> |
 | keep a sound | On a sound page, hold **SAVE** and press a white key. The sound becomes that user preset. <!-- hint: hold SAVE; white 1 --> |
-| load a project | Press **HOME** and press **SEL**. On LOAD PROJECT, turn **ALGORITHM** to pick the slot, then press **SEL**. NEW PROJECT starts an empty project in a free slot, with its sounds picked at random (new ones, as RANDOMIZE PRESETS gives). <!-- hint: press HOME, SEL; turn ALGORITHM --> |
+| load a project | Hold **HOME** and press white key 1 to 3 to load that slot. An empty slot says so, and nothing changes. If you have unsaved changes, SoundPlant asks first: press **SEL** for yes. You can also press **HOME** and press **SEL**. On LOAD PROJECT, turn **ALGORITHM** to pick the slot, then press **SEL**. NEW PROJECT starts an empty project in a free slot, with its sounds picked at random (new ones, as RANDOMIZE PRESETS gives). <!-- hint: hold HOME; white 1-3 --> |
 | listen on Bluetooth headphones | Put them in pairing mode. Press **GLO**, turn **SELECT** to Setup and press **SEL**. Turn **SELECT** to AUDIO DEVICE and press **SEL**. Turn **SELECT** to the headphones and press **SEL**. |
 
 ### The buttons
@@ -197,7 +199,7 @@ Count the white keys 1 to 16 from the left, and the black keys 1 to 11. "Hold **
 | **PLAY** | Starts and stops. Every track starts from step 1. To start from the bar on screen instead, hold **SEQ** on Steps or Bar and press **PLAY**. If you change a track's scale or length, it stays in time with the others. On the Song page, it plays the song from the selected slot. Hold **REC** and press **PLAY** to record live. |
 | **REC** | While it plays, hold **REC** to record for as long as you hold it. On a sound page, the knobs you turn are recorded too. While stopped, tap it to start step recording. Hold it while stopped (or on Steps) to set up recording with the knobs: click, count-in, quantize and mode. |
 | **SEL** | Opens a list of this page's settings and actions. Hold a step and press it to see the step's notes. When SoundPlant asks a question, **SEL** means yes. |
-| **HOME** | Opens Arrange. On Arrange, it opens the Song page. Hold it as a shift key for buttons and knobs: undo and redo, fine tempo, and the scenes on **PRESETS**. When SoundPlant asks a question, **HOME** means no. |
+| **HOME** | Opens Arrange. On Arrange, it opens the Song page, and **SELECT** goes on to the Garden. Hold it as a shift key for buttons and knobs: undo and redo, fine tempo, and the scenes on **PRESETS**. Hold it and press white key 1 to 3 to load that project. When SoundPlant asks a question, **HOME** means no. |
 | **SEQ** | Opens Steps; page 2 is Bar. Hold it on Steps and the keys play the track and set what a step writes (**PRESETS** sets the track's sound, and **OCT** moves the whole pattern an octave). Hold it on Bar and black keys 1 to 4 jump to a bar or loop bars. Hold it on Steps or Bar and press **PLAY** to start from the bar on screen. |
 | **EDIT** | Opens Engine. Page 2 is Play and page 3 is Play 2 (the octave). The knit, rayon and acid engines have a page 4, Sub, with the engine's second set of knobs. A sample track in a loop mode has its Loop page second. On a drum track, page 2 holds the key's model, random, pan and volume, and page 3 its sends. On the conductor, the pages are its key, the routing and Follow. |
 | **ENV** | Opens Envelope (on a drum track: lag, attack, random, length), then Filter, then the filter's envelope. |
@@ -264,7 +266,7 @@ come to rest when it ends. When you stop and nothing is moving, the screen is st
 Messages drop in from above and fade up. The track's color fades into the next track's color when you change tracks.
 
 Setup's **MOTION** row turns all of it off: **still** puts every change on the screen at once, with no gliding,
-fading, afterglow, hopping, plucking or scope, and the pictures stand still. The new colors and the glow stay. Use still if you want the screen to be as quiet as possible
+fading, afterglow, hopping, plucking or scope, and the pictures and the Garden stand still. The new colors and the glow stay. Use still if you want the screen to be as quiet as possible
 or you find movement distracting. Smooth is the default.
 
 ### Messages
@@ -296,8 +298,12 @@ while the track is muted. Turn Setup's LIGHTS on to make the other buttons glow 
 Press **SEQ**. The main band shows one bar of the pattern as 16 cells, and the 16 white keys are those cells. The
 top line shows what a key press writes. On a drum track, that's the sound shown. On a synth track, it's the
 remembered notes, which are the last keys you held together on a play page. On the THROW track, it's the last
-effect you played. The four squares on the right are the bars. Press **OCT−** or **OCT+** to see the previous or
-next bar.
+effect you played. The four squares on the right are the bars, and each is a small picture of its bar: one dot for
+each of its 16 steps, in four rows of four. A bright dot is a step with a note, a dim dot is an empty step, and a
+step past the pattern's end has no dot. While it plays, the step playing is the brightest dot, and a bar of colour
+sits under the bar playing. A white ring marks the bar you are looking at, and when the pattern has a loop (see the
+Bar page), the notes outside it are fainter. Press **OCT−** or **OCT+** to see the previous or next bar. In large
+type the bars are numbered squares on the tag instead.
 
 <img src="img/screen-step-held.png" width="240" alt="Step 13 held on T1: its velocity, length, chance and pitch on the knobs; the footer offers its length, its sounds, the nudge and the lock pages" title="A step held">
 
@@ -421,7 +427,7 @@ With no step held, **KNOB 1** picks the pattern (P1 to P8) and **KNOB 2** sets t
 the track scale, which is how many sixteenths a step takes, from 1/2 to 16. **KNOB 4** sets the track's groove
 amount.
 
-<img src="img/screen-list.png" width="240" alt="SEL on Steps: the pattern's actions (copy to empty, copy, clear, rotate, shift notes, double), then the bar's (copy, clear, duplicate)" title="The Steps list">
+<img src="img/screen-list.png" width="240" alt="SEL on Steps: the pattern's actions (copy to empty, copy, clear, euclid, rotate, shift notes, double), then the bar's first (copy)" title="The Steps list">
 
 Turn **SELECT** for the Bar page. Its knobs set the quantize for live recording, the note length of new steps (as
 a percentage of a step), the groove amount and the shape. The keys write steps just as on Steps. Hold a step for
@@ -440,6 +446,13 @@ knobs. A row with a ▸ is a choice. Turn **ALGORITHM** to pick it, and press **
 - **COPY PATTERN** copies the pattern, and **PASTE** (pattern, or locks only) pastes it where you want it. The copy
   is read when you paste, and a kit's steps paste only onto a kit.
 - **CLEAR** clears the notes, the locks, or both.
+- **EUCLID** fills the pattern with a Euclidean rhythm: the hits you ask for, spread as evenly as the pattern's
+  steps allow, with one on the first step. Turn **ALGORITHM** to set how many, from 1 to the pattern's length (it
+  starts at 4), and press **SEL** to do it. On a kit it replaces only the hits of the sound shown, and the other
+  sounds stay. On a synth track it clears the pattern's steps, and each hit plays the note or chord SoundPlant
+  remembers from the keys (hold **SEQ** and play it); a random track keeps the first note. On THROW, play an effect
+  first (on **EDIT**'s keys), or there is nothing to write and it says so. The steps' locks stay as they are, and so
+  does anything past the pattern's end. Use ROTATE to move the rhythm along. Hold **HOME** and press **REC** to undo it.
 - **ROTATE** moves every step, with its notes and locks, along the pattern. Turn **ALGORITHM** to set how far, from
   L16 (16 steps to the left) to R16, and press **SEL** to do it. **SHIFT NOTES** moves every note up or down, from
   -24 to +24 semitones. It isn't there on a kit or THROW. Both keep the amount you set, and the list reopens on
@@ -987,6 +1000,9 @@ the FM-1. From there you can:
 - replace a sample by dropping a file on it
 - rename, move up or down, or remove samples
 - set each sample's root note and, for a loop, its bars
+- prepare a sample (Prepare a sample, or Edit on one in the list): trim it, set its level, fade or reverse it, mix a stereo
+  file down to mono, set its loop and play the result before it goes in. This works without the FM-1 too: download the
+  result as a WAV
 
 Then press Send. The samples already on the FM-1 are kept exactly as they were. Use Quality to pick the rate new
 samples are stored at. On auto, it picks the best rate at which everything fits.
@@ -1194,7 +1210,7 @@ The knobs on Arrange:
 - **KNOB 1** sets the tempo. Hold **HOME** while you turn it for tenths.
 - **KNOB 2** sets the groove type: swing, lilt, weave, stretch, drunk, jitter, accent, lazy, push pull, sway or
   swell.
-- **KNOB 3** sets the selected track's groove amount, from −99 to 99.
+- **KNOB 3** sets the selected track's groove amount, from −99 to 99. Hold **HOME** and it becomes MORPH (below).
 - **KNOB 4** sets the selected track's pattern in this scene ("T2 PAT"). **ALGORITHM** picks the track. While it
   plays, the new pattern comes in at the track's next bar line. Use it to set a scene's patterns track by track
   without leaving Arrange.
@@ -1208,13 +1224,78 @@ plays four.
 - **KNOB 1** picks the slot.
 - **KNOB 2** changes its scene.
 - **KNOB 3** sets how many bars it plays, from 1 to 64. A bar is always 16 sixteenths, whatever the patterns'
-  lengths, so a 64-step pattern takes four bars.
+  lengths, so a 64-step pattern takes four bars. Hold **HOME** and it becomes MORPH (below).
 - **KNOB 4** sets whether the song loops or stops at the end.
 
 Press **PLAY** on the Song page to play the song from the selected slot. To play it from the top, pick PLAY SONG in
 the **SEL** list. As the song plays, a bar along the bottom of the playing slot fills up over its bars. The **SEL**
 list can also insert the scene that is playing (INSERT SLOT), repeat the selected slot right after itself
 (DUPLICATE SLOT), delete a slot or clear the song.
+
+### Morphing into the next scene
+
+Instead of cutting to the next scene, you can fade into it. While a scene plays, hold **HOME** on Arrange or Song and
+turn **KNOB 3**. The knob reads MORPH, from 0 to 100%, and the strip above the knobs shows how far along you are
+("S1 > morph S2 50%").
+
+The morph goes toward the next scene that exists after the one playing, wrapping around from the last. It works by
+thinning steps, so it only touches the tracks whose mute differs between the two scenes:
+
+- A track the next scene mutes keeps playing, but each step sounds with a chance of 100 − MORPH percent. At 50%,
+  about half of its steps drop out.
+- A track the next scene unmutes stays silent, but each step comes in with a chance of MORPH percent.
+- A track that is muted in both scenes, or in neither, is left alone.
+
+A thinned step is a muted step, so a kit still drives the pump through it. Which steps drop is not random: the same
+morph from the same start thins the same steps every time, and a step that is in at 30% is still in at 60%. A
+mute throw still mutes the track whatever MORPH says.
+
+Only the mutes morph. Patterns, a kit's sound mutes, the conductor's key and the weave belong to the scene, and
+they change when it starts.
+
+Turn MORPH up to 100% and the scene is cued the way a white key cues it, for the next bar line (or the end of T1's
+pattern, if SCENES SWITCH says so). Until then the tracks already sound as they will in it, and when it starts MORPH
+goes back to 0. Turn the knob back down before the bar to cancel the cue. Turn it back to 0 at any other time and
+the scene you were in carries on as it was.
+
+MORPH also goes back to 0 when you stop, press a scene's key, turn **PRESETS**, leave Arrange and Song for another
+page, solo a track, or when a song plays its own scenes. A project load clears it too. It is never saved. When it
+can't start, the header says why: NEEDS 2 SCENES (no other scene exists yet), PLAY FIRST, NOT IN SONG or SOLO IS ON.
+
+### The Garden
+
+Turn **SELECT** once more for the Garden, a night garden with a plant for each track, drawn in the track's color.
+Nothing here edits the song. It is something to watch while you play.
+
+<img src="img/screen-garden.png" width="240" alt="The Garden page: a night sky with a moon and stars, and a row of plants, one for each track, standing on the ground" title="The Garden">
+
+The engine picks the plant: a flower for knit and acid, a bell for rayon and MIDI, a reed for bellows and cane, a
+fern for voile and jacquard, and a pom-pom for the sample, slice and drum tracks. The plants stand in two or three
+rows, and the far ones are smaller, dimmer and paler. Each track gets its own height and its own spot on the
+ground.
+
+- A hit rings the plant: its stem bends and swings back, its petals pulse with the velocity, and a hard hit sheds
+  petals and pollen. The ground ripples under it.
+- The track's pan leans the plant to that side. The head opens with the track's cutoff and glows with its level.
+- Muting a track wilts and greys its plant. Soloing a track makes it taller and brighter.
+- The aurora follows the master level. A few fireflies drift toward the brightest plant.
+
+The plants, the stars and the glitches grow from your patterns, so every song gets its own garden. While the song
+plays, one trait of the plants (the petals, the curl, the height or the hue) changes every four bars. It eases
+over, so the picture never pops.
+
+The knobs on the Garden:
+
+- **KNOB 1** sets how often a glitch comes: off, soft, lively or wild. A glitch is a short distortion of the
+  picture (a tear, a fold, a color shift or a blocky blur) that starts on a beat while the song plays and eases in
+  and out over a bit under a second. Which beats get one comes from the song, so a song glitches the same way each
+  time you play it. Glitches never flash more than three times a second and never swing the brightness of the
+  whole screen much. Set it to off for none.
+- **KNOB 2** moves the seed, from 0 to 99, which gives the song a different garden. Neither knob is saved in the
+  project. Both start again when you restart the FM-1.
+
+With MOTION set to still, the Garden holds still, with no glitch and no ringing, and costs nothing, as on every
+other page. **SEL** has the projects, as on Arrange.
 
 ## The aux tracks
 
@@ -1348,11 +1429,22 @@ Debug. The **SEL** list on Setup has the FM-1's own settings, in three groups:
 
 - Bluetooth: BT MIDI, MIDI DEVICE, BT AUDIO and AUDIO DEVICE.
 - USB and MIDI: the USB audio level, USB PORT, CLOCK, NOTES, CC IN, CC OUT and SCENES OUT.
-- SoundPlant: LIGHTS, THEME, LARGE TYPE, MOTION, AUTOSAVE and LOOP THROWS.
+- SoundPlant: LIGHTS, THEME, LARGE TYPE, MOTION, AUTOSAVE, LOOP THROWS and KNOB GLIDE.
 
 All of Setup's settings, the theme too, belong to the FM-1, not the project. Every project you load or start keeps
 them as you left them. On every page, the header shows the scene playing ("S3") before the tempo. You'll find the
 projects in **HOME**'s **SEL** list and the count-in on **REC**'s knobs.
+
+**Knob glide** makes a knob you turn by hand take its time. KNOB GLIDE is off to start with. Set it to 1 to 64 bars,
+and a knob you turn on a sound page while the sequencer plays no longer jumps. The knob and the saved project show
+the value you turned to at once, and the sound walks to it in a straight line over that many bars, counted on the
+sequencer's own steps (a bar is 16). It works on the knobs that are smooth, such as a cutoff, a time, a send or a
+level, and not on a choice, a switch or a semitone, which still change at once. Turn the same knob again and the walk
+starts over from where the sound is, towards the new value. A step's lock still wins on its own step, and the walk
+is the sound the locks sit on. Up to eight knobs can walk at once. When a ninth starts, the oldest lands on its
+value. Stop the sequencer, or set KNOB GLIDE back to off, and every walk lands on its value. Nothing walks while the
+sequencer is stopped. A new project, a loaded project or a new engine on a track ends that track's walks. A MIDI
+controller moves its knob at once, and recording a knob's motion writes the value you turned to.
 
 **LFO** comes after Master out. It's the shared LFO. The project has one, and it moves the tracks you give it. Use
 it to open the filters of a few tracks together in a single sweep, or to breathe across a 16-bar section of a
@@ -1586,6 +1678,10 @@ in the first empty slot. If all three slots are taken, the new project has none,
 SAVE TO before it saves. To save only when you press **SAVE**, press **GLO**, go to Setup and set AUTOSAVE to off
 in its **SEL** list. Every project keeps that choice.
 
+To load another project, hold **HOME** and press white key 1 to 3. The song stops. If you have unsaved changes,
+SoundPlant asks first: **SEL** is yes and **HOME** is no. A slot with no project says so, and nothing changes. You can
+also pick LOAD PROJECT on **HOME**'s **SEL** list and turn **ALGORITHM** to the slot.
+
 A new project starts with a band picked at random from the factory presets. T1 gets the kit. T2 to T8 get a mono
 bass, a polyphonic synth, a pad, a mono lead, keys, an effect, and a pluck or bell, and every track follows the
 conductor. To pick another band for T2 to T8, use RANDOMIZE PRESETS on **HOME**'s **SEL** list. It asks first,
@@ -1611,6 +1707,13 @@ they are. To do the same from a terminal, run these in the firmware's folder:
 - samples: `python3 tools/soundplant_samples.py backup FILE` and `restore FILE` (its `restore` also takes the backup
   page's file)
 
+**Editing a backup.** The Project page, <https://daemon-summoner.github.io/fm1-soundplant/project/>, opens a
+backup file and lets you change a project on a computer: the tempo, each track's name, level and pan, the steps of
+every pattern, the scenes and the song. It saves a new file and leaves the one you opened alone; put the new one back
+with the Backup page. It checks the result against what the FM-1 can store and won't save one it can't. Everything
+else in the file goes back exactly as it was, so the presets, the samples and the sound settings stay. The same page
+saves a pattern or a scene as a MIDI file, and reads a MIDI file into a pattern after a preview that lists what it can't hold.
+
 **Mirror.** To see SoundPlant's screen live on a computer, open <https://daemon-summoner.github.io/fm1-soundplant/mirror/> in
 Chrome or Edge with the FM-1 connected by USB. Use it for a video, a lesson, or a bigger view. The page
 shows the buttons, keys and knobs too, and you can play them from there. The music always comes first, so on a
@@ -1626,6 +1729,7 @@ user preset.
 | --- | --- | --- | --- | --- | --- | --- |
 | HOME | Arrange | tempo | groove | amount | the track's pattern | white: scenes (OCT: 17 to 32), black: mutes (hold a kit's: white 1-11 are its sounds); SEL: load, save to, new project, randomize presets, the song, when scenes switch |
 | HOME, SELECT | Song | slot | scene | bars | at end | white: add a scene (OCT: 17 to 32) |
+| HOME, SELECT x2 | Garden | glitches | seed | | | SEL: the projects |
 | SEQ | Steps | pattern | length | scale | groove | white: steps, black: sound (drums); SEQ held: a keyboard |
 | SEQ, a step held | Steps | velocity | length | chance | pitch | white: length or more steps, black: sounds; PRESETS: the step's sound shown (drums: velocity, chance and tricks are its) |
 | SEQ, a step held + ARP | Steps | trick 1 | its value | trick 2 | its value | PRESETS: the step's sound shown (drums) |
@@ -1658,7 +1762,7 @@ user preset.
 | GLO, SELECT | Master color | color | amount | tone | mix | |
 | GLO, SELECT | Master out | drums | melodic | comp | pump | SEL: pump by, release, accent, level |
 | GLO, SELECT | LFO | shape | rate | amount | dest | black: the tracks it moves; white 1-11: a kit's sound, 12 all |
-| GLO, SELECT | Setup | lights | clock | notes | theme | SEL: Bluetooth MIDI and audio, their devices, USB audio, USB port, loop throws, autosave, CC out, scenes out |
+| GLO, SELECT | Setup | lights | clock | notes | theme | SEL: Bluetooth MIDI and audio, their devices, USB audio, USB port, loop throws, knob glide, autosave, CC out, scenes out |
 
 The aux tracks have their own **EDIT** pages:
 

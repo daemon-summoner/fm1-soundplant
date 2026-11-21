@@ -1,0 +1,131 @@
+# HOME held + white key 1 to 3 loads that slot's project, as LOAD PROJECT does (asked first with unsaved changes: SEL yes,
+# HOME no; an empty slot is said and left alone). The keys do no more than that under HOME, and HOME's release opens no page
+wait 300
+listen
+# slot 2 at 90 BPM, slot 1 at 100 BPM (each by SAVE held and its key); slot 3 stays empty
+tap HOME
+spin K1 -30
+wait 50
+expect tempo 90
+press SAVE
+tapkey w1
+release SAVE
+wait 100
+spin K1 10
+wait 50
+expect tempo 100
+press SAVE
+tapkey w0
+release SAVE
+wait 100
+expect dirty 0
+# from Steps: slot 2 loads, the page stays
+tap SEQ
+expect page Steps
+press HOME
+tapkey w1
+release HOME
+wait 100
+expect tempo 90
+expect page Steps
+expect dirty 0
+said LOADED slot 2
+# HOME alone still opens its page
+tap HOME
+expect page Arrange
+# on Arrange (HOME's release would open the Song page; the white keys are scenes without HOME): slot 1, then slot 2
+press HOME
+tapkey w0
+release HOME
+wait 100
+expect tempo 100
+expect page Arrange
+press HOME
+tapkey w1
+release HOME
+wait 100
+expect tempo 90
+expect page Arrange
+expect scene 1
+expect used 1
+# unsaved changes: the question first (nothing yet), SEL yes loads
+spin K1 5
+wait 50
+expect tempo 95
+expect dirty 1
+press HOME
+tapkey w0
+expect ask 1
+expect tempo 95
+shot homeload_ask.png
+release HOME
+wait 100
+expect ask 1
+expect page Arrange
+tap SEL
+wait 100
+expect ask 0
+expect tempo 100
+expect dirty 0
+# HOME says no: the changes stay
+spin K1 5
+wait 50
+expect tempo 105
+press HOME
+tapkey w1
+expect ask 1
+release HOME
+tap HOME
+wait 100
+expect ask 0
+expect tempo 105
+expect dirty 1
+expect page Arrange
+# an empty slot, a key past the three slots, a black key: nothing loads and no question comes, the changes stay
+press HOME
+tapkey w2
+release HOME
+wait 100
+said EMPTY SLOT slot 3
+expect ask 0
+expect tempo 105
+expect dirty 1
+press HOME
+tapkey w3
+release HOME
+wait 100
+said THREE SLOTS
+expect ask 0
+expect tempo 105
+press HOME
+tapkey b0
+release HOME
+wait 100
+said_none
+expect tempo 105
+expect page Arrange
+# HOME + REC still undoes
+tap SEQ
+tapkey w0
+expect note 1 1 1 1
+press HOME
+tap REC
+release HOME
+expect note 1 1 1 0
+# a load stops the song
+press HOME
+tapkey w0
+release HOME
+tap SEL
+wait 100
+expect tempo 100
+expect dirty 0
+tap PLAY
+wait 200
+expect playing 1
+press HOME
+tapkey w1
+release HOME
+wait 200
+expect playing 0
+expect tempo 90

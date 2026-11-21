@@ -1,0 +1,302 @@
+# SoundPlant demo: techno, 130 BPM, A minor. Factory sounds only: tools/make_demos.py puts it on the emulator page.
+# (tools/demos/web/ holds the songs written for the web; the others, tools/demos/*.xy, were made with private sample
+# banks and get factory sounds in their place there.)
+#   T1 kit: the 909 kick on every beat, a 909 clap on 2 and 4, the open hat on the offbeats, a 16th shaker
+#   T2 acid "acid line": the 303, a rolling sixteenth line with accents and slides, its cutoff opened by hand
+#   T3 knit "house stab": minor chord stabs into a dotted echo   T4 knit "dusty pad": the drone, pumped by the kick
+#   T5 sample "riser": the sweep into the drop                    T6 jacquard "digi pluck": a sixteenth arpeggio
+# Song: intro 4 (kick, hats), groove 8 (clap, shaker, the 303, the pad), breakdown 4 (no kick: the stabs and the pad;
+# the last bar the snare rolling and the riser), peak 8 (everything, the arpeggio), outro 4.
+bpm 130
+
+# ---- the sounds (a hard 909 kick that rings a little, the pump of the whole mix by the kick, the 303 bright and
+# resonant: the techno is in the kick, the line and the space around them)
+# T1 the kit: the 909's kick (a little more drive than house's) and clap, its hats, a dry shaker
+knob 1 d1.model 21
+knob 1 d1.k1 52
+knob 1 d1.k2 76
+knob 1 d1.k3 34
+knob 1 d1.k4 40
+knob 1 d1.k5 0
+knob 1 d1.k6 46
+knob 1 d1.k7 0
+knob 1 d5.model 25
+knob 1 d5.k1 63
+knob 1 d5.k2 50
+knob 1 d5.k3 30
+knob 1 d5.k4 0
+knob 1 d5.volume 70
+knob 1 d4.model 27
+knob 1 d4.k1 64
+knob 1 d4.k2 62
+knob 1 d4.k3 0
+knob 1 d4.k4 0
+knob 1 d4.volume 68
+knob 1 d3.model 26
+knob 1 d3.k1 64
+knob 1 d3.k2 70
+knob 1 d3.k3 0
+knob 1 d3.k4 0
+knob 1 d3.volume 62
+knob 1 d9.k1 50
+knob 1 d9.k4 0
+knob 1 d9.volume 58
+knob 1 d8.volume 60
+knob 1 res 30
+knob 1 level 96
+knob 1 send2 10
+# T2 acid "acid line": the 303, ducked by the kick, resonant
+preset 2 acid_line acid
+param 2 oct 2
+knob 2 cut 56
+knob 2 res 104
+knob 2 brain no
+knob 2 ltype pump
+knob 2 lspeed track_1
+knob 2 lamt 40
+knob 2 level 104
+knob 2 send1 18
+# T3 knit "house stab": the chord stabs, into the dotted echo
+preset 3 house_stab knit
+knob 3 brain no
+knob 3 level 92
+knob 3 send1 52
+knob 3 send2 30
+# T4 knit "dusty pad": the drone under it all, pumped by the kick, dark
+preset 4 dusty_pad knit
+knob 4 e1 5
+knob 4 cut 70
+knob 4 brain no
+knob 4 ltype pump
+knob 4 lspeed track_1
+knob 4 lamt 100
+knob 4 level 84
+knob 4 send2 44
+# T5 the riser: the sweep, into the hall
+preset 5 riser sample
+knob 5 brain no
+knob 5 level 96
+knob 5 send2 60
+# T6 jacquard "digi pluck": the arpeggio, in the echo
+preset 6 digi_pluck jacquard
+knob 6 brain no
+knob 6 pan 80
+knob 6 level 84
+knob 6 send1 46
+knob 6 send2 24
+# FX I a dotted-eighth echo; FX II a long hall, its high-pass keeping the low end dry
+knob 11 engine delay
+knob 11 e1 85
+knob 11 e3 64
+knob 11 e4 52
+knob 12 engine hall
+knob 12 e2 82
+knob 12 e3 56
+# the master: warm, the compressor firm, the whole mix breathing with the kick
+mst lo 70
+mst hi 62
+mst comp 64
+mst pump 26
+mst pumpby kick
+mst release 70
+mst level 108
+
+# ---- T1 the kit: kick 1, snare 2, hat 3, open 4, clap 5, shaker 9
+# P1 the kick and the open hat; P2 the groove: the clap, a hat and the shaker; P3 the peak: the groove with a snare ghost leading into the next bar;
+# P4 the build: the snare rolling; P5 the breakdown: the hat alone
+pat 1 1 16 1 50 20
+hits 1 1 1 x...x...x...x...
+hits 1 1 4 ..x...x...x...x.
+pat 1 2 16 1 50 20
+hits 1 2 1 x...x...x...x...
+hits 1 2 4 ..x...x...x...x.
+hits 1 2 5 ....x.......x...
+hits 1 2 3 g.g.g.g.g.g.g.g.
+hits 1 2 9 gogxgogxgogxgogx
+pat 1 3 16 1 50 20
+hits 1 3 1 x...x...x...x...
+hits 1 3 4 ..x...x...x...x.
+hits 1 3 5 ....x.......x...
+hits 1 3 3 g.g.g.g.g.g.g.g.
+hits 1 3 9 gogxgogxgogxgogx
+hits 1 3 2 ..........g...x.
+pat 1 4 16 1 50 20
+hits 1 4 2 x.x.x.x.xxxxxxxx
+hits 1 4 9 gogxgogxgogxgogx
+pat 1 5 16 1 50 20
+hits 1 5 3 g.g.g.g.g.g.g.g.
+
+# ---- T2 the 303 on Am. P1 a rolling sixteenth line: accents at 120, a note held past the next one's start slides
+# into it (steps 7, 13); P2 the root alone, for the intro and the outro
+pat 2 1 16 1 60 20
+notes 2 1 1 0.5 120 A1
+notes 2 1 2 0.5 100 A1
+notes 2 1 4 0.5 100 A2
+notes 2 1 5 0.5 100 A1
+notes 2 1 6 0.5 110 A1
+notes 2 1 7 1.25 120 C2
+notes 2 1 8 0.5 100 E2
+notes 2 1 9 0.5 110 A1
+notes 2 1 10 0.5 100 A1
+notes 2 1 12 0.5 100 A2
+notes 2 1 13 1.25 120 G1
+notes 2 1 14 0.5 100 A1
+notes 2 1 16 0.5 110 E2
+trick 2 1 16 porta 4
+pat 2 2 16 1 60 20
+notes 2 2 1 0.5 110 A1
+notes 2 2 3 0.5 90 A1
+notes 2 2 7 0.5 100 A1
+notes 2 2 11 0.5 90 A1
+notes 2 2 15 0.5 100 E2
+
+# ---- T3 the stabs: Am | Am | G | F, on the offbeat sixteenths (two notes: the pad under them has the root and the fifth)
+pat 3 1 64 1 50 20
+notes 3 1 4 0.5 100 C4 E4
+notes 3 1 7 0.5 90 C4 E4
+notes 3 1 12 0.5 95 C4 E4
+notes 3 1 15 0.5 85 C4 E4
+notes 3 1 20 0.5 100 C4 E4
+notes 3 1 23 0.5 90 C4 E4
+notes 3 1 28 0.5 95 C4 E4
+notes 3 1 31 0.5 85 C4 E4
+notes 3 1 36 0.5 100 B3 D4
+notes 3 1 39 0.5 90 B3 D4
+notes 3 1 44 0.5 95 B3 D4
+notes 3 1 47 0.5 85 B3 D4
+notes 3 1 52 0.5 100 A3 C4
+notes 3 1 55 0.5 90 A3 C4
+notes 3 1 60 0.5 95 A3 C4
+notes 3 1 63 0.5 85 A3 C4
+chance 3 1 15 70
+chance 3 1 47 70
+
+# ---- T4 the pad: root and fifth, Am held two bars, then G, then F
+pat 4 1 64 1 100
+notes 4 1 1 32 70 A2 E3
+notes 4 1 33 16 70 G2 D3
+notes 4 1 49 16 70 F2 C3
+
+# ---- T5 the riser: one sweep through the bar before the drop (scene 6)
+pat 5 1 16 1 100
+notes 5 1 6 10 110 C4
+
+# ---- T6 the arpeggio: A minor in sixteenths, up and back, the chord following the stabs
+pat 6 1 64 1 60 20
+notes 6 1 1 1 100 A4
+notes 6 1 2 1 80 C5
+notes 6 1 3 1 90 E5
+notes 6 1 4 1 80 C5
+notes 6 1 5 1 100 A4
+notes 6 1 6 1 80 C5
+notes 6 1 7 1 90 E5
+notes 6 1 8 1 80 C5
+notes 6 1 9 1 100 A4
+notes 6 1 10 1 80 C5
+notes 6 1 11 1 90 E5
+notes 6 1 12 1 80 C5
+notes 6 1 13 1 100 A4
+notes 6 1 14 1 80 E5
+notes 6 1 15 1 90 C5
+notes 6 1 16 1 80 A4
+notes 6 1 17 1 100 A4
+notes 6 1 18 1 80 C5
+notes 6 1 19 1 90 E5
+notes 6 1 20 1 80 C5
+notes 6 1 21 1 100 A4
+notes 6 1 22 1 80 C5
+notes 6 1 23 1 90 E5
+notes 6 1 24 1 80 C5
+notes 6 1 25 1 100 A4
+notes 6 1 26 1 80 C5
+notes 6 1 27 1 90 E5
+notes 6 1 28 1 80 C5
+notes 6 1 29 1 100 A4
+notes 6 1 30 1 80 E5
+notes 6 1 31 1 90 C5
+notes 6 1 32 1 80 A4
+notes 6 1 33 1 100 G4
+notes 6 1 34 1 80 B4
+notes 6 1 35 1 90 D5
+notes 6 1 36 1 80 B4
+notes 6 1 37 1 100 G4
+notes 6 1 38 1 80 B4
+notes 6 1 39 1 90 D5
+notes 6 1 40 1 80 B4
+notes 6 1 41 1 100 G4
+notes 6 1 42 1 80 B4
+notes 6 1 43 1 90 D5
+notes 6 1 44 1 80 B4
+notes 6 1 45 1 100 G4
+notes 6 1 46 1 80 D5
+notes 6 1 47 1 90 B4
+notes 6 1 48 1 80 G4
+notes 6 1 49 1 100 F4
+notes 6 1 50 1 80 A4
+notes 6 1 51 1 90 C5
+notes 6 1 52 1 80 A4
+notes 6 1 53 1 100 F4
+notes 6 1 54 1 80 A4
+notes 6 1 55 1 90 C5
+notes 6 1 56 1 80 A4
+notes 6 1 57 1 100 F4
+notes 6 1 58 1 80 A4
+notes 6 1 59 1 90 C5
+notes 6 1 60 1 80 A4
+notes 6 1 61 1 100 F4
+notes 6 1 62 1 80 C5
+notes 6 1 63 1 90 A4
+notes 6 1 64 1 80 F4
+
+# ---- scenes and the song: the mask is T1..T8, x = muted. Scene 3 the breakdown's first three bars, 6 its last (the
+# snare rolling, the riser)
+scenedef 1 1 2 1 1 1 1 1 1 1
+scenemute 1 .xx.xxxx
+scenedef 2 2 1 1 1 1 1 1 1 1
+scenemute 2 ..x.xxxx
+scenedef 3 5 2 1 1 1 1 1 1 1
+scenemute 3 .x..xxxx
+scenedef 4 3 1 1 1 1 1 1 1 1
+scenemute 4 ....x.xx
+scenedef 5 1 2 1 1 1 1 1 1 1
+scenemute 5 ..x.xxxx
+scenedef 6 4 2 1 1 1 1 1 1 1
+scenemute 6 .x...xxx
+song 1:4 2:8 3:3 6:1 4:8 5:4
+songloop 0
+
+# ---- play the song (HOME, SELECT to the Song page, PLAY), and perform
+
+knob 2 cut 54
+tap HOME
+turn SELECT 1
+stats reset
+wav soundplant_demo_techno.wav
+tap PLAY
+# intro 4
+bars 4
+# groove 8: the 303's filter opened by hand
+knob 2 cut 60
+bars 2
+knob 2 cut 68
+bars 2
+knob 2 cut 76
+bars 3.75
+throw echo on perc
+bars 0.25
+throw echo off perc
+# breakdown 4
+bars 4
+# peak 8
+knob 2 cut 84
+bars 4
+knob 2 cut 92
+bars 4
+# outro 4: the line closing
+knob 2 cut 70
+bars 2
+knob 2 cut 56
+bars 2
+wait 3000
+wavstop
+stats

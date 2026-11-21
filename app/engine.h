@@ -49,6 +49,11 @@ void engine_set_core2(int (*run)(void (*)(uint32_t), uint32_t), int (*wait)(void
 /* main loop -> interrupt (queued) */
 void engine_set(int trk, int param, int val);            /* a knob: the engine's par copy + the voices */
 void engine_set_all(int trk);                            /* every parameter of a track (load, preset) */
+#define GLIDE_BARS_MAX 64                                /* KNOB GLIDE's longest walk */
+void engine_glide(int trk, int param, int val, int bars);   /* a knob: its value walked to val over bars bars of the
+                                                          * sequencer's sixteenths (at once when it is stopped) */
+void engine_glide_tick(void);                            /* each frame: the walks' steps; a stopped sequencer lands them */
+void engine_glide_land(void);                            /* every walk at its target now */
 void engine_key(int trk, int note, int on, int vel);     /* a key through the sequencer's player and brain */
 void engine_keys_off(int trk);
 void engine_punch(int fx, int on, int target_trk);
@@ -89,6 +94,9 @@ extern volatile uint16_t eng_peak[NALLTRK];              /* meters after the fad
                                                           * since the UI took it (and set it to 0) */
 extern volatile uint8_t eng_drum_hit[NDRUM];             /* the selected drum track's last hits (255 = full) */
 extern volatile uint8_t eng_midi_hit[NTRK];              /* a note on gone out on track t's channel (255, eased out) */
+extern volatile uint8_t eng_hit[NTRK];                   /* a note started on track t: a count that wraps (the garden keeps the
+                                                          * count it last saw: any difference is a hit) ... */
+extern volatile uint8_t eng_hit_vel[NTRK];               /* ... and the last one's velocity, 1..127 (set before the count moves) */
 extern volatile uint8_t eng_ghost[NTRK];                 /* a muted track's step that would have played: its velocity
                                                           * (the loudest since the UI took it, and set it to 0) */
 extern volatile uint8_t eng_voices, eng_voices_max;      /* sounding, and the guard's cap */
