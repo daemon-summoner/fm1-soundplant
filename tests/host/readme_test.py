@@ -2,17 +2,21 @@
 # SPDX-License-Identifier: MPL-2.0
 """README.md and its art (tools/make_readme_art.py writes docs/img/readme-*): every relative link and image resolves,
 no art file is left unused, the SVGs are well-formed animations with no script and nothing loaded from outside, the
-demo clip is a looping APNG under 2.5 MB whose loop has no seam, the committed art is byte for byte what the generator
-writes (twice the same), the README holds the facts and credits it must, and the name SoundPlant was forked from
+demo clip is a looping APNG under 2.5 MB whose loop has no seam, the generator writes the same bytes twice and the
+committed art is what it writes (every decimal within one unit of its last printed place: another libm rounds a last
+digit differently), the README holds the facts and credits it must, and the name SoundPlant was forked from
 appears on one credit line near the top and nowhere else. Each check also runs on a broken sample to show it can fail.
   tests/host/readme_test.py [ROOT]  (tests/run_tests.sh runs it; ROOT: another tree holding the same files)"""
 
 import io
+import math
 import re
 import subprocess
 import sys
 import tempfile
+import wave
 import xml.etree.ElementTree as ET
+from decimal import Decimal
 from pathlib import Path
 
 ROOT = (
@@ -35,6 +39,8 @@ CREDIT = (
     + "lo"
     + "om)"
 )
+# a number the art holds: not a hex colour's digits, an id's digit or a unit's (3.6s), so only plain numbers are compared
+NUMBER = re.compile(r"(?<![\w#.])-?\d+(?:\.\d+)?(?![\w.])")
 ANIMATION = {"animate", "animateTransform", "animateMotion", "set"}
 FACTS = (
     "eleven engines",
@@ -163,6 +169,29 @@ def apng_problems(raw):
     return out
 
 
+def art_diff(have, want):
+    """why committed art differs from what the generator writes (None when it does not): the text must match once
+    its numbers are masked, an integer must match exactly, and two numbers with a decimal point may differ by one
+    in the last place either prints (a libm that rounds the last digit the other way)"""
+    a, b = have.decode("utf-8"), want.decode("utf-8")
+    if NUMBER.sub("#", a) != NUMBER.sub("#", b):
+        ma, mb = NUMBER.sub("#", a), NUMBER.sub("#", b)
+        i = next(
+            (k for k, (x, y) in enumerate(zip(ma, mb)) if x != y), min(len(ma), len(mb))
+        )
+        return f"the text differs at {ma[max(0, i - 20) : i + 20]!r} against {mb[max(0, i - 20) : i + 20]!r}"
+    for x, y in zip(NUMBER.findall(a), NUMBER.findall(b)):
+        dx, dy = Decimal(x), Decimal(y)
+        if dx == dy:
+            continue
+        places = max(-dx.as_tuple().exponent, -dy.as_tuple().exponent)
+        if "." not in x and "." not in y:
+            return f"{x} against {y}"
+        if abs(dx - dy) > Decimal(1).scaleb(-places):
+            return f"{x} against {y}"
+    return None
+
+
 def old_name_lines(text):
     return [n for n, ln in enumerate(text.splitlines(), 1) if OLD.search(ln)]
 
@@ -201,7 +230,8 @@ check(f"the README has links to look at ({len(rel)} relative)", len(rel) >= 20)
 check("every relative link and image resolves", not broken_links(readme, ROOT))
 check(
     "a link to a missing file is caught",
-    broken_links("see [x](docs/no-such-page.md#top)", ROOT) == ["docs/no-such-page.md#top"],
+    broken_links("see [x](docs/no-such-page.md#top)", ROOT)
+    == ["docs/no-such-page.md#top"],
 )
 check(
     "an image of a missing file is caught",
@@ -217,7 +247,11 @@ check(
 check("every image has alt text", not imgs_without_alt(readme))
 check(
     "an image with no alt text is caught",
-    len(imgs_without_alt('<img src="a.svg"><img src="b.svg" alt="b"><img src="c.svg" alt="">'))
+    len(
+        imgs_without_alt(
+            '<img src="a.svg"><img src="b.svg" alt="b"><img src="c.svg" alt="">'
+        )
+    )
     == 2,
 )
 check("no script, style or event handler in the README", not unsafe_markup(readme))
@@ -229,7 +263,7 @@ check(
 
 # ---- the SVGs
 svgs = sorted(IMG.glob("readme-*.svg"))
-check(f"there is art to check ({len(svgs)} SVGs)", len(svgs) >= 19)
+check(f"there is art to check ({len(svgs)} SVGs)", len(svgs) >= 24)
 for p in svgs:
     probs = svg_problems(p.read_bytes())
     check(f"{p.name}: animated, no script, nothing external, under 400 KB", not probs)
@@ -337,7 +371,45 @@ check(
     all(abs(g - e) <= 1 for g, e in zip(grey[-fade:], blends)),
 )
 
-# ---- the committed art is what the generator writes
+# ---- the committed art is what the generator writes: the comparison first, on samples that must pass and fail
+SAMPLE = b'<svg><path d="M 600 20.5 0.0556 -0.25" fill="#ff4081" id="rg1"/></svg>'
+check("art_diff: the same art is the same", art_diff(SAMPLE, SAMPLE) is None)
+check(
+    "art_diff: a last digit rounded the other way passes (0.0556 -> 0.0557, 20.5 -> 20.4, -0.25 -> -0.26)",
+    art_diff(
+        SAMPLE,
+        SAMPLE.replace(b"0.0556", b"0.0557")
+        .replace(b"20.5", b"20.4")
+        .replace(b"-0.25", b"-0.26"),
+    )
+    is None,
+)
+check(
+    "art_diff: a decimal printed with and without its last zero passes (20.5 -> 20.50, -0.25 -> -0.250)",
+    art_diff(SAMPLE, SAMPLE.replace(b"20.5", b"20.50").replace(b"-0.25", b"-0.250"))
+    is None,
+)
+check(
+    "art_diff: a number two places off fails (0.0556 -> 0.0558)",
+    art_diff(SAMPLE, SAMPLE.replace(b"0.0556", b"0.0558")) is not None,
+)
+check(
+    "art_diff: an integer one off fails (600 -> 601)",
+    art_diff(SAMPLE, SAMPLE.replace(b"600", b"601")) is not None,
+)
+check(
+    "art_diff: a colour one digit off fails (#ff4081 -> #ff4082)",
+    art_diff(SAMPLE, SAMPLE.replace(b"ff4081", b"ff4082")) is not None,
+)
+check(
+    "art_diff: an id one digit off fails (rg1 -> rg2)",
+    art_diff(SAMPLE, SAMPLE.replace(b"rg1", b"rg2")) is not None,
+)
+check(
+    "art_diff: a changed word or a new element fails",
+    art_diff(SAMPLE, SAMPLE.replace(b"path", b"line")) is not None
+    and art_diff(SAMPLE, SAMPLE.replace(b"</svg>", b"<g/></svg>")) is not None,
+)
 with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
     for out in (a, b):
         subprocess.run(
@@ -352,12 +424,19 @@ with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
         made_a == made_b and made_a,
     )
     committed = {p.name: p.read_bytes() for p in svgs}
+    stale = {
+        n: why
+        for n in made_a
+        if n in committed and (why := art_diff(committed[n], made_a[n]))
+    }
     check(
-        "the committed SVGs are the generator's, no more, no fewer", committed == made_a
+        "the committed SVGs are the generator's, no more, no fewer",
+        committed.keys() == made_a.keys() and not stale,
     )
-    stale = [n for n in made_a if committed.get(n) != made_a[n]]
-    if stale:
-        print("    differ:", ", ".join(sorted(stale)))
+    for n in sorted(set(committed) ^ set(made_a)):
+        print("    only on one side:", n)
+    for n, why in sorted(stale.items()):
+        print(f"    differ: {n}: {why}")
 
 # ---- the words
 check("the README names SoundPlant", "SoundPlant" in readme)
@@ -387,5 +466,97 @@ lost = [c for c in CREDITS if c not in readme.replace("\n", " ")]
 check(f"every credit is kept ({len(CREDITS)} names)", not lost)
 if lost:
     print("    missing:", "; ".join(lost))
+# ---- the physics the pictures draw: their pure functions, on cases with a known answer
+RATE, NFFT = 16000, 4096
+BIN = RATE / NFFT
+
+
+def peak_hz(freq):
+    tone = [math.sin(2 * math.pi * freq * i / RATE) for i in range(2048)]
+    mag = art.spectrum(tone, RATE, NFFT, 2048)
+    k = max(range(len(mag)), key=mag.__getitem__)
+    return k * BIN, mag[k]
+
+
+hz, level = peak_hz(440)
+check(
+    f"the DFT of a 440 Hz sine peaks at 440 Hz, level about 1 ({hz:.1f} Hz, {level:.2f})",
+    abs(hz - 440) <= BIN and 0.9 < level < 1.02,
+)
+check("and not at 880 Hz, the octave above", abs(hz - 880) > 100)
+hz2, _ = peak_hz(880)
+check(
+    f"an 880 Hz sine peaks at 880 Hz, so the peak follows the input ({hz2:.1f} Hz)",
+    abs(hz2 - 880) <= BIN and abs(hz2 - 440) > 100,
+)
+
+kick, kick_rate = art.read_wav(art.SAMPLES / "909_kick.wav")
+check(
+    f"the WAV reader reads 909_kick.wav: {kick_rate} Hz, {len(kick)} frames, all in [-1, 1]",
+    kick_rate == 16000
+    and len(kick) == 13543
+    and all(-1 <= v <= 1 for v in kick)
+    and max(abs(v) for v in kick) > 0.5,
+)
+with tempfile.TemporaryDirectory() as d:
+    deep = Path(d) / "deep.wav"
+    with wave.open(str(deep), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(3)
+        w.setframerate(16000)
+        w.writeframes(b"\0" * 3 * 100)
+    try:
+        art.read_wav(deep)
+        refused = False
+    except ValueError as e:
+        refused = "16-bit PCM mono" in str(e)
+check("the WAV reader refuses a 24-bit file out loud", refused)
+
+for n in (1, 2, 3, 4):
+    nodes = [mode_k / n for mode_k in range(n + 1)]
+    loops = [(mode_k + 0.5) / n for mode_k in range(n)]
+    check(
+        f"standing wave {n}: zero at its {n + 1} nodes, full height between them",
+        all(abs(art.mode_shape(n, s)) < 1e-12 for s in nodes)
+        and all(abs(art.mode_shape(n, s)) > 0.999 for s in loops),
+    )
+check(
+    "a node of wave 2 is no node of wave 3 (the zero test can fail)",
+    abs(art.mode_shape(3, 0.5)) > 0.99,
+)
+
+ends = [art.string_pulse(art.X1, k / 20) for k in range(int(art.U_END * 20))]
+check(
+    "the string is still at its fixed end all the while the pulse runs and returns",
+    max(abs(v) for v in ends) < 1e-12,
+)
+x_at = 600.0
+u_out = (x_at - art.X0) / art.SPEED
+u_back = (2 * art.X1 - x_at - art.X0) / art.SPEED
+check(
+    "a point on the string rises as the pulse goes by and sinks as it comes back",
+    art.string_pulse(x_at, u_out) > 0.1 and art.string_pulse(x_at, u_back) < -0.05,
+)
+(c_fwd, _, a_fwd), (c_img, _, a_img) = art.pulse_parts(u_out)
+check(
+    "the returning pulse is the image of the one that runs on, with the opposite sign",
+    abs((c_fwd + c_img) / 2 - art.X1) < 1e-9 and a_fwd > 0 > a_img,
+)
+check(
+    "an end that did not flip the pulse would move: the same test fails with rho = -1",
+    abs(art.string_pulse(art.X1, (art.X1 - art.X0) / art.SPEED, -1)) > 0.1
+    and art.string_pulse(x_at, u_back, -1) > 0,
+)
+
+grid = [k / 100 for k in range(1, 400)]
+check(
+    "the critically damped spring never crosses its target",
+    min(art.critical_offset(t, art.SPR_W) for t in grid) > 0,
+)
+check(
+    "the under-damped one does, and by a lot",
+    min(art.ringing_offset(t, art.SPR_W, art.SPR_Z) for t in grid) < -0.3,
+)
+
 print("README:", "all ok" if not bad else f"{bad} FAILED")
 sys.exit(1 if bad else 0)

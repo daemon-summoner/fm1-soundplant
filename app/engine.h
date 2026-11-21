@@ -94,13 +94,17 @@ extern volatile uint8_t eng_ghost[NTRK];                 /* a muted track's step
 extern volatile uint8_t eng_voices, eng_voices_max;      /* sounding, and the guard's cap */
 extern volatile uint16_t eng_quiet;                      /* blocks in a row the output stayed under -60 dB (to 65535) */
 extern volatile uint32_t eng_guard_count;
+extern volatile uint8_t eng_usb_stereo;            /* Setup's USB AUDIO stereo: tracks 1..8 not sent (no taps) */
 extern volatile uint32_t eng_acid_lite_count;      /* the 303s switched to lite (engine.c ACID_LITE_ON) */
 extern volatile uint16_t eng_heals;                      /* NaNs caught in the mix: the states cleared */
 extern volatile uint32_t eng_punch_drum, eng_punch_mel;  /* the FX in effect */
 extern volatile float eng_pump_db;                       /* the master's pump: its duck now, dB (the Master out page) */
 extern volatile uint8_t eng_scene_now, eng_scene_cue;
 #define SCOPE_N 256u
-extern int16_t eng_scope[SCOPE_N];                       /* the last output samples, for the screen */
+#define SCOPE_DECIM 8u
+extern int16_t eng_scope[SCOPE_N];                       /* the output's mono sum for the screen: each sample the mean of
+                                                          * SCOPE_DECIM frames (a 5.5 kHz scope, 46 ms in all), Q14 per
+                                                          * channel at full scale */
 extern volatile uint32_t eng_scope_w;
 int engine_core2_state(void);
 int engine_slice_now(int trk, int *slice, int32_t *pos);  /* the slice engine's slice playing on a track (the picture) */                            /* 0 one core (never had), 1 two, 2 lost, 3 barred */

@@ -260,6 +260,88 @@ static void test_spring(void)
     }
 }
 
+static void test_ring(void)
+{
+    double worst = 0, over = 0;
+    int signs = 0, last = 0, rest_at = 0;
+    for (int ms = 0; ms <= 700; ms++) {              /* a pluck of 3 px, 7 Hz, tau 120 ms */
+        double want = 3.0 * exp(-ms / 120.0) * sin(2.0 * M_PI * 7.0 * ms * 0.001), got = ring_at((float)ms, 3.0f, 7.0f, 120.0f);
+        double env = 3.0 * exp(-ms / 120.0);
+        if (env >= 0.03)                             /* (under 1/32 px the form is cut to nothing) */
+            worst = fmax(worst, fabs(got - want));
+        over = fmax(over, fabs(got) - env);
+        if (got != 0.0 && ms > 0) {
+            int sg = got > 0.0 ? 1 : -1;
+            signs += sg != last && last != 0;
+            last = sg;
+            rest_at = ms;
+        }
+    }
+    check("ring_at: it is the decaying sine, e^(-t/tau) sin(2 pi f t), to 1e-3 px", worst < 1e-3);
+    check("ring_at: it never passes its envelope", over < 1e-4);
+    check("ring_at: it rings (the sign turns over and over before it rests), unlike a critically damped spring", signs >= 3);
+    check("ring_at: 3 px at tau 120 ms moves to 553 ms (where the envelope meets 1/32 px) and is exactly 0 after it", rest_at >= 540 && rest_at <= 554);
+    check("ring_at: before the pluck (negative time) it is 0, and a negated pluck mirrors it",
+          ring_at(-5.0f, 3.0f, 7.0f, 120.0f) == 0.0f && ring_at(40.0f, -3.0f, 7.0f, 120.0f) == -ring_at(40.0f, 3.0f, 7.0f, 120.0f));
+}
+
+static uint32_t lcg(uint32_t *s) { return *s = *s * 1664525u + 1013904223u; }
+
+static void test_scope(void)
+{
+    static int16_t ring[256];
+    const uint32_t mask = 255u, span = 256u - SC_GUARD;
+    int oracle_ok = 1, range_ok = 1, edge_ok = 1;
+    uint32_t seed = 7u, w;
+    for (uint32_t i = 0; i < 256u; i++)               /* a tone of 40 samples a cycle, written up to w = 1000 */
+        ring[i] = 0;
+    for (uint32_t i = 0; i < 1000u; i++)
+        ring[i & mask] = (int16_t)lround(1000.0 * sin(2.0 * M_PI * i / 40.0 + 0.3));
+    {
+        uint32_t c = scope_trig(ring, mask, 1000u, 100u);
+        check("scope_trig: it lands on a rising zero crossing", ring[(c - 1u) & mask] < 0 && ring[c & mask] >= 0);
+        check("scope_trig: with the samples asked for after it, and the newest such crossing (under one cycle past the least)",
+              1000u - c >= 100u && 1000u - c < 100u + 40u);
+        for (uint32_t i = 1000u; i < 1040u; i++)
+            ring[i & mask] = (int16_t)lround(1000.0 * sin(2.0 * M_PI * i / 40.0 + 0.3));
+        check("scope_trig: a steady tone starts in the same place a cycle on (the picture holds still)",
+              scope_trig(ring, mask, 1040u, 100u) == c + 40u);
+    }
+    for (int round = 0; round < 400; round++) {      /* the newest crossing in the allowed reach, by the plain scan */
+        uint32_t need = 20u + lcg(&seed) % 200u, want = 0, found = 0, c;
+        int dc = (int)(lcg(&seed) % 3u) - 1;
+        w = lcg(&seed);
+        for (uint32_t i = 0; i < 256u; i++)
+            ring[i] = (int16_t)((int)(lcg(&seed) >> 20) - 2048 + dc * 900);
+        for (c = w - span + 1u; c != w - need + 1u; c++)   /* (c from the oldest, upward: the last hit is the newest) */
+            if (ring[(c - 1u) & mask] < 0 && ring[c & mask] >= 0)
+                want = c, found = 1;
+        c = scope_trig(ring, mask, w, need);
+        if (!found)
+            want = w - span;
+        oracle_ok &= c == want;
+        range_ok &= w - c >= need && w - c <= span;
+    }
+    check("scope_trig: on 400 random rings it is the newest crossing with room (the plain scan agrees), else the oldest start", oracle_ok);
+    check("scope_trig: and it never reaches before the oldest allowed sample or past the newest", range_ok);
+    for (uint32_t i = 0; i < 256u; i++)
+        ring[i] = 0;
+    check("scope_trig: silence has no crossing: the oldest start", scope_trig(ring, mask, 5000u, 120u) == 5000u - span);
+    for (uint32_t i = 0; i < 256u; i++)
+        ring[i] = (int16_t)(i & 1u ? -300 : 300);   /* it rises on every even sample: the newest with room is `need` back, exactly */
+    edge_ok &= scope_trig(ring, mask, 4096u, 120u) == 4096u - 120u;
+    check("scope_trig: on 300, -300, 300 ... it lands on the rise `need` back (a fall is not a trigger: the odd sample before it is -300)", edge_ok);
+    {
+        uint32_t big = 0xFFFFFFF0u;                  /* the write count wraps at 2^32, past the ring's size: the indices stay right */
+        for (uint32_t i = 0; i < 256u; i++)
+            ring[(big - 255u + i) & mask] = (int16_t)lround(1000.0 * sin(2.0 * M_PI * (big - 255u + i) / 40.0));
+        uint32_t c = scope_trig(ring, mask, big + 30u, 100u);   /* (the ring written to big; +30 reads 30 old samples as new: still in range) */
+        check("scope_trig: across the 32-bit wrap it still returns a start with room, inside the reach", big + 30u - c >= 100u && big + 30u - c <= span);
+    }
+    check("scope_trig: asking for the most it can give (need = the reach) is the oldest start, not a read past the newest",
+          scope_trig(ring, mask, 9000u, span) == 9000u - span);
+}
+
 static void test_fade(void)
 {
     uint16_t bg = RGB(8, 16, 32), want[3];
@@ -391,6 +473,8 @@ int main(void)
     test_add();
     test_text();
     test_spring();
+    test_ring();
+    test_scope();
     test_fade();
     test_glow();
     test_beam();

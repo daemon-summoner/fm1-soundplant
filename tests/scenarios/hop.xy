@@ -1,0 +1,161 @@
+# Struck steps: a cell the playhead reaches hops up into the gap above it and rings back to rest, once; a cell that
+# does not sound does not hop; under MOTION still no cell moves. tests/hop_check.py reads the frames this writes.
+wait 300
+expect still 0
+turn ALGO 1
+expect trk 2
+step 2 1 9 48 100
+step 2 1 10 48 100
+step 2 1 11 48 100
+step 2 1 13 48 100
+step 2 1 14 48 100
+step 2 1 15 48 100
+step 2 1 16 48 100
+bpm 120
+tap SEQ
+expect page Steps
+tap PLAY
+expect playing 1
+wait 1000
+wait 16
+shot smooth_00.png
+wait 16
+shot smooth_01.png
+wait 16
+shot smooth_02.png
+wait 16
+shot smooth_03.png
+wait 16
+shot smooth_04.png
+wait 16
+shot smooth_05.png
+wait 16
+shot smooth_06.png
+wait 16
+shot smooth_07.png
+wait 16
+shot smooth_08.png
+wait 16
+shot smooth_09.png
+wait 16
+shot smooth_10.png
+wait 16
+shot smooth_11.png
+wait 16
+shot smooth_12.png
+wait 16
+shot smooth_13.png
+wait 16
+shot smooth_14.png
+wait 16
+shot smooth_15.png
+wait 16
+shot smooth_16.png
+wait 16
+shot smooth_17.png
+wait 16
+shot smooth_18.png
+wait 16
+shot smooth_19.png
+wait 16
+shot smooth_20.png
+wait 16
+shot smooth_21.png
+wait 16
+shot smooth_22.png
+wait 16
+shot smooth_23.png
+wait 16
+shot smooth_24.png
+wait 16
+shot smooth_25.png
+wait 16
+shot smooth_26.png
+wait 16
+shot smooth_27.png
+wait 16
+shot smooth_28.png
+wait 16
+shot smooth_29.png
+wait 16
+shot smooth_30.png
+wait 16
+shot smooth_31.png
+tap PLAY
+expect playing 0
+tap GLO
+turn SELECT 5
+expect page Setup
+tap SEL
+row MOTION
+turn ALGO 1
+expect still 1
+tap SEQ
+expect page Steps
+tap PLAY
+expect playing 1
+wait 1000
+wait 16
+shot still_00.png
+wait 16
+shot still_01.png
+wait 16
+shot still_02.png
+wait 16
+shot still_03.png
+wait 16
+shot still_04.png
+wait 16
+shot still_05.png
+wait 16
+shot still_06.png
+wait 16
+shot still_07.png
+wait 16
+shot still_08.png
+wait 16
+shot still_09.png
+wait 16
+shot still_10.png
+wait 16
+shot still_11.png
+wait 16
+shot still_12.png
+wait 16
+shot still_13.png
+wait 16
+shot still_14.png
+wait 16
+shot still_15.png
+wait 16
+shot still_16.png
+wait 16
+shot still_17.png
+wait 16
+shot still_18.png
+wait 16
+shot still_19.png
+wait 16
+shot still_20.png
+wait 16
+shot still_21.png
+wait 16
+shot still_22.png
+wait 16
+shot still_23.png
+wait 16
+shot still_24.png
+wait 16
+shot still_25.png
+wait 16
+shot still_26.png
+wait 16
+shot still_27.png
+wait 16
+shot still_28.png
+wait 16
+shot still_29.png
+wait 16
+shot still_30.png
+wait 16
+shot still_31.png

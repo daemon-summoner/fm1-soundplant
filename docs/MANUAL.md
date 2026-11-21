@@ -61,7 +61,8 @@ keys 1 to 11.
    <img src="img/screen-chords.png" width="240" alt="Steps on T3: a C chord on step 1 and a D minor on step 9, each named in its cell, with a bar under the steps they last" title="Two chords">
 5. **The conductor.** Turn **ALGORITHM** to COND and press **EDIT**. This is the conductor. It sets the key for
    every melodic track, and it starts in C major. While the pattern plays, play an F, then a G, then a C, and the
-   whole band follows you, in key.
+   whole band follows you, in key. The lit key is the chord's root, the key that plays the chord now sounding,
+   so you can see where the progression is. The same note in other octaves glows dimmer.
 
    To write a progression, press **SEQ**, turn **SELECT** to the Bar page and press black key 4, so each step
    lasts a beat. Go back to Steps. Hold **SEQ** and play a chord, then let go and press a step. Do the same for
@@ -252,15 +253,18 @@ the knob you turned. Red is used only for recording and for locks.
 Nothing on the screen jumps. A knob's bar glides to its new value, a list's highlight glides to the row you picked
 and the rows slide with it, and a page fades up and rises into place when you change pages. Meters, playheads and
 curves move in steps finer than a pixel: an edge halfway between two pixels lights both, so a move fades from one
-spot to the next instead of hopping. A step the playhead leaves keeps a short afterglow. In prism the lit things
-(knob heads, the playhead, the curves in the engine pictures) have a soft glow, the knob tiles and cards have a glass
-sheen, and the spectrum line under the header pulses on every quarter note while the sequencer plays. When you stop
-and nothing is moving, the screen is still and costs nothing.
+spot to the next instead of hopping. A step the playhead leaves keeps a short afterglow, and a step it plays hops up
+a couple of pixels and settles. Turn a knob and the thin lines on either side of it are plucked like strings: they
+ring for about half a second and stop. In prism the lit things (knob heads, the playhead, the curves in the engine
+pictures) have a soft glow, the knob tiles and cards have a glass sheen, and the spectrum line under the header
+pulses on every quarter note while the sequencer plays and takes its brightness from the sound itself, a live
+oscilloscope trace. The engine pictures, the effect pictures and the LFO's curve move only while there is sound, and
+come to rest when it ends. When you stop and nothing is moving, the screen is still and costs nothing.
 
 Messages drop in from above and fade up. The track's color fades into the next track's color when you change tracks.
 
 Setup's **MOTION** row turns all of it off: **still** puts every change on the screen at once, with no gliding,
-fading or afterglow. The new colors and the glow stay. Use still if you want the screen to be as quiet as possible
+fading, afterglow, hopping, plucking or scope, and the pictures stand still. The new colors and the glow stay. Use still if you want the screen to be as quiet as possible
 or you find movement distracting. Smooth is the default.
 
 ### Messages
@@ -643,11 +647,12 @@ sets how much brightness is left, and **keyscale** makes high notes less bright.
 
 ### Jacquard and bellows
 
-<img src="img/screen-engine-jacquard.png" width="240" alt="Engine on T3 jacquard, the spiral pad preset: the wave drawn; knobs table spiral, scan 39, bend 08, ripple 16" title="Jacquard"> <img src="img/screen-engine-bellows.png" width="240" alt="Engine on T3 bellows, the gospel preset: six drawbars, the 8-foot one lit, and the rotor; knobs stops 4, pedal 3, rotor 6, rate 7" title="Bellows">
+<img src="img/screen-engine-jacquard.png" width="240" alt="Engine on T3 jacquard, the spiral pad preset: the table's sixteen frames stacked, the scan's frame bright; knobs table spiral, scan 39, bend 08, ripple 16" title="Jacquard"> <img src="img/screen-engine-bellows.png" width="240" alt="Engine on T3 bellows, the gospel preset: six drawbars, the 8-foot one lit, and the rotor; knobs stops 4, pedal 3, rotor 6, rate 7" title="Bellows">
 
 **Jacquard** plays wavetables. **table** picks one of nine: shapes, nasal, grit, vocal, spiral, fold, octaves,
 glass and chirp. **scan** moves through the table's frames, and **bend** bends the shape of the wave. **ripple**
-wobbles the wave with a second oscillator, slowly at first and then as fast as the note itself. The nine tables
+wobbles the wave with a second oscillator, slowly at first and then as fast as the note itself. The picture stacks
+the table's sixteen frames, and draws the frame that scan reads bright, bent and wobbled as the knobs set it. The nine tables
 live beside the firmware, like the 909 cymbals' samples. Until the installer has written them, jacquard is silent,
 and picking it says NO WAVETABLES. Installing again from the site writes them.
 
@@ -1326,7 +1331,10 @@ Turn **SELECT** for more pages:
   the 2 to 5 kHz range and cuts it when that range sticks out above the sound on either side of it, which is what a
   resonant filter parked around 3 kHz does. Evenly bright, dark or noisy sound passes untouched. The knob sets how far
   it cuts, up to 9 dB, and only the peaks. It starts at 40 and works gently. Turn it to 0 and it is off. Projects
-  saved before polish existed load with it at 40, so they sound a little different. The CC for it is 19.
+  saved before polish existed load with it at 40, so they sound a little different. The CC for it is 19. Behind the
+  EQ curve, a faint line draws the sound leaving the FM-1: the last 22 milliseconds of the master output, started at
+  the same point of the wave each time, so a steady tone holds still instead of scrolling. It is a flat line when
+  nothing sounds.
 - Master color is described below.
 - Master out has the drums' level, the melodic tracks' level, the compressor and the pump. The **SEL** list on
   these pages lists their knobs, page by page, along with what the pump follows, its release and accent, and the
@@ -1490,6 +1498,14 @@ every track on its own. Each track's channel has the track at its level, before 
 character. The sends' effects and the master's EQ, color, compressor and pump are only on channels 1 and 2. A
 muted track's channel is silent. To set the level of all ten, use USB audio on Setup's **SEL** list. With
 **follows knob**, MASTER sets it. With **full**, the speaker follows MASTER and the recording stays at full level.
+With **stereo**, the master is recorded at full level as with **full**, and channels 3 to 10 are silent. Use it when
+you only record the master: sending the tracks takes some of SoundPlant's time, which a busy song may need.
+
+On Windows, a DAW such as Reaper uses one audio driver at a time. With WASAPI or ASIO, SoundPlant and the device you
+listen on must run at the same rate. Most headphones and speakers are set to 48 kHz, so set yours to 44.1 kHz too:
+open Windows' Sound settings, choose the output device, and set its format to 44100 Hz. If it has to stay at
+48 kHz, choose DirectSound in your DAW instead, which converts between the two rates. A bridge such as ASIO4ALL also
+converts, but what you hear through it can distort. The recording itself stays clean.
 
 The TRS jack is MIDI in. Everything that comes in over USB works from it too, except SysEx: notes, CCs, Program
 Change, and MIDI clock with start and stop. The FM-1 has no MIDI out jack, so SoundPlant sends only over USB and

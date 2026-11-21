@@ -1439,6 +1439,23 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
     if (!strcmp(cmd, "passkey")) {                  /* passkey N: a pairing waits for code N to be typed (-1 none) */
         sim_passkey = atoi(a);
         run_ms(1);
+    } else if (!strcmp(cmd, "settle")) {            /* settle: runs until the screen has not changed for 1 s (a touched knob's
+                                                     * highlight lasts 900 ms, then fades), at most 6 s */
+        uint32_t t, quiet = 0, last = lcd_changes;
+        for (t = 0; t < 6000u && quiet < 1000u; t += 10u) {
+            run_ms(10);
+            quiet = lcd_changes == last ? quiet + 10u : 0u;
+            last = lcd_changes;
+        }
+    } else if (!strcmp(cmd, "changes")) {           /* changes MS MIN MAX: the screen's fills and blits over MS ms, MIN to MAX of them */
+        uint32_t before = lcd_changes, n;
+        run_ms((uint32_t)atoi(a));
+        n = lcd_changes - before;
+        if (n < (uint32_t)atoi(b) || n > (uint32_t)atoi(c)) {
+            printf("  FAIL changes: the screen changed %u times in %s ms, expected %s to %s\n", n, a, b, c);
+            host_fails++;
+        } else
+            printf("  ok    the screen changed %u times in %s ms\n", n, a);
     } else if (!strcmp(cmd, "param")) {             /* param T P V */
         int t = atoi(a) - 1, p = param_of(b), v = atoi(c);
         if (t < 0 || t >= NALLTRK || p < 0 || p >= NTP) {

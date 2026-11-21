@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/img/readme-hero.svg" width="830" alt="SoundPlant, firmware for the M-VAVE FM-1. Eight plants in the track colours grow under the name and sway as a pluck runs across them.">
+  <img src="docs/img/readme-hero.svg" width="830" alt="SoundPlant, firmware for the M-VAVE FM-1. Eight plants in the track colours grow along a string under the name. A pluck runs along the string as a pulse, sways each plant as it passes and comes back upside down from the far end.">
 </p>
 
 <div align="center">
@@ -43,6 +43,17 @@ discipline and Polly's menu paradigm.
 <p align="center">
   <img src="docs/img/readme-meters.svg" width="830" alt="Eight level meters in the eight track colours, moving to a beat. Each bar rides a spring and each peak cap falls under gravity.">
 </p>
+
+## Sound you can see
+
+<p align="center">
+  <img src="docs/img/readme-scope.svg" width="830" alt="An oscilloscope drawing eight factory samples one after another, a 909 kick, a piano, a snare and more, with each sample's spectrum as bars below the trace.">
+</p>
+
+An oscilloscope on the factory samples. A beam sweeps each waveform across the screen and the trace fades behind it
+like phosphor, and under it the sample's spectrum rises as bars on a log frequency scale. Every waveform is read from a
+real WAV file in `app/samples/`, starting at a rising zero crossing, which is what a scope's trigger does to hold a
+steady tone still. The FM-1's own scope trace starts there too.
 
 ## What is in it
 
@@ -107,6 +118,45 @@ discipline and Polly's menu paradigm.
       <img src="docs/img/readme-card-samples.svg" width="240" alt="Your samples"><br>
       Your own samples load from their WAV files with <code>tools/soundplant_samples.py</code> (see the manual), or
       on the <a href="https://daemon-summoner.github.io/fm1-soundplant/samples/">Samples page</a>.
+    </td>
+  </tr>
+</table>
+
+## The physics inside
+
+The sounds on the FM-1 are made of a few old ideas from physics. These four pictures show them, each in slow motion
+and each drawn from its equations.
+
+<table>
+  <tr>
+    <td valign="top" width="50%">
+      <img src="docs/img/readme-physics-string.svg" width="410" alt="A plucked string fixed at both ends, and below it its first four standing waves, each with a different frequency and speed of decay.">
+      <br>
+      <b>A plucked string.</b> It is four standing waves added up. Each one swings at a whole multiple of the lowest
+      pitch, holds still at its nodes, and fades n squared times faster than the lowest, so the high ones go first.
+    </td>
+    <td valign="top" width="50%">
+      <img src="docs/img/readme-physics-resonance.svg" width="410" alt="A resonant low-pass filter with a sweeping cutoff: the frequencies it passes as a moving hump, and below it the ringing it makes after one tap.">
+      <br>
+      <b>A filter that rings.</b> A resonant low-pass lets the low frequencies through and lifts a hump at the cutoff.
+      After one tap it rings at that frequency and dies away, and a higher cutoff rings faster. The acid's cutoff and
+      reso knobs do this.
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <img src="docs/img/readme-physics-springs.svg" width="410" alt="Two masses on springs of the same stiffness: one critically damped that slides to its target, one under-damped that overshoots and rings, each with a trace of its height.">
+      <br>
+      <b>Two springs.</b> The same pull, two amounts of damping. The critically damped one slides to its target and
+      never crosses it, as every glide on the screen does. The under-damped one overshoots and rings, like the strings
+      beside a knob.
+    </td>
+    <td valign="top">
+      <img src="docs/img/readme-physics-fm.svg" width="410" alt="Frequency modulation drawn as wheels riding one another, with the sidebands as bars beside them as the modulation index sweeps.">
+      <br>
+      <b>Circle on a circle.</b> In frequency modulation each sideband is a wheel that rides the last one, turning at a
+      whole multiple of the modulator's rate. The tip always lands on the carrier's circle, and the size of each wheel is
+      the strength of that sideband.
     </td>
   </tr>
 </table>
@@ -187,11 +237,19 @@ teenage engineering.
 
 The art on this page is generated, not drawn. `tools/make_readme_art.py` (Python standard library, plus Pillow for the
 demo clip) writes `docs/img/readme-*`, and every motion in it comes from a small physics simulation that the script
-samples into SVG animation keyframes. The plants are cantilever beams with two bending modes, and a pluck travels
-along them and bounces back; the letters drop under gravity and squash on each impact; the meters ride damped springs,
-their peak caps falling under gravity; the knobs and buttons use the same critically damped spring as the firmware's
-screen. The text is outlined glyph paths from the Barlow fonts in `base/assets/fonts/`, so nothing is loaded from
-outside, and there is no script in any of it.
+samples into SVG animation keyframes. The plants are cantilever beams with two bending modes, standing on a string
+that is plucked: the pluck is a pulse that runs along it, sways each plant as it passes and comes back upside down from
+the fixed end, because a pulse and its mirror image add to zero there; the letters drop under gravity and squash on each
+impact; the meters ride damped springs, their peak caps falling under gravity; the knobs and buttons use the same
+critically damped spring as the firmware's screen. The rule above the install section is a string drawn as its first
+eight standing waves.
+
+The scope reads the factory WAV files with Python's `wave` module and draws them from a rising zero crossing, with their
+spectra from a Hann-windowed discrete Fourier transform written in the script. The four physics pictures are closed
+forms: a string's standing waves and their sum, a resonant low-pass's response and its ring, a critically damped and an
+under-damped spring, and frequency modulation as wheels whose sizes are Bessel functions. The text is outlined glyph
+paths from the Barlow fonts in `base/assets/fonts/`, so nothing is loaded from outside, and there is no script in any
+of it.
 
 Regenerate with `python3 tools/make_readme_art.py`. The demo clip is built from the frames of a host-simulator run
 (`python3 tools/make_readme_art.py --demo FRAMES_DIR`, 184 PNGs named `f000.png` on). `tests/host/readme_test.py`

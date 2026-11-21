@@ -514,6 +514,31 @@ static int spring_step(spring_t *s, float dt, float w)   /* -> still moving */
     return 1;
 }
 
+/* A plucked end's ring: amp * e^(-ms/tau) * sin(2 pi hz ms/1000), under-damped on purpose and a closed form of the time
+ * since the pluck (the same at any frame rate). Under 1/32 px it is exactly 0, so a band that shows it can rest. */
+static float ring_at(float ms, float amp, float hz, float tau_ms)
+{
+    float env = amp * fm_expf(-ms / tau_ms);
+    if (ms < 0.0f || f_abs(env) < 0.03f)
+        return 0.0f;
+    return env * fm_sin_turns(hz * ms * 0.001f);
+}
+
+/* Where a trace of `need` samples starts in eng_scope's ring (mask + 1 samples, w written so far; the caller masks the
+ * result): the newest rising zero crossing with `need` samples after it, so a steady tone holds still; no crossing, the
+ * oldest start. The oldest SC_GUARD samples are never read (the sound's writer overwrites them); need <= mask + 1 - SC_GUARD. */
+#define SC_GUARD 8u
+static uint32_t scope_trig(const int16_t *ring, uint32_t mask, uint32_t w, uint32_t need)
+{
+    uint32_t span = mask + 1u - SC_GUARD, k;
+    for (k = need; k < span; k++) {
+        uint32_t c = w - k;
+        if (ring[(c - 1u) & mask] < 0 && ring[c & mask] >= 0)
+            return c;
+    }
+    return w - span;
+}
+
 /* glyph index of a character: lower case folds to upper case when the font
  * has none, anything missing (and C1 controls) draws as '?' */
 static uint32_t soundplant_glyph(const soundplant_font_t *f, uint32_t ch)

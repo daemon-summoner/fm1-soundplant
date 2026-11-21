@@ -56,6 +56,54 @@ spin ALGO 1
 changes 100 10 400
 settle
 changes 400 0 0
+# pictures that rest: the LFO's curve, a chorus's picture and the Master page's scope draw nothing while no sound plays ...
+knob 2 ltype wave
+knob 2 ldest synth
+knob 2 lamt 100
+knob 2 lspeed 40
+knob 3 ltype wave
+knob 3 ldest synth
+knob 3 lamt 100
+knob 3 lspeed 40
+knob 11 engine chorus
+tap LFO
+expect page LFO
+settle
+changes 400 0 0
+tap FX
+turn SELECT 1
+turn SELECT 1
+expect page FX_I
+settle
+changes 400 0 0
+tap GLO
+turn SELECT 1
+expect page Master_EQ
+settle
+changes 400 0 0
+# ... and move while a song plays: the LFO's curve scrolls, the chorus's pictures turn, the scope draws the sound
+tap SEQ
+tapkey w0
+tapkey w4
+tapkey w8
+tapkey w12
+tap PLAY
+expect playing 1
+wait 700
+tap LFO
+changes 400 20 2000
+tap FX
+turn SELECT 1
+turn SELECT 1
+changes 400 20 2000
+tap GLO
+turn SELECT 1
+changes 400 10 2000
+# the song stops: the scope and the pictures come to rest once the tail is quiet
+tap PLAY
+expect playing 0
+settle
+changes 400 0 0
 tap HOME
 # MOTION still: a turned knob and a picked row land at once
 tap GLO
@@ -94,6 +142,40 @@ tap EDIT
 settle
 spin ALGO 1
 changes 100 0 8
+changes 400 0 0
+tap HOME
+# ... and a song playing: the Steps page redraws as the playhead moves (an eighth of a second a step) and does no more,
+# the LFO's curve and the chorus's pictures hold (at most the header's small activity dot moves), the Master page
+# draws no scope; once the song stops every one of them is quiet
+tap SEQ
+tap PLAY
+expect playing 1
+wait 700
+changes 1000 8 120
+tap LFO
+changes 400 0 8
+tap FX
+turn SELECT 1
+turn SELECT 1
+expect page FX_I
+changes 400 0 8
+tap GLO
+turn SELECT 1
+expect page Master_EQ
+changes 400 0 0
+tap PLAY
+expect playing 0
+tap LFO
+settle
+changes 400 0 0
+tap FX
+turn SELECT 1
+turn SELECT 1
+settle
+changes 400 0 0
+tap GLO
+turn SELECT 1
+settle
 changes 400 0 0
 tap HOME
 # the setting is the FM-1's: kept when project 1 loads, over a restart and by a new project

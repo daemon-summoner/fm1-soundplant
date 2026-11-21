@@ -109,12 +109,18 @@ static uint16_t col_mix(uint16_t a, uint16_t b, uint32_t s)   /* a moved s/16 of
 #define W_SOFT 12.0f
 #define MV_GAP_MS 250u
 typedef struct { spring_t s; uint32_t ms, key; } mover_t;
-static struct { uint32_t now; uint8_t still; } an;
+/* an.deco: the decorations' clock, ms. It runs while the output is audible (eng_quiet counts the blocks since it was
+ * not, DECO_HOLD_MS of them is the tail's length) and stands still when nothing sounds and in Motion still. */
+#define DECO_HOLD_MS 300u
+static struct { uint32_t now, deco; uint8_t still; } an;
 static void an_view(void);
 static void an_frame(void)
 {
-    an.now = plat_ms();
+    uint32_t t = plat_ms(), gap = t - an.now;
     an.still = (proj.rsv[3] & MOTION_STILL) != 0;
+    if (!an.still && gap <= MV_GAP_MS && eng_quiet < DECO_HOLD_MS * 441u / (10u * APP_BLOCK))
+        an.deco += gap;
+    an.now = t;
     an_view();
 }
 static float mv_to(mover_t *m, uint32_t key, float to, float w)   /* where m is now, on its way to `to` */
@@ -158,7 +164,7 @@ static float ph_frac(phclk_t *c, int step)
 /* A step the playhead has lit stays lit and fades (AFG_MS): the playhead leaves a trail */
 #define AFG_MS 260u
 static phclk_t pclk[NSEQT];
-static struct { uint8_t e[NSTEP]; uint16_t key; uint32_t ms; } afg;
+static struct { uint8_t e[NSTEP]; uint16_t t[NSTEP]; uint16_t key, at; uint32_t ms; } afg;   /* t: when the playhead reached a step; at: the step it is on, plus 1 (0: none) */
 static uint32_t afg_share(uint32_t e) { return (e + 16u) >> 5; }   /* the 0 .. 8 steps a fade is drawn in */
 static void afg_tick(int key, int step)
 {
@@ -170,8 +176,14 @@ static void afg_tick(int key, int step)
     } else
         for (uint32_t i = 0; i < NSTEP; i++)
             afg.e[i] = afg.e[i] > dec ? (uint8_t)(afg.e[i] - dec) : 0u;
-    if (step >= 0 && step < NSTEP)
+    if (step >= 0 && step < NSTEP) {
+        if (afg.at != (uint16_t)(step + 1))
+            afg.t[step] = (uint16_t)an.now;
+        else if ((uint16_t)((uint16_t)an.now - afg.t[step]) > 1000u)   /* a held step's age stops short of the 16-bit wrap */
+            afg.t[step] = (uint16_t)(an.now - 1000u);
         afg.e[step] = 255u;
+    }
+    afg.at = step >= 0 && step < NSTEP ? (uint16_t)(step + 1) : 0u;
 }
 static float ph_pos(int tr, int len)                 /* the playhead along a pattern: 0 .. 1 of its length */
 {
@@ -273,7 +285,7 @@ static const char *const ONOFF[2] = {"off", "on"};
 static const char *const LINK_NAME[9] = {"off", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"};
 static const char *const FOLLOW_NAME[NBM] = {"no", "diatonic", "transpose", "harmony", "ch. deg"};
 static const char *const CORE2_NAME[4] = {"one core", "two cores", "lost", "barred"};
-static const char *const USBA_NAME[2] = {"follows knob", "full"};
+static const char *const USBA_NAME[3] = {"follows knob", "full", "stereo"};
 static const char *const BRAIN_KNOB[3] = {"key", "scale", "link"};
 
 /* the keys: 0 = F3; the white and the black ones in order */
@@ -284,6 +296,7 @@ enum { KM_NONE, KM_PLAY, KM_STEP, KM_SCENE, KM_MUTE, KM_PUNCH, KM_BRAIN, KM_SOUN
        KM_TRACK, KM_SAVE, KM_SOLO, KM_SCALE, KM_ROUTE, KM_STEPSOUND, KM_IDLE, KM_WEAVE, KM_BARK,
        KM_STEPCHORD };   /* KM_IDLE: does nothing */   /* what a held key does */
 
+#define TOUCH_LIT_MS 900u                            /* a knob last turned stays lit this long (the last of it a fade) */
 /* the input's and the screen's state */
 static struct {
     uint32_t btn, keys, btn_used, btn_t[NB];
@@ -293,7 +306,7 @@ static struct {
     uint32_t msg_until;
     uint8_t msg_kind, msg_no;
     int8_t touched;
-    uint32_t touch_until;
+    uint32_t touch_until;                            /* (TOUCH_LIT_MS after the last turn) */
     uint32_t frame;
     uint8_t page;
     uint8_t any_btn;
@@ -1403,9 +1416,38 @@ static void draw_header(void)
 #define RL_DIM 8u                                    /* the resting brightness, of 16 */
 #define RL_MS 320u                                   /* a pulse's length */
 static struct { uint8_t step; uint32_t t0; } rl;
+/* The master's last SC_N samples (22 ms at the scope's 5.5 kHz), from a rising zero crossing so a steady tone stands
+ * still, in 1/128 of full scale (-127 .. 127). Returns the loudest, or 0 with o flat when it is under -36 dB or Motion
+ * is still: the scope is decoration, the meters are the information. The caller hashes and draws this copy, never the
+ * ring: the sound's writer moves it between two reads. */
+#define SC_N 120u
+static unsigned scope_grab(int8_t *o)
+{
+    uint32_t w = eng_scope_w, s = scope_trig(eng_scope, SCOPE_N - 1u, w, SC_N), i;
+    unsigned pk = 0;
+    for (i = 0; i < SC_N; i++) {
+        int v = eng_scope[(s + i) & (SCOPE_N - 1u)] >> 8;
+        v = v > 127 ? 127 : v < -127 ? -127 : v;
+        o[i] = (int8_t)v;
+        pk = (unsigned)(v < 0 ? -v : v) > pk ? (unsigned)(v < 0 ? -v : v) : pk;
+    }
+    if (pk < 2u || an.still) {
+        memset(o, 0, SC_N);
+        return 0;
+    }
+    return pk;
+}
+static uint32_t scope_hash(uint32_t h, const int8_t *o)
+{
+    for (uint32_t i = 0; i < SC_N; i++)
+        h = hash_u(h, (uint32_t)(uint8_t)o[i]);
+    return h;
+}
 static void draw_rule(void)
 {
     uint32_t lv = RL_DIM, h;
+    int8_t sc[SC_N];
+    unsigned pk;
     if (!theme->glow || hx.mode)
         return;
     if (!playing() || an.still)
@@ -1420,16 +1462,28 @@ static void draw_rule(void)
         lv += (uint32_t)(p * p * (float)(16u - RL_DIM) + 0.5f);
     }
     lv = lv * hx.a / 32u;
+    pk = scope_grab(sc);
     h = hash_u(hash_u(ui.sig[0], 0x7Cu), lv);
+    if (pk)
+        h = scope_hash(h, sc);
     if (h == ui.sig[6])
         return;
     ui.sig[6] = h;
     cv_begin(240, 2, K_BG);
     for (int32_t x = 0; x < 240; x++) {
-        uint32_t u = (uint32_t)x * 7u * 16u / 239u, i = u >> 4;
+        uint32_t u = (uint32_t)x * 7u * 16u / 239u, i = u >> 4, l0 = lv, l1 = lv * 5u / 16u;
         uint16_t c = col_mix(theme->ink[i], theme->ink[i < 7u ? i + 1u : 7u], u & 15u);
-        cv_rect(x, 0, 1, 1, ink_mix(c, lv));
-        cv_rect(x, 1, 1, 1, ink_mix(c, lv * 5u / 16u));
+        if (pk) {                                    /* the wave under the column: a push lights the top row, a pull the foot's */
+            int v = sc[x >> 1];
+            uint32_t up = (uint32_t)(v > 0 ? v : -v) * 16u / 64u;
+            up = (up > 16u ? 16u : up) * hx.a / 32u;
+            if (v > 0)
+                l0 += up * (16u - l0) / 16u;
+            else
+                l1 += up * (16u - l1) / 16u;
+        }
+        cv_rect(x, 0, 1, 1, ink_mix(c, l0));
+        cv_rect(x, 1, 1, 1, ink_mix(c, l1));
     }
     cv_blit(0, HDR_H - 2);
 }
@@ -2181,14 +2235,35 @@ static void knob_bar(int32_t x, int32_t y, int32_t w, float fill, uint16_t c)
     if (theme->glow)
         cv_glow((float)x + (float)f * (1.0f / 16.0f) - 3.0f, (float)y + 3.0f, 7.0f, c, 150u);
 }
-#define TOUCH_FADE_MS 250u                            /* a knob last turned: lit for 900 ms, the last of them a fade */
+#define TOUCH_FADE_MS 250u                            /* a knob last turned: lit for TOUCH_LIT_MS, the last of it a fade */
+/* The strings between the knobs: turning one plucks the dividers either side of it, in opposite ways. Each rings as its
+ * fundamental, KS_AMP px at KS_HZ, dying with a time constant of KS_TAU ms: at rest, straight, in about half a second.
+ * A held turn plucks it again at every click, so it shivers while the knob moves. */
+#define KS_AMP 2.5f
+#define KS_HZ 7.0f
+#define KS_TAU 120.0f
+#define KS_SEG 8
+static void knob_string(int32_t x, int32_t bend, uint32_t tint)   /* bend in 1/16 px, 0: straight */
+{
+    float xs = (float)x, d = (float)bend * (1.0f / 16.0f), y0 = 10.0f, len = (float)(KNB_H - 22);
+    if (!bend) {
+        cv_rect(x, 10, 1, KNB_H - 22, K_LINE);
+        return;
+    }
+    for (int k = 0; k < KS_SEG; k++) {
+        float s0 = (float)k / (float)KS_SEG, s1 = (float)(k + 1) / (float)KS_SEG;
+        cv_linef(xs + d * fm_sin_turns(s0 * 0.5f), y0 + s0 * len, xs + d * fm_sin_turns(s1 * 0.5f), y0 + s1 * len,
+                 col_mix(K_LINE, K_DIM, tint), 1.0f);
+    }
+}
 static void draw_knobs(void)
 {
     static mover_t mv[4];
     knob_t k[4];
     float fill[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-    uint32_t h = hash_u(2166136261u, ui.page | (uint32_t)ui.touched << 8), i, hs[4] = {0, 0, 0, 0};
+    uint32_t h = hash_u(2166136261u, ui.page | (uint32_t)ui.touched << 8), i, hs[4] = {0, 0, 0, 0}, kt = 0;
     uint32_t left = ui.touch_until > an.now ? ui.touch_until - an.now : 0u;
+    int32_t kd[4] = {0, 0, 0, 0};                    /* the dividers' (1 .. 3) bend, in 1/16 px */
     int32_t bwid = LARGE ? 48 : 44;
     page_knobs(k);
     for (i = 0; i < 4; i++) {
@@ -2204,6 +2279,18 @@ static void draw_knobs(void)
         h = hash_u(h, hs[i]);
     }
     h = hash_u(h, (uint32_t)ui.lockpg);
+    if (!LARGE && !an.still && left && ui.touched >= 0) {   /* the dividers' bend now (large type draws none) */
+        float age = (float)(int32_t)(TOUCH_LIT_MS - left);
+        int32_t bend = (int32_t)(ring_at(age, KS_AMP, KS_HZ, KS_TAU) * 16.0f);
+        if (bend) {
+            kt = (uint32_t)(10.0f * fm_expf(-age / KS_TAU));
+            if (ui.touched >= 1)
+                kd[ui.touched] = bend;
+            if (ui.touched <= 2)
+                kd[ui.touched + 1] = -bend;
+            h = hash_u(hash_u(h, (uint32_t)bend), kt);
+        }
+    }
     if (h == ui.sig[2])
         return;
     ui.sig[2] = h;
@@ -2217,7 +2304,7 @@ static void draw_knobs(void)
             int lock = ui.lockpg && !s_eq(k[i].val, "-");
             uint16_t vc = hs[i] ? K_SEL : lock ? K_REC : K_TEXT, lc = col_mix(K_DIM, K_TEXT, hs[i]);
             if (i && !LARGE)                             /* (large type: the gaps alone) */
-                cv_rect(x, 10, 1, KNB_H - 22, K_LINE);
+                knob_string(x, kd[i], kt);
             if (!k[i].name)
                 continue;
             if (LARGE) {
@@ -3266,7 +3353,7 @@ static void list_setup(int g)
     bt_adev_text(baud_t);
     list_add(ACTION_NAME[A_BT_ADEV], baud_t, LK_ACTION, A_BT_ADEV);
     list_head("USB and MIDI");
-    list_add(ACTION_NAME[A_USB_AUDIO], USBA_NAME[proj.usb_full & 1u], LK_PICK, A_USB_AUDIO);
+    list_add(ACTION_NAME[A_USB_AUDIO], USBA_NAME[proj.usb_full < 3u ? proj.usb_full : 0u], LK_PICK, A_USB_AUDIO);
 #if FM1B_USB_HOST
     list_add(ACTION_NAME[A_USB_HOST], plat_usb_host_state() ? "MIDI host" : "computer", LK_PICK, A_USB_HOST);
 #endif
@@ -3947,6 +4034,22 @@ static void steps_head(int trk, char *nm, char *t)
         e = note_name(ui.rem[i], e);
     }
 }
+static int cell_on(const tpat_t *tp, int trk, int s)   /* the step is inside the pattern and sounds */
+{
+    return s < tp->len && (pl_type(trk) == PL_RAND ? step_slot_on(tp, s) : step_on(&tp->st[s], trk));
+}
+/* A struck cell hops up (HOP_AMP px) and rings out within about 125 ms, once, from the moment the playhead reached it */
+#define HOP_AMP 3.0f
+#define HOP_HZ 8.0f
+#define HOP_TAU 70.0f
+static int8_t cell_hop(int s, int on)
+{
+    float v;
+    if (an.still || !on || !afg.e[s])
+        return 0;
+    v = ring_at((float)(uint16_t)((uint16_t)an.now - afg.t[s]), -HOP_AMP, HOP_HZ, HOP_TAU);
+    return (int8_t)(v < 0.0f ? v - 0.5f : v + 0.5f);
+}
 static void draw_steps_as(void);
 static void draw_steps(void)                         /* large type: the cells in today's faces (eight across) */
 {
@@ -3968,7 +4071,8 @@ static void draw_steps_as(void)
                                           (uint32_t)ui.held << 10 | (uint32_t)ui.dsound << 26);
     char t[40];
     float pf;
-    int beam;
+    int beam, hopping = 0;
+    int8_t hop[16];
     h = hash_u(h, (uint32_t)ph | (uint32_t)playing() << 8 | (uint32_t)ui.rec_armed << 9 | (uint32_t)ui.cursor << 16 |
                       (uint32_t)ui.lockpg << 24 | (uint32_t)(seq.rec_wait != 0) << 30);
     h = hash_u(h, ui.trickpg | (uint32_t)ui.rem_fx << 16 | (uint32_t)(ui.frame / 8 & 1u) << 31);
@@ -3990,14 +4094,19 @@ static void draw_steps_as(void)
     for (int i = 0; i < 16; i++)
         h = hash_u(h, step_has_lock(pats.lane, trk, pt, ui.bar * 16 + i));
     afg_tick(trk | pt << 4, playing() ? ph : -1);
-    for (int i = 0; i < 16; i++)
-        h = hash_u(h, afg_share(afg.e[ui.bar * 16 + i]));
+    for (int i = 0; i < 16; i++) {
+        int s = ui.bar * 16 + i;
+        hop[i] = cell_hop(s, cell_on(tp, trk, s));
+        hopping |= hop[i] != 0;
+        h = hash_u(hash_u(h, afg_share(afg.e[s])), (uint32_t)(hop[i] + 4));
+    }
     pf = ph_frac(&pclk[trk], ph);
     beam = playing() && !an.still && ph / 16 == ui.bar && ph < tp->len;
     if (beam)
         h = hash_u(h, (uint32_t)mv16(pf * (float)(ST_CW - 4)));
     if (!begin_main(h))
         return;
+    GA_HOLD(hopping);
     MAIN_BANDS {
         if (band == &BANDS[0]) {                         /* the sound and what a step takes (large type: on the tag) */
             char nm[NAME_LEN + 2];
@@ -4024,10 +4133,10 @@ static void draw_steps_as(void)
             int s = ui.bar * 16 + i, in = s < tp->len, held = ui.held >> i & 1u, on, implicit, lit;
             uint32_t sh = afg_share(afg.e[s]);
             const step_t *st = &tp->st[s];
-            int32_t x = ST_X + (i % 8) * ST_CW, y = ST_Y + (i / 8) * (ST_CH + 4);
+            int32_t x = ST_X + (i % 8) * ST_CW, y = ST_Y + (i / 8) * (ST_CH + 4) + hop[i];
             uint16_t bg, fg;
             hit_t hm;
-            on = in && (pl_type(trk) == PL_RAND ? step_slot_on(tp, s) : step_on(st, trk));
+            on = cell_on(tp, trk, s);
             implicit = on && pl_type(trk) == PL_RAND && !step_slot_set(tp, s);   /* none set: all on, shown plain */
             bg = !in ? K_BG : on && !implicit ? K_TINT : K_PANEL;
             if (in && sh)                                /* the playhead's light, fading */
@@ -4164,7 +4273,7 @@ static void draw_steps_as(void)
                     if (j < 0 || j > 15)
                         continue;
                     x = ST_X + (j % 8) * ST_CW;
-                    y = ST_Y + (j / 8) * (ST_CH + 4) + ST_CH - 4;
+                    y = ST_Y + (j / 8) * (ST_CH + 4) + ST_CH - 4 + hop[j];
                     x0 = k == 0 ? x + 3 : x - 2;
                     x1 = last || j == 15 || j % 8 == 7 || sj == plen - 1 ? x + ST_CW - 5 : x + ST_CW;
                     cv_rect(x0, y, x1 - x0, 2, K_DIM);   /* rows 42-43, under the marks */
@@ -4178,11 +4287,12 @@ static void draw_steps_as(void)
             }
         }
         if (beam) {                                      /* the playhead: a lit line crossing its step */
-            int32_t y0 = ST_Y + (ph % 16 / 8) * (ST_CH + 4);
+            int32_t y0 = ST_Y + (ph % 16 / 8) * (ST_CH + 4) + hop[ph % 16];
             cv_beam((float)(ST_X + (ph % 8) * ST_CW + 1) + pf * (float)(ST_CW - 4), y0 + 1, y0 + ST_CH - 1, K_SEL,
                     K_NOW, theme->glow ? 130u : 0u);
         }
     }
+    GA_HOLD(0);
     }
 }
 
@@ -4268,15 +4378,30 @@ static uint32_t pic_f;
 static float pic_lvl;
 static void pic_wave(int32_t x0, int32_t y0, int32_t w, int32_t h, const uint8_t *p, uint32_t f)
 {
-    /* table: the harmonics; scan: their mix; bend: the phase bent; ripple: a second cycle sliding */
-    float cy = (float)(y0 + h / 2), amp = (float)(h / 2 - 8), harm = (float)(1 + p[TP_E1] * 7 / 127);
-    pen_t pn = {0};
-    (void)f;
-    cv_rect(x0, y0 + h / 2, w, 1, K_LINE);
-    for (int32_t x = 0; x <= w; x++) {
-        float ph = (float)x / (float)w * 2.0f, bend = ph + fm_sin_turns(ph) * (float)p[TP_E3] / 127.0f / 6.0f;
-        float a = fm_sin_turns(bend), b = fm_sin_turns(bend * harm + (float)p[TP_E4] / 256.0f);
-        pen_to(&pn, (float)(x0 + x), cy - (a * (127 - p[TP_E2]) + b * p[TP_E2]) / 127.0f * amp, K_NOW);
+    /* the table's sixteen frames stacked front (scan 0) to back, faint; the frame scan reads drawn bright at its place
+     * in the stack, bent as bend bends the phase (synth.c wt_run) and pushed by ripple's second cycle, which slides
+     * while the track sounds */
+    int t = p[TP_E1];
+    float scan = (float)p[TP_E2] / 127.0f, wp = 0.5f + (float)p[TP_E3] / 127.0f * 0.45f, dr = (float)p[TP_E4] / 127.0f;
+    float ka = 0.5f / wp, kb = 0.5f / (1.0f - wp), depth = dr * dr * 0.6f;
+    float rate = dr > 0.001f ? fm_exp2f(-7.0f + 8.0f * dr) : 0.0f, mp0 = (float)f / 90.0f;
+    int32_t dx = 40, dy = 22, ww = w - dx;
+    float amp = (float)(h - dy - 6) / 2.0f, cy0 = (float)(y0 + h) - amp - 3.0f;
+    for (int fr = WT_FRAMES - 1; fr >= 0; fr--) {
+        pen_t pn = {0};
+        float d = (float)fr / (float)(WT_FRAMES - 1), ox = (float)x0 + d * (float)dx, cy = cy0 - d * (float)dy;
+        for (int32_t x = 0; x <= ww; x += 3)
+            pen_to(&pn, ox + (float)x, cy - wt_value(t, d, (float)x / (float)ww) * amp, K_FAINT);
+    }
+    {
+        pen_t pn = {0};
+        float ox = (float)x0 + scan * (float)dx, cy = cy0 - scan * (float)dy;
+        for (int32_t x = 0; x <= ww; x++) {
+            float ph = (float)x / (float)ww, q = ph < wp ? ph * ka : 0.5f + (ph - wp) * kb;
+            if (rate > 0.0f)
+                q += depth * fm_sin_turns(mp0 + ph * rate);
+            pen_to(&pn, ox + (float)x, cy - wt_value(t, scan, q) * amp, K_NOW);
+        }
     }
 }
 static void pic_rayon(int32_t x0, int32_t y0, int32_t w, int32_t h, const uint8_t *p, uint32_t f)
@@ -4697,11 +4822,12 @@ static void pic_clock(int trk)                       /* (the clock eases out: it
     spd += ((pic_lvl > 0.0f ? 1.0f : 0.0f) - spd) * (pic_lvl > 0.0f ? 0.5f : 0.06f);
     if (spd < 0.02f && pic_lvl <= 0.0f)
         spd = 0.0f;
-    ft += spd * (float)(ui.frame - last);
+    if (!an.still && an.now - last <= MV_GAP_MS)     /* (a frame is 16 ms: the picture's units; held in Motion still) */
+        ft += spd * (float)(an.now - last) * (1.0f / 16.0f);
     if (ft >= 16777216.0f)                           /* (a float counts whole frames exactly to 2^24) */
         ft -= 16777216.0f;
     pic_f = (uint32_t)ft;
-    last = ui.frame;
+    last = an.now;
 }
 /* a track's parameters as they sound now: its own, a lock's or a motion's value over each (engine_live): what the
  * pages' pictures draw, so a recorded motion moves them as it plays back (one buffer: one track at a time) */
@@ -5049,7 +5175,8 @@ static void draw_punch(void)
 static void draw_fxtrack(int trk)                    /* AUX_FX1 / AUX_FX2: the effect and a picture of it */
 {
     int pick = fx_pick_of(trk), type = fx_pick_type(pick);
-    uint32_t h = hash_u(hash_u(2166136261u, 0xF0u), (uint32_t)trk | (uint32_t)pick << 4 | (ui.frame / 3) << 8 |
+    uint32_t tick = type == FXT_CHORUS || type == FXT_PHASER ? an.deco / 48u : 0u;   /* (the others' pictures stand still) */
+    uint32_t h = hash_u(hash_u(2166136261u, 0xF0u), (uint32_t)trk | (uint32_t)pick << 4 | tick << 8 |
                                           (uint32_t)ui.last_inst << 24);
     char t[32];
     if (!begin_main(h))
@@ -5062,7 +5189,7 @@ static void draw_fxtrack(int trk)                    /* AUX_FX1 / AUX_FX2: the e
         cv_text(12, 40, &FONT_XS, t, K_DIM);
         {
             int32_t x0 = 130, y0 = 60, w = 100;
-            uint32_t f = ui.frame;
+            uint32_t f = tick * 3u;
             switch (type) {
             case FXT_CHORUS: {
                 pen_t p0 = {0}, p1 = {0};
@@ -5654,7 +5781,7 @@ static void draw_lfo(void)
     const uint8_t *p = par_now(trk);
     int lt = p[TP_LTYPE] % NLT, sh = p[TP_LX2];
     uint32_t h = hash_u(hash_u(2166136261u, 0x1Fu), (uint32_t)trk | (uint32_t)lt << 4 | (uint32_t)p[TP_LAMT] << 8 |
-                                          (uint32_t)sh << 16 | (lt ? ui.frame / 2 : 0u) << 24);
+                                          (uint32_t)sh << 16 | (lt ? an.deco / 32u : 0u) << 24);
     int32_t x0 = 16, y0 = 12, w = 208, hh = 84, cy = y0 + hh / 2, amp = 6 + p[TP_LAMT] * (hh / 2 - 8) / 127;
     uint32_t r = 12345u;
     if (!begin_main(h))
@@ -5665,7 +5792,7 @@ static void draw_lfo(void)
             text_c(120, 40, &FONT_S, "LFO off", K_DIM);
         {
             pen_t pn = {0};
-            float scroll = (float)(ui.frame / 2u) * 2.0f;     /* the curve slides left as it runs */
+            float scroll = (float)(an.deco / 32u) * 2.0f;     /* the curve slides left as the sound runs */
             (void)r;
             for (int32_t x = 0; lt && x <= w; x++) {
                 float u = (float)x + scroll, v;              /* v: -1..1 */
@@ -6061,13 +6188,23 @@ static void draw_master(void)
     uint32_t h = hash_u(hash_u(2166136261u, 0x3Au), (uint32_t)pg);
     int32_t x0 = 16, y0 = 12, w = 208, hh = 84, cy = y0 + hh / 2;
     int pv = pg == 2 ? (int)(eng_pump_db * (float)(hh - 10) / 24.0f) : 0;   /* the pump's duck, now (pixels) */
+    int8_t sc[SC_N];
+    unsigned pk = pg == 0 ? scope_grab(sc) : 0u;     /* the EQ page: the master's wave behind its curve */
     for (int i = 0; i < NMS; i++)
         h = hash_u(h, m[i]);
     h = hash_u(h, (uint32_t)pv);
+    if (pk)
+        h = scope_hash(h, sc);
     if (!begin_main(h))
         return;
     MAIN_BANDS {
         cv_rect(x0, cy, w, 1, K_LINE);
+        if (pk) {
+            pen_t sp = {0};
+            for (uint32_t i = 0; i < SC_N; i++)
+                pen_to(&sp, (float)x0 + (float)(i * (uint32_t)w) / (float)(SC_N - 1u),
+                       (float)cy - (float)sc[i] * (float)(hh / 2 - 6) / 127.0f, col_mix(K_LINE, K_DIM, 6));
+        }
         if (pg == 0) {
             pen_t pn = {0};
             for (int32_t x = 0; x <= w; x++) {           /* the three bands, eased into each other */
@@ -6167,7 +6304,7 @@ static void draw_setup(void)
                                                           * notes, theme: their values right there), at 15 px */
             setup_f = &LFONT_S;
             setup_row(1, "tempo from", seq.ext ? "MIDI clock in" : "SoundPlant");
-            setup_row(17, "USB audio", USBA_NAME[proj.usb_full & 1u]);
+            setup_row(17, "USB audio", USBA_NAME[proj.usb_full < 3u ? proj.usb_full : 0u]);
             setup_row(33, "autosave", proj.rsv[2] & AUTOSAVE_OFF ? "off: press SAVE" : "on");
             setup_row(49, "BT audio", ta);
             setup_row(65, "BT MIDI", td);
@@ -6177,7 +6314,7 @@ static void draw_setup(void)
         setup_row(2, "tempo from", seq.ext ? "MIDI clock in" : "SoundPlant");
         setup_row(16, "clock", CLOCK_ROW[proj.clock % SEQ_NCLK]);
         setup_row(30, "sends notes", proj.send_notes ? "yes" : "no");
-        setup_row(44, "USB audio", USBA_NAME[proj.usb_full & 1u]);
+        setup_row(44, "USB audio", USBA_NAME[proj.usb_full < 3u ? proj.usb_full : 0u]);
         setup_row(58, "autosave", proj.rsv[2] & AUTOSAVE_OFF ? "off: press SAVE" : "on");
         setup_row(72, "theme", THEME_OF_PROJ()->name);
         setup_row(86, "BT audio", ta);

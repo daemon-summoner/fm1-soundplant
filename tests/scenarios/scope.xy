@@ -1,0 +1,158 @@
+# The Master page's scope: while a song plays, the master output's wave moves behind the EQ curve (smooth); with nothing
+# sounding, or under MOTION still, that part of the screen holds. tests/scope_check.py reads the frames this writes.
+wait 300
+expect still 0
+tap SEQ
+tapkey w0
+tapkey w4
+tapkey w8
+tapkey w12
+tap PLAY
+expect playing 1
+wait 700
+tap GLO
+turn SELECT 1
+expect page Master_EQ
+wait 500
+wait 16
+shot playing_00.png
+wait 16
+shot playing_01.png
+wait 16
+shot playing_02.png
+wait 16
+shot playing_03.png
+wait 16
+shot playing_04.png
+wait 16
+shot playing_05.png
+wait 16
+shot playing_06.png
+wait 16
+shot playing_07.png
+wait 16
+shot playing_08.png
+wait 16
+shot playing_09.png
+wait 16
+shot playing_10.png
+wait 16
+shot playing_11.png
+wait 16
+shot playing_12.png
+wait 16
+shot playing_13.png
+wait 16
+shot playing_14.png
+wait 16
+shot playing_15.png
+wait 16
+shot playing_16.png
+wait 16
+shot playing_17.png
+wait 16
+shot playing_18.png
+wait 16
+shot playing_19.png
+wait 16
+shot playing_20.png
+wait 16
+shot playing_21.png
+wait 16
+shot playing_22.png
+wait 16
+shot playing_23.png
+tap SEQ
+tap PLAY
+expect playing 0
+tap GLO
+turn SELECT 1
+expect page Master_EQ
+settle
+wait 16
+shot stopped_00.png
+wait 16
+shot stopped_01.png
+wait 16
+shot stopped_02.png
+wait 16
+shot stopped_03.png
+wait 16
+shot stopped_04.png
+wait 16
+shot stopped_05.png
+wait 16
+shot stopped_06.png
+wait 16
+shot stopped_07.png
+wait 16
+shot stopped_08.png
+wait 16
+shot stopped_09.png
+wait 16
+shot stopped_10.png
+wait 16
+shot stopped_11.png
+tap GLO
+turn SELECT 5
+expect page Setup
+tap SEL
+row MOTION
+turn ALGO 1
+expect still 1
+tap SEQ
+tap PLAY
+expect playing 1
+wait 700
+tap GLO
+turn SELECT 1
+expect page Master_EQ
+wait 500
+wait 16
+shot still_00.png
+wait 16
+shot still_01.png
+wait 16
+shot still_02.png
+wait 16
+shot still_03.png
+wait 16
+shot still_04.png
+wait 16
+shot still_05.png
+wait 16
+shot still_06.png
+wait 16
+shot still_07.png
+wait 16
+shot still_08.png
+wait 16
+shot still_09.png
+wait 16
+shot still_10.png
+wait 16
+shot still_11.png
+wait 16
+shot still_12.png
+wait 16
+shot still_13.png
+wait 16
+shot still_14.png
+wait 16
+shot still_15.png
+wait 16
+shot still_16.png
+wait 16
+shot still_17.png
+wait 16
+shot still_18.png
+wait 16
+shot still_19.png
+wait 16
+shot still_20.png
+wait 16
+shot still_21.png
+wait 16
+shot still_22.png
+wait 16
+shot still_23.png

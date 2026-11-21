@@ -86,6 +86,10 @@ for s in tests/scenarios/*.xy; do
 done
 # the USB audio input's ten channels as usbtracks.xy recorded them: the tracks in their own, at their level, before their pan
 run usb-channels "$PY" tests/usbtracks_check.py "$B/scenarios/usbtracks"
+# struck steps as hop.xy filmed them: a played cell hops and rings back, an empty cell and a still screen do not move
+run hop-cells "$PY" tests/hop_check.py "$B/scenarios/hop"
+# the Master page's scope as scope.xy filmed it: it moves while a song plays, and holds when nothing sounds or under still
+run scope-plot "$PY" tests/scope_check.py "$B/scenarios/scope"
 # every page, engine and type, through the layout audit (tools/layout_sweep.py)
 "$PY" tools/layout_sweep.py build/gen/layout_sweep.xy
 rm -rf "$B/scenarios/layout_sweep" && mkdir -p "$B/scenarios/layout_sweep"

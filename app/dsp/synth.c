@@ -460,6 +460,24 @@ static void wt_run(voice_t *v, float *xl, float *xr, int m)
     v->o[1] = mp;
 }
 
+_Static_assert(WT_FRAMES == WT_NFRAME, "synth.h's WT_FRAMES");
+float wt_value(int t, float scan, float ph)
+{
+    float pos = fm_clampf(scan, 0.0f, 1.0f) * (float)(WT_NFRAME - 1), fr = fm_minf(fm_floorf(pos), (float)(WT_NFRAME - 2));
+    const int8_t *tab = wt_find(), *ta, *tb;
+    float s = (ph - fm_floorf(ph)) * (float)WT_N, fa, a, b;
+    int k = (int)s;
+    if (!tab)
+        return 0.0f;
+    ta = tab + ((t < 0 ? 0 : t >= WT_NTABLE ? WT_NTABLE - 1 : t) * WT_NFRAME + (int)fr) * WT_N;
+    tb = ta + WT_N;
+    fa = s - (float)k;
+    k &= WT_N - 1;
+    a = (float)ta[k] + ((float)ta[(k + 1) & (WT_N - 1)] - (float)ta[k]) * fa;
+    b = (float)tb[k] + ((float)tb[(k + 1) & (WT_N - 1)] - (float)tb[k]) * fa;
+    return (a + (b - a) * (pos - fr)) * (1.0f / 128.0f);
+}
+
 /* rayon (was orbit): two-operator FM, the DX's way, for e-pianos, bells, mallets and basses. bright = the index (velocity
  * sets how much of it a note gets: 0.4 .. 1 of it); ratio from a detuned 1:1 (0..50: slow beating) to the modulator's
  * ratios (51..100: RAYON_RATIO, the bells' inharmonic ones among them); edge = the modulator's feedback (sine toward
@@ -493,6 +511,19 @@ static void rayon_prep(voice_t *v)
     c->ex[4] = c->ex[5] < 0.45f ? c->e[3] * 0.5f * vs : 0.0f;
     c->stereo = 0;
 }
+/* rayon's sine, sin(2 pi ph) for any phase: folded to a quarter turn, then a degree-7 polynomial in turns (max error
+ * 7.4e-7, -123 dB; fitted on [-1/4, 1/4]). About half the multiplies of fastmath's fm_sin_turns (2 pi, then degree 13),
+ * which rayon calls two or three times a sample */
+static inline float sin_q7(float ph)
+{
+    float x = ph - fm_floorf(ph + 0.5f), x2;
+    if (x > 0.25f)
+        x = 0.5f - x;
+    else if (x < -0.25f)
+        x = -0.5f - x;
+    x2 = x * x;
+    return x * (((-7.099341583e+01f * x2 + 8.134076691e+01f) * x2 - 4.133714294e+01f) * x2 + 6.283164024e+00f);
+}
 static void rayon_run(voice_t *v, float *xl, float *xr, int m)
 {
     const cfg_t *c = &v->c;
@@ -504,15 +535,15 @@ static void rayon_run(voice_t *v, float *xl, float *xr, int m)
         float mo;
         mp = step1(mp, dm);
         cp = step1(cp, dc);
-        mo = fm_sin_turns(mp + fbv * fb);
+        mo = sin_q7(mp + fbv * fb);
         fbv = mo;
-        xl[i] = fm_sin_turns(cp + mo * idx);
+        xl[i] = sin_q7(cp + mo * idx);
     }
     if (tl > 1e-4f) {                            /* the tine, added */
         float tp = v->o[6], dt = c->ex[5];
         for (i = 0; i < m; i++) {
             tp = step1(tp, dt);
-            xl[i] += fm_sin_turns(tp) * tl;
+            xl[i] += sin_q7(tp) * tl;
         }
         v->o[6] = tp;
     }

@@ -39,12 +39,15 @@ volatile uint8_t eng_drum_hit[NDRUM];
 volatile uint8_t eng_midi_hit[NTRK];
 volatile uint8_t eng_voices, eng_voices_max = NVOICE;
 volatile uint32_t eng_guard_count;
+volatile uint8_t eng_usb_stereo;
 volatile uint32_t eng_acid_lite_count;
 volatile uint32_t eng_punch_drum, eng_punch_mel;
 volatile float eng_pump_db;
 volatile uint8_t eng_scene_now, eng_scene_cue = 0xFF;
 int16_t eng_scope[SCOPE_N];
 volatile uint32_t eng_scope_w;
+static float scope_acc;                                  /* the scope sample being summed, and the frames in it */
+static uint32_t scope_k;
 volatile uint16_t eng_quiet;
 
 /* the units, in the pool (their structs are opaque: a byte array each, 8-aligned for their floats) */
@@ -1573,7 +1576,8 @@ void engine_render(int32_t *out_lr, uint32_t n, uint32_t gain_q12)
     int p;
     static uint8_t was_playing;
 #if TRK_TAP
-    tap_k = vol * 16384.0f;                               /* (the master: 1.0 is 1 << 22 at the codec, 16384 in 16 bits) */
+    tap_k = eng_usb_stereo ? 0.0f : vol * 16384.0f;     /* (the master: 1.0 is 1 << 22 at the codec, 16384 in 16 bits;
+                                                          * stereo: no taps, channels 3..10 silent) */
 #endif
     PROF_T(pa);
     if (seq.playing && !was_playing)                     /* the transport started: the shared LFO from its start */
@@ -1728,8 +1732,12 @@ void engine_render(int32_t *out_lr, uint32_t n, uint32_t gain_q12)
         eng_host_hash = (eng_host_hash ^ (uint32_t)out_lr[2u * i]) * 1099511628211ull;
         eng_host_hash = (eng_host_hash ^ (uint32_t)out_lr[2u * i + 1u]) * 1099511628211ull;
 #endif
-        if (i & 1u)
-            eng_scope[eng_scope_w++ & (SCOPE_N - 1u)] = (int16_t)((mix_l[i] + mix_r[i]) * 16383.5f);
+        scope_acc += mix_l[i] + mix_r[i];
+        if (++scope_k == SCOPE_DECIM) {
+            eng_scope[eng_scope_w++ & (SCOPE_N - 1u)] = (int16_t)(scope_acc * (16383.5f / (float)SCOPE_DECIM));
+            scope_acc = 0.0f;
+            scope_k = 0u;
+        }
     }
     eng_quiet = pk > 0.001f ? 0 : (uint16_t)(eng_quiet < 65535u ? eng_quiet + 1u : 65535u);
     for (p = 0; p < NALLTRK; p++) {                      /* meters: the loudest since the UI took them (Q14, to 2) */

@@ -103,7 +103,7 @@ static int32_t accel(int role, int32_t s)
 static void touch(int k)
 {
     ui.touched = (int8_t)k;
-    ui.touch_until = plat_ms() + 900u;
+    ui.touch_until = plat_ms() + TOUCH_LIT_MS;
 }
 static int ordinal(const uint8_t *t, int n, int k)
 {
@@ -2600,12 +2600,15 @@ static void list_change_do(int32_t e)
         case A_SAVE_KIT: ui.pick_kslot = (uint8_t)((ui.pick_kslot + d + NUSER_KITS) % NUSER_KITS); break;
         case A_LOAD_PROJ: ui.pick_slot = (uint8_t)((ui.pick_slot + d + NPROJ) % NPROJ); break;
         case A_SAVE_TO: ui.pick_save = (uint8_t)((ui.pick_save + d + NPROJ) % NPROJ); break;
-        case A_USB_AUDIO:
-            if (proj.usb_full != (uint8_t)(d > 0)) {
-                proj.usb_full = (uint8_t)(d > 0);
+        case A_USB_AUDIO: {                           /* follows knob, full, stereo */
+            int v = (int)proj.usb_full + (d > 0 ? 1 : -1);
+            v = v < 0 ? 0 : v > 2 ? 2 : v;
+            if (proj.usb_full != (uint8_t)v) {
+                proj.usb_full = (uint8_t)v;
                 mark_dirty();
             }
             break;
+        }
         case A_BT_AUDIO:
             if (bt.want != (uint8_t)(d > 0))
                 bt_audio_set(d > 0);
@@ -4084,8 +4087,20 @@ static void leds(void)
                         mid |= 1u << BLACK_K[i];
                 }
             k |= ui.keys;                         /* (white keys: play, same as every other page) */
-        } else
+        } else {
             k |= ui.keys;
+            if (trk == AUX_BRAIN) {               /* the conductor: the key its degree stands for (pressing it sets
+                                                  * this degree), the same note in other octaves at the mid level */
+                int r = seq_brain_root(&seq);
+                for (i = 0; i < 27; i++) {
+                    int d = key_note((int)i) - r;
+                    if (!d)
+                        k |= 1u << i;
+                    else if (d % 12 == 0)
+                        mid |= 1u << i;
+                }
+            }
+        }
         if (sel_trk() == AUX_WEAVE && !steps_page(ui.page))   /* the tracks weaving: their keys */
             for (i = 0; i < NSEQT; i++)
                 if ((seq.wv_live | seq.wv_rec) >> i & 1u)
