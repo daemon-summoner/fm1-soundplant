@@ -76,6 +76,8 @@ if command -v emcc >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then   # 
     run emu sh -c "sh build.sh --web >/dev/null && node tests/host/emu_test.mjs $B/emu/app.wasm"
     # fm1-base's page with SoundPlant's bits, its worklet with the part resample (in time at 48 kHz)
     run emu-page node tests/host/emu_page_test.mjs $B/emu
+    # the site made around it (tools/make_pages.py, before the first release): its sections, its links, its emulator
+    run site "$PY" tests/host/site_test.py
 else
     echo "  skip emu (no emcc or node)"
 fi

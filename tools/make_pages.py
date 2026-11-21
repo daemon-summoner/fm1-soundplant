@@ -21,9 +21,11 @@
   firmware/m-bootloader-X.Y.fwsc  m-bootloader (MIT, fm1-base's web/m-bootloader), offered after the firmware
 
   tools/make_pages.py app/build/soundplant-0.1.fwsc 0.1 OUT_DIR
+  tools/make_pages.py --no-release OUT_DIR       before the first release: no firmware, and install/ says so
 
 The package must be a release build (./build.sh --release X.Y): its identity, FM-1_10XXYYZZ, is what
-the installer checks the download against and what the FM-1 reports after the install."""
+the installer checks the download against and what the FM-1 reports after the install. Either way the emulator
+(app/build/emu) must be built first. The site is built on GitHub, on every push (.github/workflows/pages.yml)."""
 
 import hashlib
 import html
@@ -219,8 +221,7 @@ two patterns together to get a third.</p>
   <img src="img/screen-arrange.png" width="240" height="240" alt="Arrange: every track's pattern in its own color, the scene number large at the right">
   <img src="img/screen-weave.png" width="240" height="240" alt="The Steps list with WEAVE WITH COPIED picked, its way set to rhythm">
 </div>
-<div class="status"><strong>Version __VERSION__.</strong> You install and remove it like any other fm1-base
-firmware, and the installer can always put M-VAVE's own firmware back. Install at your own risk.</div>
+__STATUS__
 <nav class="ways" aria-label="Get SoundPlant">
   <a href="emu/"><strong>Try it in the browser</strong><span>Play it right here, with sound. It runs the same code as the FM-1, so you don't need one.</span></a>
   <a href="manual/"><strong>Read the manual</strong><span>Start with the ten-minute quick start, then look up any page or gesture.</span></a>
@@ -228,7 +229,7 @@ firmware, and the installer can always put M-VAVE's own firmware back. Install a
   <a href="samples/"><strong>Samples</strong><span>Load up to 32 of your own samples onto the FM-1, and rename, reorder or swap them any time.</span></a>
   <a href="backup/"><strong>Backup</strong><span>Save your projects, presets and samples to a file, and load them back later.</span></a>
   <a href="mirror/"><strong>Mirror</strong><span>See the FM-1's screen live on your computer, and play its buttons, keys and knobs from there.</span></a>
-  <a href="firmware/__PKG__"><strong>Download __PKG__</strong><span>For the command-line installer: <code>python3 base/tools/fm1_install.py __PKG__</code></span></a>
+__DOWNLOAD__
   <a href="__REPO__"><strong>Source</strong><span>On GitHub under GPL-3.0 (most files are MPL-2.0). Built on fm1-base and felucca-bsp, which grew out of Felucca by Leo Kuroshita (Hügelton Instruments).</span></a>
 </nav>
 
@@ -252,9 +253,40 @@ owners; SoundPlant is not affiliated with any of them.</p>
 </html>
 """
 
+STATUS = """<div class="status"><strong>Version __VERSION__.</strong> You install and remove it like any other fm1-base
+firmware, and the installer can always put M-VAVE's own firmware back. Install at your own risk.</div>"""
+DOWNLOAD = """  <a href="firmware/__PKG__"><strong>Download __PKG__</strong><span>For the command-line installer: <code>python3 base/tools/fm1_install.py __PKG__</code></span></a>"""
+NOT_OUT = """<div class="status"><strong>Not released yet.</strong> The emulator, the manual, the samples, backup and mirror pages
+work now. The installer and the download come with the first release.</div>"""
+NOT_YET = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install SoundPlant</title>
+<style>
+body { background: var(--ground); color: var(--ink); margin: 0; padding-inline: 16px; padding-block: 0 64px;
+       font: 400 17px/1.6 "Barlow", "Helvetica Neue", Arial, sans-serif; }
+main { max-width: 42rem; margin: 0 auto; }
+h1 { font: 700 2.2rem/1.1 "Barlow Semi Condensed", "Barlow", sans-serif; margin: 0 0 .7rem; }
+a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+<h1>Install SoundPlant</h1>
+<p>SoundPlant has no release yet, so there is nothing to install. The installer appears here with the first release.</p>
+<p>Until then you can <a href="../emu/">play it in the browser</a>, which runs the same code as the FM-1, or read
+<a href="../manual/">the manual</a>.</p>
+</main>
+</body>
+</html>
+"""
 
-def main(pkg, version, out):
-    pkg, out = Path(pkg), Path(out)
+
+def install_pages(pkg, version, out, conf):
+    """the package, its resource region and the installer, in out (firmware/, install/): the package's file name,
+    its identity and its size in bytes"""
     raw = pkg.read_bytes()
     product = product_of(raw)
     if not re.fullmatch(r"FM-1_10\d{6}", product):
@@ -264,9 +296,7 @@ def main(pkg, version, out):
     if b"FELUCCA-LOADER-1" not in raw:
         raise SystemExit(f"{pkg}: no update loader in it")
     name = f"soundplant-{re.sub(r'[^A-Za-z0-9.-]', '-', version)}.fwsc"
-    if out.exists():
-        shutil.rmtree(out)
-    for d in ("install", "firmware", "backup", "mirror"):
+    for d in ("install", "firmware"):
         (out / d).mkdir(parents=True)
     shutil.copy(pkg, out / "firmware" / name)
     # the resource region (the 909 cymbals, the wavetables, the large type: fm1.toml resources), checked, beside it: the installer writes it after
@@ -331,7 +361,6 @@ def main(pkg, version, out):
     for mark in ("/*LIB*/", "/*META*/"):
         if page.count(mark) != 1:
             raise SystemExit(f"base/web/installer.html must contain {mark} once")
-    conf = base_site.read_conf(SRC / "app" / "fm1.toml")
     credits = conf.get("credits", "").replace(
         "Built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hügelton "
         "Instruments). ",
@@ -385,6 +414,26 @@ def main(pkg, version, out):
         .replace("/*APP*/", app_js),
         encoding="utf-8",
     )
+    return name, product, len(raw)
+
+
+def main(pkg, version, out):
+    """the site in out; pkg None: no release yet, a page in place of the installer and no download"""
+    out = Path(out)
+    conf = base_site.read_conf(SRC / "app" / "fm1.toml")
+    if out.exists():
+        shutil.rmtree(out)
+    for d in ("backup", "mirror"):
+        (out / d).mkdir(parents=True)
+    if pkg is None:
+        (out / "install").mkdir()
+        (out / "install" / "index.html").write_text(NOT_YET, encoding="utf-8")
+        status, download, made = NOT_OUT, "", "no release"
+    else:
+        name, product, size = install_pages(Path(pkg), version, out, conf)
+        status = STATUS.replace("__VERSION__", html.escape(version))
+        download = DOWNLOAD.replace("__PKG__", name)
+        made = f"install/ ({product}), firmware/{name} ({size} B)"
     # the backup page's own section: the sample bank (app/web/backup/extras.js on the samples page's code)
     extras = (
         "const EXTRAS = (() => {\n"
@@ -448,8 +497,8 @@ def main(pkg, version, out):
     shutil.copytree(SRC / "docs" / "img", out / "img")
     threads = "".join(f'<span style="background:{c}"></span>' for c in TRACKS)
     (out / "index.html").write_text(
-        LANDING.replace("__VERSION__", html.escape(version))
-        .replace("__PKG__", name)
+        LANDING.replace("__STATUS__", status)
+        .replace("__DOWNLOAD__", download)
         .replace("__REPO__", REPO)
         .replace("__THREADS__", threads),
         encoding="utf-8",
@@ -492,11 +541,14 @@ def main(pkg, version, out):
         f.write_text(dress(f.read_text(encoding="utf-8"), here), encoding="utf-8")
     (out / ".nojekyll").write_text("")
     print(
-        f"site: {out}: index.html, manual/, install/ ({product}), backup/, mirror/, samples/, emu/, words/, firmware/{name} ({len(raw)} B)"
+        f"site: {out}: index.html, manual/, backup/, mirror/, samples/, emu/, words/, {made}"
     )
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
+    if len(sys.argv) == 3 and sys.argv[1] == "--no-release":
+        main(None, None, sys.argv[2])
+    elif len(sys.argv) == 4:
+        main(*sys.argv[1:4])
+    else:
         sys.exit(__doc__)
-    main(*sys.argv[1:4])

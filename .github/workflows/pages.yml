@@ -1,0 +1,111 @@
+# SPDX-License-Identifier: MPL-2.0
+# The site, https://daemon-summoner.github.io/fm1-soundplant/: built on GitHub on every push to main, and again once a
+# release has been built, so the installer's page carries the newest published package. Before the first release the
+# site has no installer (tools/make_pages.py --no-release). Set once: Settings > Pages > Source: GitHub Actions.
+name: Site
+
+on:
+  push:
+    branches: [main]
+  workflow_run:
+    workflows: ['Build and attest firmware']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Python with Pillow and libraqm (the fonts need it)
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq libfribidi0
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet Pillow==13.0.0
+          "$RUNNER_TEMP/venv/bin/python" -c "from PIL import features; assert features.check('raqm'), 'Pillow without raqm'"
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+
+      # the same emsdk the release builds with (release.yml)
+      - uses: actions/cache@v4
+        with:
+          path: ~/emsdk
+          key: emsdk-a2b92777574c2feda07994cd4f1079a3dfc151f8-6.0.10
+
+      - name: Emscripten
+        run: |
+          set -euo pipefail
+          if [ ! -x "$HOME/emsdk/emsdk" ]; then
+            git clone -q https://github.com/emscripten-core/emsdk.git "$HOME/emsdk"
+            git -C "$HOME/emsdk" checkout -q a2b92777574c2feda07994cd4f1079a3dfc151f8   # emsdk 6.0.10
+          fi
+          "$HOME/emsdk/emsdk" install 6.0.10
+          "$HOME/emsdk/emsdk" activate 6.0.10
+
+      - name: The newest published release's package, if there is one
+        id: release
+        run: |
+          set -euo pipefail
+          tag=$(gh release list --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName // ""')
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if [ -z "$tag" ]; then echo "no release yet: the site gets no installer"; exit 0; fi
+          mkdir -p app/build
+          gh release download "$tag" --pattern 'soundplant-*.fwsc' --pattern 'soundplant-*-res.bin' --dir app/build
+          pkgs=(app/build/soundplant-*.fwsc)
+          test "${#pkgs[@]}" -eq 1
+          test -f "app/build/soundplant-${tag#v}.fwsc" -a -f "app/build/soundplant-${tag#v}-res.bin"
+
+      - name: The emulator, built and tested
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          set +u; source "$HOME/emsdk/emsdk_env.sh"; set -u
+          args=(--web)
+          if [ -n "$TAG" ]; then args+=(--release "${TAG#v}"); fi
+          sh build.sh "${args[@]}"
+          node tests/host/emu_test.mjs app/build/emu/app.wasm
+          node tests/host/emu_page_test.mjs app/build/emu
+
+      - name: The site
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ -n "$TAG" ]; then
+            python3 tools/make_pages.py "app/build/soundplant-${TAG#v}.fwsc" "${TAG#v}" build/pages
+          else
+            python3 tools/make_pages.py --no-release build/pages
+          fi
+          python3 tests/host/site_test.py build/pages
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/pages
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
