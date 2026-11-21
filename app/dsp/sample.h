@@ -40,7 +40,7 @@
 #define SMP_NAME 12
 #define SMP_NREG 3                        /* the bank's windows, in the order it fills them */
 #define SMP_REG0 0xCA000u                 /* the data area after the resource region, up to the calibration: 72 KB */
-#define SMP_REG0_SIZE 0x12000u
+#define SMP_REG0_SIZE (72u << 10)
 #define SMP_REG1 0xE5000u                 /* PLAT_XDATA1: 92 KB */
 #define SMP_REG1_SIZE 0x17000u
 #define SMP_REG2 0x93000u                 /* PLAT_XDATA0: 16 KB */
