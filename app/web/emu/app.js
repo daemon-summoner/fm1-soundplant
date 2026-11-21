@@ -3,8 +3,8 @@
 // beside the emulator's parts, when the emulator is switched on). It works through the page's own names (KEYMAP,
 // holdDown, turn, knobs, buttons, shortcuts, controls, node): the projects saved by the earlier page, what each
 // control does on hover, and SoundPlant's computer keys: Space PLAY, Enter REC, / SEQ, as everywhere on the page, not
-// only on the panel. A control reached with Tab keeps Space and Enter for itself (it presses that control); one
-// clicked with the mouse or a finger does not, so Space stays PLAY after playing the panel with the mouse.
+// only on the panel. A control reached with Tab keeps Space and Enter for itself (it presses that control); any other
+// focus (the knob the page focuses when it switches on, a click, a touch) does not, so Space is PLAY from the first key.
 
 // the projects the page kept before it was fm1-base's (its own key), moved to fm1-base's page's key once
 const OLD_STORE = "xy-emu-store", STORE = "soundplant-emu-store";
@@ -33,20 +33,30 @@ function tips() {
   }
 }
 
+// whether the focused control keeps Space and Enter: only after Tab, until the next pointer press
+export function tabFocus() {
+  let viaTab = false;
+  return {
+    tab() { viaTab = true; },
+    pointer() { viaTab = false; },
+    keeps(key, onControl) { return onControl && viaTab && (key === " " || key === "Enter"); },
+  };
+}
+
 // the computer's keys: fm1-base's map (white keys Q-I, A-K; black keys 1-0, -; Esc HOME; Z / X octave) and SoundPlant's
 const KNOB_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown", "Home", "End"]);
 function keyboard() {
   const map = { ...KEYMAP, Space: { btn: BTN.PLAY }, Enter: { btn: BTN.REC }, Slash: { btn: BTN.SEQ } };
-  let clicked = null;                    // the control the mouse or a finger last gave the focus to
-  controls.addEventListener("pointerdown", (e) => { clicked = e.target.closest(".hit"); }, true);
-  addEventListener("keydown", (e) => { if (e.key === "Tab") clicked = null; }, true);
+  const focus = tabFocus();
+  controls.addEventListener("pointerdown", () => focus.pointer(), true);
+  addEventListener("keydown", (e) => { if (e.key === "Tab") focus.tab(); }, true);
   addEventListener("keydown", (e) => {
     if (!node || !shortcuts.checked || e.metaKey || e.ctrlKey || e.altKey) return;
     const t = e.target;
     if (t !== document.body && t !== document.documentElement && !controls.contains(t)) return;   // the page's fields
     const hit = t.closest ? t.closest(".hit") : null;
     if (hit && hit.classList.contains("knob") && KNOB_KEYS.has(e.key)) return;   // a knob turns with its keys
-    if (hit && hit !== clicked && (e.key === " " || e.key === "Enter")) return;   // reached with Tab: presses it
+    if (focus.keeps(e.key, hit !== null)) return;   // reached with Tab: presses it
     if (e.code === "ArrowUp" || e.code === "ArrowDown") {
       turn(knobs.SELECT, e.code === "ArrowUp" ? 1 : -1);
       e.preventDefault(); e.stopPropagation();
