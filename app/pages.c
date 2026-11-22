@@ -3091,9 +3091,15 @@ static void list_add(const char *name, const char *val, int kind, int id)
     lst.n++;
 }
 static void proj_slot_text(int slot, char *t)     /* "Proj 2", "Proj 3 (open)", "Proj 1 (empty)": a project is its slot
-                                                   * (no names) */
+                                                   * (no names); past the slots, a built-in song: "Demo: Ambient" (no
+                                                   * "(open)": the row's 92 px hold about 17 letters, a name and its prefix) */
 {
-    char *e = num_s((uint32_t)slot + 1u, s_cat(t, "Proj "));
+    char *e;
+    if (slot >= NPROJ) {
+        s_cat(s_cat(t, "Demo: "), project_demo_name(slot - NPROJ));
+        return;
+    }
+    e = num_s((uint32_t)slot + 1u, s_cat(t, "Proj "));
     if (slot == proj_slot)
         s_cat(e, " (open)");
     else if (!project_exists(slot))
@@ -3299,7 +3305,7 @@ static void list_home(int keep)
             list_add(ACTION_NAME[A_CLEAR_SCENE], 0, LK_ACTION, A_CLEAR_SCENE);
         }
     list_head("project");
-    proj_slot_text(ui.pick_slot % NPROJ, slot_t);
+    proj_slot_text(ui.pick_slot % (NPROJ + project_demos()), slot_t);
     list_add(ACTION_NAME[A_LOAD_PROJ], slot_t, LK_PICK, A_LOAD_PROJ);
     proj_slot_text(ui.pick_save % NPROJ, save_t);
     list_add(ACTION_NAME[A_SAVE_TO], save_t, LK_PICK, A_SAVE_TO);

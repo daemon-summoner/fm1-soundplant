@@ -22,6 +22,14 @@
  *   projnew                      a new project (Setup's NEW PROJECT)
  *   projsave SLOT [NAME]         the project saved into slot SLOT (1..3), named NAME ('_' for a space) if given
  *   storesave FILE, storeload FILE   the simulated flash's store to a file, and back (an old build's projects)
+ *   demorule                     the project open keeps the firmware's rule for the built-in songs (project.c: engines
+ *                                knit, rayon, bellows, cane, voile, acid or kit; no kit key on the sample or a 909 cymbal;
+ *                                no lock to any other): a break ends the run, naming it
+ *   demo_damage K                a byte of built-in song K's data (1..) flipped in RAM, as a flash gone bad would have it
+ *   demo_pad                     the built-in songs made DEMO_MAX, the last again (the later rows and the wrap of LOAD
+ *                                PROJECT's pick, whatever tools/make_demo_songs.py made)
+ *   demo_name K TEXT             built-in song K's name in RAM (a name's row is drawn, and audited, as the song's)
+ *   rowdemo K                    the picked row shows song K's "Demo: NAME"
  *   cores N                      the second core on (1) or off (0): its job then runs in place
  *   passkey N                    a Bluetooth pairing waits for code N (the header shows it; -1 none)
  *   samples FILE                 the user sample bank from FILE (an image from tools/soundplant_samples.py build), as an
@@ -29,7 +37,9 @@
  *   upload FILE                  an upload's SysEx frames (tools/soundplant_samples.py syx), each through samples.c as from
  *                                USB; a frame not answered, or answered with an error, fails the run
  *   expect WHAT VALUE            besides fm1-base's: playing, scene, mute (the tracks' bits), morph (the scene morph's percent), morphto (its target scene, from 1), songpos, used (the scenes' bits), voices, drumhits (the kit's hits),
- *                                guard, cores, dirty, ask, mem (the last save's
+ *                                guard, cores, dirty, ask, demo (the built-in song open, from 1; 0 none), projsame (1 if the
+ *                                project's tracks, tempo and patterns are as at the last projsame, 0 the first time), storesame
+ *                                (1 if the flash took no write since the last storesame, 0 the first time), mem (the last save's
  *                                share of a project slot, %), model_avg /
  *                                model_peak (the last meter's, %), tempo, trk, user / userbytes / rateN (the user bank's
  *                                samples, its data's bytes, user N's rate), punch_drum / punch_mel (the masks in effect,
@@ -551,6 +561,19 @@ int app_expect(const char *what, int *got)
         *got = ui_dirty();
     else if (!strcmp(what, "ask"))
         *got = ui_asking();
+    else if (!strcmp(what, "demo"))
+        *got = proj_demo == 0xFF ? 0 : proj_demo + 1;
+    else if (!strcmp(what, "projsame")) {           /* (the song as the player hears it: not the save count, the Setup carried over) */
+        static uint32_t mark;
+        uint32_t h = hash_of((const uint8_t *)proj.trk, sizeof proj.trk) * 31u + hash_of((const uint8_t *)&pats, sizeof pats) +
+                     proj.tempo_x10;
+        *got = h == mark;
+        mark = h;
+    } else if (!strcmp(what, "storesame")) {
+        static uint32_t mark = ~0u;
+        *got = store_writes == mark;
+        mark = store_writes;
+    }
     else if (!strcmp(what, "mem"))                  /* the last save's share of a project slot, % */
         *got = project_mem_pct();
     else if (!strcmp(what, "tempo"))
@@ -1536,6 +1559,57 @@ static int song_cmd(const char *cmd)
     return 1;
 }
 
+/* demorule: what a built-in song may use (the flash has no room for a bank, and no resource region is guaranteed) */
+static int demo_engine_ok(int e)
+{
+    return e == EG_KNIT || e == EG_RAYON || e == EG_BELLOWS || e == EG_CANE || e == EG_VOILE || e == EG_ACID || e == EG_DRUMLINE;
+}
+static int demo_model_ok(int m) { return m != DM_SAMPLE && !(m >= DM_909CH && m <= DM_909CRASH); }
+static void demo_rule(void)
+{
+    uint8_t kit = 0;
+    char w[64];
+    for (int t = 0; t < NTRK; t++) {
+        int e = proj.trk[t].par[TP_ENGINE];
+        if (!demo_engine_ok(e)) {
+            snprintf(w, sizeof w, "demorule: track %d uses the engine", t + 1);
+            host_die(w, e < NENGINE ? EG_NAME[e] : "?");
+        }
+        kit |= (uint8_t)((e == EG_DRUMLINE) << t);
+    }
+    for (int k = 0; k < NLANE; k++) {
+        const lane_t *l = &pats.lane[k];
+        if (!l->used || l->trk >= NTRK)
+            continue;
+        for (int s = 0; s < NSTEP; s++) {
+            int v = l->val[s];
+            if (v == LOCK_NONE)
+                continue;
+            if (l->param == TP_ENGINE && !demo_engine_ok(v)) {
+                snprintf(w, sizeof w, "demorule: a lock on track %d switches to the engine", l->trk + 1);
+                host_die(w, v < NENGINE ? EG_NAME[v] : "?");
+            }
+            if (l->param == TP_ENGINE && v == EG_DRUMLINE)
+                kit |= (uint8_t)(1u << l->trk);
+            if (l->param >= TP_DRUM(0, DP_MODEL) && l->param < TP_DRUM(NDRUM, DP_MODEL) && (l->param - TP_DRUM0) % DP_N == DP_MODEL &&
+                !demo_model_ok(v)) {
+                snprintf(w, sizeof w, "demorule: a lock on track %d key %d switches to the model", l->trk + 1,
+                         (l->param - TP_DRUM0) / DP_N + 1);
+                host_die(w, v < NDM ? DM_NAME[v] : "?");
+            }
+        }
+    }
+    for (int t = 0; t < NTRK; t++)
+        for (int k = 0; k < NDRUM && kit >> t & 1; k++) {
+            int m = proj.trk[t].par[TP_DRUM(k, DP_MODEL)];
+            if (!demo_model_ok(m)) {
+                snprintf(w, sizeof w, "demorule: track %d key %d uses the model", t + 1, k + 1);
+                host_die(w, m < NDM ? DM_NAME[m] : "?");
+            }
+        }
+    printf("  ok    demorule: the project keeps the firmware's rule\n");
+}
+
 int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, const char *d)
 {
     if (song_cmd(cmd))
@@ -1882,7 +1956,52 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         }
         printf("projsave: slot %d \"%.*s\", %d %% of the slot\n", slot + 1, NAME_LEN, proj.name, project_mem_pct());
     }
-    else if (!strcmp(cmd, "cores"))
+    else if (!strcmp(cmd, "demorule"))
+        demo_rule();
+    else if (!strcmp(cmd, "demo_damage")) {        /* demo_damage K: song K's data in RAM, a byte of it flipped */
+        static uint8_t bad[DEMO_MAX][DEMO_SONG_MAX];
+        int k = atoi(a) - 1;
+        uint32_t n;
+        if (k < 0 || k >= demo_count)
+            host_die("demo_damage: no song", a);
+        n = (uint32_t)demo_tab[k].set_n + demo_tab[k].pat_n;
+        if (n > DEMO_SONG_MAX)
+            host_die("demo_damage: song too long", a);
+        memcpy(bad[k], demo_tab[k].data, n);
+        bad[k][n / 2] ^= 0x5A;
+        demo_tab[k].data = bad[k];
+    } else if (!strcmp(cmd, "demo_pad")) {
+        for (int k = demo_count; k < DEMO_MAX; k++)
+            demo_tab[k] = demo_tab[demo_count - 1];
+        demo_count = DEMO_MAX;
+    } else if (!strcmp(cmd, "demo_name")) {        /* demo_name K TEXT: song K's name in RAM */
+        static char nm[DEMO_MAX][24];
+        int k, at = 0;
+        size_t l;
+        if (sscanf(plat_host_line, "%*s %d %n", &k, &at) < 1)
+            host_die("demo_name: no song", a);
+        k--;
+        if (k < 0 || k >= demo_count)
+            host_die("demo_name: no song", a);
+        l = strcspn(plat_host_line + at, "\r\n");
+        if (!l || l >= sizeof nm[0])
+            host_die("demo_name: a name of 1 to 23 characters", plat_host_line + at);
+        memcpy(nm[k], plat_host_line + at, l);
+        nm[k][l] = 0;
+        demo_tab[k].name = nm[k];
+    } else if (!strcmp(cmd, "rowdemo")) {          /* rowdemo K: as rowtext, with the text the row should have */
+        int k = atoi(a) - 1;
+        char want[32];
+        if (k < 0 || k >= demo_count)
+            host_die("rowdemo: no song", a);
+        snprintf(want, sizeof want, "Demo: %s", demo_tab[k].name);
+        list_build();
+        if (!lst.open || lst.sel >= lst.n || strcmp(lst.row[lst.sel].val, want)) {
+            printf("  FAIL rowdemo %s: the row shows \"%s\", not \"%s\"\n", a, lst.open && lst.sel < lst.n ? lst.row[lst.sel].val : "", want);
+            host_fails++;
+        } else
+            printf("  ok    the row shows \"%s\"\n", want);
+    } else if (!strcmp(cmd, "cores"))
         plat_cpu2_set(atoi(a));
     else
         return 0;
@@ -1890,7 +2009,13 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
 }
 
 void app_speak_dump(void) { speak_dump(); }
-void app_host_reboot(void) { memset(&proj, 0, sizeof proj); }   /* what RAM forgets (the flash keeps the rest) */
+void app_host_reboot(void)                          /* what RAM forgets (the flash keeps the rest) */
+{
+    static const demo_song_t rom[DEMO_MAX] = DEMO_ROWS;
+    memset(&proj, 0, sizeof proj);
+    memcpy(demo_tab, rom, sizeof rom);
+    demo_count = NDEMO;
+}
 #ifdef GFX_AUDIT
 /* the palette audit, over every theme: the text, the dim text, the red and each track's ink read on the ground (WCAG
  * contrast 4.5), the text and the dim text on the panel too; the inks keep apart from each other (CIE76 distance 25) and

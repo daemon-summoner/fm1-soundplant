@@ -118,7 +118,7 @@ run layout-sweep $B/host/soundplant_host build/gen/layout_sweep.xy "$B/scenarios
 rm -rf "$B/scenarios/layout_sweep_large" && mkdir -p "$B/scenarios/layout_sweep_large"
 run layout-sweep-large $B/host/soundplant_host build/gen/layout_sweep_large.xy "$B/scenarios/layout_sweep_large"
 # the weave pages with weaves set (the sweep sees them empty), in large type: ARP's Weave, the WEAVE track's own
-for sc in weavepage weavetrack garden glide scenemorph homeload euclid strip; do
+for sc in weavepage weavetrack garden glide scenemorph homeload euclid strip demos; do
     "$PY" -c "import sys; s = open(sys.argv[1]).read(); open(sys.argv[2], 'w').write(s.replace('wait 300\\n', 'wait 300\\nlarge 1\\n', 1))" \
         tests/scenarios/$sc.xy build/gen/${sc}_large.xy
     rm -rf "$B/scenarios/${sc}_large" && mkdir -p "$B/scenarios/${sc}_large"

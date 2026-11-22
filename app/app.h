@@ -215,6 +215,8 @@ int kit_load(int slot, uint8_t *img);  /* img: KIT_LEN bytes; 0 = the slot holds
                                         * format 10 (its keys past the sample model: a development build's, keys_fix) */
 int kit_save(int slot, const uint8_t *img);   /* 0 = saved (the user presets with it, as they are) */
 extern uint8_t proj_slot;               /* the slot loaded */
+extern uint8_t proj_demo;               /* the built-in song open (0-based), 0xFF none: it has no slot (proj_slot is
+                                         * PROJ_NOSLOT); a load, a new project and a save clear it */
 
 void project_defaults(void);
 void project_device_get(void);         /* the FM-1's own settings (Setup's, the theme) noted, and put back */
@@ -222,6 +224,10 @@ void project_device_put(void);         /* into proj: a project loaded keeps them
 void project_random_sounds(uint32_t seed);   /* T2-T8: a random preset each of a part (bass, poly, pad, lead, keys, fx, pluck) */
 int project_mem_pct(void);              /* how full the patterns' room in flash is, % (the last save or load) */
 int project_load(int slot);             /* 0 = loaded; else defaults are in place */
+int project_demos(void);                /* the built-in songs (LOAD PROJECT lists them after the slots), 1..3 */
+const char *project_demo_name(int k);   /* NAME_LEN characters at most */
+int project_demo_ok(int k);             /* 1 = its bytes are whole: a load will not fail (nothing is changed) */
+int project_load_demo(int k);           /* like project_load: 0 = loaded; else defaults are in place; no slot, no write */
 int project_save(int slot);             /* 0 = saved and verified; -1 = full / failed */
 void project_apply(void);               /* every value to the engine (boot, load) */
 int project_exists(int slot);

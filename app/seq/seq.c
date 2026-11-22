@@ -1244,7 +1244,6 @@ static void apply_locks(seq_t *s, int t, int p, uint32_t L, const seq_sink_t *o)
     for (k = lane_next(t, 0); k >= 0; k = lane_next(t, k + 1)) {   /* (the track's lanes: lane_mask) */
         const lane_t *l = &s->P->lane[k];
         lane_rt_t *r = &s->lrt[k];
-        int v, q, d;
         if (!l->used || l->trk != t)
             continue;
         if (r->gen != l->gen) {
@@ -1253,13 +1252,18 @@ static void apply_locks(seq_t *s, int t, int p, uint32_t L, const seq_sink_t *o)
             r->trk = l->trk;
             r->param = l->param;
         }
-        if (lane_is_note(l->param))
-            continue;                 /* (a drum step's note and its sounds' velocities: fire_notes reads them) */
-        if (l->pat != s->ppat[t]) {   /* another pattern's lane: the knob has it */
+        if (!lane_is_note(l->param) && l->pat != s->ppat[t]) {   /* another pattern's lane: the knob has it */
             lock_put(s, t, l, r, LOCK_NONE, o);
             r->ramp = 0;
-            continue;
         }
+    }
+    /* (the releases are done first: one that ran after this pattern's lane on the same parameter put its lock would undo it) */
+    for (k = lane_next(t, 0); k >= 0; k = lane_next(t, k + 1)) {
+        const lane_t *l = &s->P->lane[k];
+        lane_rt_t *r = &s->lrt[k];
+        int v, q, d;
+        if (!l->used || l->trk != t || lane_is_note(l->param) || l->pat != s->ppat[t])
+            continue;                 /* (a drum step's note and its sounds' velocities: fire_notes reads them) */
         v = l->val[p];
         if (v == LOCK_NONE) {
             if (!tp->shape && !step_empty(&tp->st[p]))

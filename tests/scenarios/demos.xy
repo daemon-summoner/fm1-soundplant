@@ -1,0 +1,296 @@
+# the built-in songs: LOAD PROJECT lists them after Proj 1 to 3 ("Demo: NAME"). A song loads with no slot: nothing is
+# written to the flash (not by the load, not by the autosave), SAVE TO copies it into a slot whole, a damaged one is
+# refused before the engine stops, and it is not what a restart opens. Written for 1 to 3 songs: demo_pad lists the last
+# again up to three (after a reboot too: the list is RAM's), so the rows, the wrap and each song's load run whatever
+# tools/make_demo_songs.py made; a song's content is the generator's (--check), here it is one song against another by
+# projsame
+wait 300
+listen
+demo_pad
+# slot 2 holds a project (90 BPM) and slot 1 another (100); slot 3 stays empty; slot 1 is open
+tap HOME
+spin K1 -30
+wait 50
+expect tempo 90
+press SAVE
+tapkey w1
+release SAVE
+wait 100
+spin K1 10
+wait 50
+expect tempo 100
+press SAVE
+tapkey w0
+release SAVE
+wait 100
+expect dirty 0
+expect demo 0
+# LOAD PROJECT's rows: the slots, then the songs, and round again; each way
+tap SEL
+row LOAD PROJECT
+wait 40
+rowtext Proj 1 (open)
+turn ALGO 1
+rowtext Proj 2
+turn ALGO 1
+rowtext Proj 3 (empty)
+turn ALGO 1
+rowdemo 1
+turn ALGO 1
+rowdemo 2
+turn ALGO 1
+rowdemo 3
+turn ALGO 1
+rowtext Proj 1 (open)
+turn ALGO -1
+rowdemo 3
+turn ALGO -1
+rowdemo 2
+shot demos_list.png
+# SAVE TO still has three rows
+row SAVE TO
+wait 40
+rowtext Proj 1 (open)
+turn ALGO 1
+rowtext Proj 2
+turn ALGO 1
+rowtext Proj 3 (empty)
+turn ALGO 1
+rowtext Proj 1 (open)
+turn ALGO -1
+rowtext Proj 3 (empty)
+tap HOME
+wait 100
+# an autosave writes the flash (the control for the next: storesame sees it); the first storesame only marks
+expect storesame 0
+spin K1 3
+wait 4500
+expect dirty 0
+expect storesame 0
+# a song loads: its rows, its message, no question (nothing unsaved), the rule, no slot, nothing written
+tap SEL
+row LOAD PROJECT
+wait 40
+turn ALGO 3
+rowdemo 1
+tap SEL
+wait 600
+expect ask 0
+expect demo 1
+expect dirty 0
+said LOADED
+demorule
+expect projsame 0
+# the song stays on its row; SAVE TO offers the first empty slot
+tap SEL
+row LOAD PROJECT
+wait 40
+rowdemo 1
+shot demos_open.png
+row SAVE TO
+wait 40
+rowtext Proj 3 (empty)
+tap HOME
+wait 100
+# edited, it is not autosaved (a slot's project would be: the control above), however long it waits
+spin K1 3
+wait 4500
+expect dirty 1
+expect storesame 1
+# the other songs, each by the list (a question first: unsaved changes; HOME says no, SEL yes)
+tap SEL
+row LOAD PROJECT
+wait 40
+turn ALGO 1
+rowdemo 2
+tap SEL
+expect ask 1
+expect demo 1
+tap HOME
+wait 100
+expect ask 0
+expect demo 1
+expect dirty 1
+tap SEL
+row LOAD PROJECT
+wait 40
+rowdemo 2
+tap SEL
+wait 50
+tap SEL
+wait 600
+expect ask 0
+expect demo 2
+expect dirty 0
+demorule
+tap HOME
+wait 100
+tap SEL
+row LOAD PROJECT
+wait 40
+turn ALGO 1
+rowdemo 3
+tap SEL
+wait 600
+expect demo 3
+demorule
+expect storesame 1
+# a restart opens the slot used last, not a song (a song has no slot: it was not touched in)
+reboot
+wait 400
+demo_pad
+expect demo 0
+# a slot's project loads over a song: no song open then
+tap HOME
+tap SEL
+row LOAD PROJECT
+wait 40
+rowtext Proj 1 (open)
+turn ALGO 2
+rowtext Proj 3 (empty)
+turn ALGO -1
+rowtext Proj 2
+tap SEL
+wait 400
+expect demo 0
+expect projsame 0
+tap SEL
+row LOAD PROJECT
+wait 40
+turn ALGO 2
+rowdemo 1
+tap SEL
+wait 600
+expect demo 1
+expect projsame 0
+tap SEL
+row LOAD PROJECT
+wait 40
+rowdemo 1
+turn ALGO 3
+rowtext Proj 1
+tap SEL
+wait 400
+expect demo 0
+expect projsame 0
+# NEW PROJECT, and a restore, leave a song too
+tap SEL
+row LOAD PROJECT
+wait 40
+turn ALGO 3
+rowdemo 1
+tap SEL
+wait 600
+expect demo 1
+projnew
+expect demo 0
+expect dirty 1
+tap SEL
+row LOAD PROJECT
+wait 40
+rowtext Proj 3 (open)
+turn ALGO 1
+rowdemo 1
+tap SEL
+expect ask 1
+tap SEL
+wait 600
+expect demo 1
+tap HOME
+wait 100
+backup out:demos.bkp
+restore out:demos.bkp
+expect restore_rc 0
+wait 100
+expect demo 0
+expect dirty 0
+# THE PITFALL: slot 1 loaded (project.c knows its objects), a song loaded over it, saved into slot 1 (REPLACE asked):
+# every object is written, none skipped as unchanged; a restart and the slot loaded again hold the song
+tap HOME
+tap SEL
+row LOAD PROJECT
+wait 40
+rowtext Proj 1 (open)
+tap SEL
+wait 400
+expect demo 0
+expect projsame 1
+tap SEL
+row LOAD PROJECT
+wait 40
+turn ALGO 3
+rowdemo 1
+tap SEL
+wait 600
+expect demo 1
+expect projsame 0
+tap SEL
+row SAVE TO
+wait 40
+rowtext Proj 3 (empty)
+turn ALGO 1
+rowtext Proj 1
+tap SEL
+expect ask 1
+expect demo 1
+tap SEL
+wait 400
+expect ask 0
+expect demo 0
+expect dirty 0
+said SAVED
+tap HOME
+wait 100
+expect projsame 1
+reboot
+wait 400
+demo_pad
+expect projsame 1
+tap HOME
+tap SEL
+row LOAD PROJECT
+wait 40
+rowtext Proj 1 (open)
+tap SEL
+wait 400
+expect projsame 1
+# a damaged song is refused before anything stops or changes; the others, and the same after a restart, load
+tap SEQ
+tap PLAY
+wait 300
+expect playing 1
+demo_damage 1
+tap HOME
+tap SEL
+row LOAD PROJECT
+wait 40
+turn ALGO 3
+rowdemo 1
+tap SEL
+wait 300
+said DEMO DAMAGED
+expect ask 0
+expect playing 1
+expect demo 0
+expect projsame 1
+tap SEL
+row LOAD PROJECT
+wait 40
+turn ALGO 4
+rowdemo 2
+tap SEL
+wait 600
+expect demo 2
+expect playing 0
+reboot
+wait 400
+demo_pad
+tap HOME
+tap SEL
+row LOAD PROJECT
+wait 40
+turn ALGO 3
+rowdemo 1
+tap SEL
+wait 600
+expect demo 1

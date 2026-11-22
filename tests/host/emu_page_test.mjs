@@ -87,7 +87,7 @@ const imageOf = (d) => { const b = readFileSync(`${dir}/demos/${d.file}`); retur
 const ask = (m) => { emu.take("backup"); emu.send({ type: "app", part: "backup", ...m }); emu.run(50); return emu.take("backup").at(-1); };
 const look = () => { feed(); emu.run(100); return decodeSnapshot(feed().at(-1).garden); };
 const techno = demos.find((d) => d.id === "techno");
-const patTracks = new Set([...readFileSync(new URL("../../tools/demos/web/techno.xy", import.meta.url), "utf8").matchAll(/^pat (\d+) /gm)].map((m) => m[1])).size;
+const patTracks = new Set([...readFileSync(new URL("../../tools/demos/web/techno.xy", import.meta.url), "utf8").matchAll(/^pat ([1-8]) /gm)].map((m) => m[1])).size;
 
 emu.send({ type: "app", garden: true });
 emu.run(200);
@@ -110,7 +110,7 @@ emu.run(300);
 snap = look();
 check(ok.restored === 0 && snap.tempo === techno.bpm && snap.trk.filter((k) => k.maskLo | k.maskHi).length === patTracks,
   `the techno demo restored: ${snap.tempo} bpm, ${snap.trk.filter((k) => k.maskLo | k.maskHi).length} tracks with steps (its script has ${patTracks})`);
-check(snap.trk.slice(0, 6).map((k) => k.engine).join() === "8,10,0,0,6,2", `its engines: drumline, acid, knit, knit, sample, jacquard (${snap.trk.map((k) => k.engine)})`);
+check(snap.trk.slice(0, 6).map((k) => k.engine).join() === "8,10,3,1,2,5", `its engines: drumline, acid, bellows, rayon, jacquard, voile (${snap.trk.map((k) => k.engine)})`);
 check(seedFromSnapshot(snap) !== fresh, "the garden's seed has changed: the demo grows its own garden");
 
 // the picker's "Load and play": SEQ, HOME and one SELECT step lead to the Song page from any page, then PLAY plays the song
@@ -124,12 +124,13 @@ feed();
 emu.run(2500);
 snap = decodeSnapshot(feed().at(-1).garden);
 let gained = snap.trk.map((k, i) => k.hits - was[i]);
-check(snap.playing && snap.scene === 0 && gained[0] > 0 && gained[3] > 0 && [1, 2, 4, 5].every((i) => gained[i] === 0),
-  `the song plays from its intro: the kit and the pad play (${gained[0]}, ${gained[3]} hits), the 303, the stabs, the riser and the arpeggio wait`);
-emu.run(9500);
+check(snap.playing && snap.scene === 0 && gained[0] > 0 && gained[5] > 0 && [1, 2, 3, 4].every((i) => gained[i] === 0),
+  `the song plays from its intro: the kit and the voile play (${gained[0]}, ${gained[5]} hits), the 303, the stabs, the tubular and the pad wait`);
+const introMs = Math.round((8 * 4 * 60000) / techno.bpm);
+emu.run(introMs + 700 - 2500);
 snap = decodeSnapshot(feed().at(-1).garden);
 gained = snap.trk.map((k, i) => k.hits - was[i]);
-check(snap.playing && snap.scene === 1 && snap.songPos === 1 && gained[1] > 0, `after the intro the song moved on to its groove: the 303 plays (${gained[1]} hits)`);
+check(snap.playing && snap.scene === 2 && snap.songPos === 2 && gained[1] > 0, `after its two intro scenes (8 bars, ${introMs} ms) the song moved on to its groove: the 303 plays (${gained[1]} hits)`);
 
 // negative: while the demo plays, another one is refused and the playing one stays
 const garage = demos.find((d) => d.id === "garage");
@@ -169,16 +170,14 @@ for (const d of demos) {
   tap("buttons", BTN.PLAY);
   emu.run(200);
 }
-// the garden's seed hashes the engines and steps, so the demos that differ in tempo grow different gardens (the house
-// variants differ in sound only and share one pattern set)
+// the garden's seed hashes the engines and steps, so every demo grows its own garden
 const seeds = new Set();
 for (const d of demos) {
   ask({ cmd: "restore", image: imageOf(d) });
   emu.run(200);
   seeds.add(seedFromSnapshot(look()));
 }
-const tempos = new Set(demos.map((d) => d.bpm)).size;
-check(seeds.size >= tempos, `the demos grow ${seeds.size} different gardens across ${tempos} tempos`);
+check(seeds.size === demos.length, `the ${demos.length} demos grow ${seeds.size} different gardens`);
 
 // the Preset lab (presets.js, the worklet's lab commands, app/web.c web_preset), through the real worklet: the page's own
 // client and player drive the firmware as the page does. Last, because it changes the project.

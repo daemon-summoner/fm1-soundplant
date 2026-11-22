@@ -1,0 +1,171 @@
+# The README's gallery of the Garden page (tools/gen_screens.sh). It runs on a freshly started FM-1, not after
+# manual_screens.xy, whose leftover state changes the plants. Each built-in song loads from LOAD PROJECT, plays from the
+# Song page and the Garden opens to show it. Shots are named garden_NAME.png and gen_screens.sh keeps only the picture.
+# The glitch (default soft) and seed knobs are session-only and are put back after their shots. The glitch shots come
+# first, because a glitch starts on a beat the song picks and earlier songs move which beats the shots land on; a muted
+# track makes the song unsaved (the next load would ask), so that shot is last.
+wait 300
+# glitches first, wild, while the simulator is fresh: a tear then a blocky blur on the house song, a fold on the synthwave song
+tap HOME
+tap SEL
+row LOAD PROJECT
+wait 40
+turn ALGO 3
+rowdemo 1
+tap SEL
+wait 800
+expect demo 1
+expect ask 0
+expect page Arrange
+turn SELECT 1
+expect page Song
+tap PLAY
+expect playing 1
+turn SELECT 1
+expect page Garden
+turn K1 3
+wait 63750
+shot garden_tear.png
+wait 1500
+shot garden_blocky.png
+tap PLAY
+settle
+tap HOME
+tap SEL
+row LOAD PROJECT
+wait 40
+turn ALGO 1
+rowdemo 2
+tap SEL
+wait 800
+expect demo 2
+expect ask 0
+expect page Arrange
+turn SELECT 1
+expect page Song
+tap PLAY
+expect playing 1
+turn SELECT 1
+expect page Garden
+wait 104500
+shot garden_fold.png
+tap PLAY
+settle
+turn K1 -2
+# a song starts from the Song page, then the Garden opens while it plays
+tap HOME
+tap SEL
+row LOAD PROJECT
+wait 40
+turn ALGO -1
+rowdemo 1
+tap SEL
+wait 800
+expect demo 1
+expect ask 0
+expect page Arrange
+turn SELECT 1
+expect page Song
+tap PLAY
+expect playing 1
+turn SELECT 1
+expect page Garden
+wait 60000
+shot garden_house.png
+tap PLAY
+settle
+tap HOME
+tap SEL
+row LOAD PROJECT
+wait 40
+turn ALGO 1
+rowdemo 2
+tap SEL
+wait 800
+expect demo 2
+expect ask 0
+expect page Arrange
+turn SELECT 1
+expect page Song
+tap PLAY
+expect playing 1
+turn SELECT 1
+expect page Garden
+wait 105000
+shot garden_synth.png
+tap PLAY
+settle
+# the first bars of Afterglow, most of the garden asleep, then the whole song in
+tap HOME
+tap SEL
+row LOAD PROJECT
+wait 40
+turn ALGO 1
+rowdemo 3
+tap SEL
+wait 800
+expect demo 3
+expect ask 0
+expect page Arrange
+turn SELECT 1
+expect page Song
+tap PLAY
+expect playing 1
+turn SELECT 1
+expect page Garden
+wait 15000
+shot garden_waking.png
+wait 105000
+shot garden_after.png
+tap PLAY
+settle
+# the same song with the seed at 37: another garden
+tap HOME
+tap SEL
+row LOAD PROJECT
+wait 40
+rowdemo 3
+tap SEL
+wait 800
+expect demo 3
+expect ask 0
+expect page Arrange
+turn SELECT 1
+expect page Song
+tap PLAY
+expect playing 1
+turn SELECT 1
+expect page Garden
+turn K2 37
+wait 120000
+shot garden_seed.png
+tap PLAY
+settle
+turn K2 -37
+# four of the eight tracks muted: their plants wilt, the others stand
+tap HOME
+tap SEL
+row LOAD PROJECT
+wait 40
+turn ALGO -2
+rowdemo 1
+tap SEL
+wait 800
+expect demo 1
+expect ask 0
+expect page Arrange
+turn SELECT 1
+expect page Song
+tap PLAY
+expect playing 1
+turn SELECT 1
+expect page Garden
+wait 75000
+midi B0 09 7F
+midi B2 09 7F
+midi B4 09 7F
+midi B6 09 7F
+wait 2500
+shot garden_muted.png
+tap PLAY
+settle

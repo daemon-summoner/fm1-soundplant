@@ -93,6 +93,9 @@ Next, hold a step to see its velocity, length, chance and pitch. Hold a step and
 Master out and turn **KNOB 4** to make the mix pump while it plays. To find out what a button does, hold it for a
 second.
 
+To hear a finished song first, press **HOME**, press **SEL**, pick LOAD PROJECT and turn **ALGORITHM** past Proj 3 to a
+Demo. It plays from the FM-1 itself and leaves your three projects alone (see Saving).
+
 ## Cheat sheet
 
 ### The words
@@ -189,7 +192,7 @@ Count the white keys 1 to 16 from the left, and the black keys 1 to 11. "Hold **
 | get new sounds for the band | Press **HOME**, press **SEL** and pick RANDOMIZE PRESETS: T2 to T8 each get a random preset for their part. Press **SEL** for yes. |
 | save | SoundPlant saves by itself when it is stopped and quiet. **SAVE** saves at once. Hold **SAVE** and press white key 1 to 3 to save to that slot. <!-- hint: press SAVE --> |
 | keep a sound | On a sound page, hold **SAVE** and press a white key. The sound becomes that user preset. <!-- hint: hold SAVE; white 1 --> |
-| load a project | Hold **HOME** and press white key 1 to 3 to load that slot. An empty slot says so, and nothing changes. If you have unsaved changes, SoundPlant asks first: press **SEL** for yes. You can also press **HOME** and press **SEL**. On LOAD PROJECT, turn **ALGORITHM** to pick the slot, then press **SEL**. NEW PROJECT starts an empty project in a free slot, with its sounds picked at random (new ones, as RANDOMIZE PRESETS gives). <!-- hint: hold HOME; white 1-3 --> |
+| load a project | Hold **HOME** and press white key 1 to 3 to load that slot. An empty slot says so, and nothing changes. If you have unsaved changes, SoundPlant asks first: press **SEL** for yes. You can also press **HOME** and press **SEL**. On LOAD PROJECT, turn **ALGORITHM** to pick the slot, then press **SEL**. After Proj 3 come the songs built into the FM-1, as Demo: and the song's name. NEW PROJECT starts an empty project in a free slot, with its sounds picked at random (new ones, as RANDOMIZE PRESETS gives). <!-- hint: hold HOME; white 1-3 --> |
 | listen on Bluetooth headphones | Put them in pairing mode. Press **GLO**, turn **SELECT** to Setup and press **SEL**. Turn **SELECT** to AUDIO DEVICE and press **SEL**. Turn **SELECT** to the headphones and press **SEL**. |
 
 ### The buttons
@@ -1682,6 +1685,14 @@ To load another project, hold **HOME** and press white key 1 to 3. The song stop
 SoundPlant asks first: **SEL** is yes and **HOME** is no. A slot with no project says so, and nothing changes. You can
 also pick LOAD PROJECT on **HOME**'s **SEL** list and turn **ALGORITHM** to the slot.
 
+**Demo songs.** After Proj 3, LOAD PROJECT lists the songs built into the FM-1, as Demo: and the song's name. A demo
+loads like a project, with the same question first if you have unsaved changes, but it has no slot of its own. It never
+touches your three projects or your presets, and SoundPlant never saves it by itself, so after a change the header
+keeps saying "unsaved". Turning the FM-1 off and on opens the project you saved or loaded last, not a demo. To keep a
+demo, or your changes to it, press **SAVE**, or pick SAVE TO and turn **ALGORITHM** to a slot. The song goes into
+that slot whole, and it is yours from then on. **SAVE** picks the first empty slot. If all three are taken, SoundPlant
+asks before it replaces the project in the slot SAVE TO shows. Holding **HOME** and a white key loads your slots only.
+
 A new project starts with a band picked at random from the factory presets. T1 gets the kit. T2 to T8 get a mono
 bass, a polyphonic synth, a pad, a mono lead, keys, an effect, and a pluck or bell, and every track follows the
 conductor. To pick another band for T2 to T8, use RANDOMIZE PRESETS on **HOME**'s **SEL** list. It asks first,
@@ -1706,6 +1717,11 @@ they are. To do the same from a terminal, run these in the firmware's folder:
 - projects and presets: `python3 base/tools/fm1_backup.py backup FILE --magic LM8B` and `restore FILE`
 - samples: `python3 tools/soundplant_samples.py backup FILE` and `restore FILE` (its `restore` also takes the backup
   page's file)
+
+**More demo songs.** The Backup page's "Put demo songs on my FM-1" card puts any of the emulator's demo songs into
+your empty project slots, one song to a slot. It takes a backup first and changes nothing else: a slot that holds a
+project, your presets and your samples stay as they are. The FM-1 asks first on its screen, as for any restore (**SEL**
+yes, **HOME** no). If all three slots hold a project, the page says there is no room.
 
 **Editing a backup.** The Project page, <https://daemon-summoner.github.io/fm1-soundplant/project/>, opens a
 backup file and lets you change a project on a computer: the tempo, each track's name, level and pan, the steps of

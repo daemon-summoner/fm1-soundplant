@@ -5,13 +5,12 @@
 demos.json, the list the picker shows. A restore replaces the open project and the other two slots, and the firmware
 reloads only the open slot, so every slot holds the demo.
 
-The songs are tools/demos/*.xy, played in the host simulator: everything before a script's "tap HOME" is the project
-(sounds, patterns, scenes, song); what follows is a performance, left out. Those eight were made with private sample
-banks (a sung bar, a break, a 808, a vocal "hey"), which must never be published, so they are built here with
-factory sounds in their place: SWAPS names, per demo and track, the sample (the breaks come with the emulator) and how
-far the track's notes move so that it still plays the right slice or pitch. The master and samples lines are dropped (the
-page's volume knob is the master; the emulator has no user bank to load). The songs written for the web, tools/demos/web/,
-use factory sounds alone and are checked as strictly: a "samples" line or a user sample (u1, u2 ...) in one is an error.
+The songs are tools/demos/web/*.xy, played in the host simulator: everything before a script's "tap HOME" is the
+project (sounds, patterns, scenes, song); what follows is a performance, left out. They use factory sounds alone, so a
+"samples" line or a user sample (u1, u2 ...) in one is an error, and the master and samples lines are dropped (the
+page's volume knob is the master; the emulator has no user bank to load). A song must be 150 s or longer, use all
+eight tracks, stay under the model's load ceiling and fit three copies in the backup's pool (a slot's share under
+66 %).
 
     tools/make_demos.py [OUT_DIR]       images and demos.json into OUT_DIR (default app/build/emu/demos); the host
                                         simulator is built first (./build.sh --host) when it is missing or older
@@ -37,129 +36,92 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DEMOS = ROOT / "tools" / "demos"
 HOST = ROOT / "app" / "build" / "host" / "soundplant_host"
-BREAKS = ROOT / "build" / "gen" / "breaks.bin"
 SKIP = ("master ", "samples ")
-BREAK_NAMES = ("classic", "heat", "choke", "ecstasy")
-SLICE_ROOT = (
-    53  # the note of a break's first slice (the scripts' notes 53..68 are its sixteen)
-)
-NOTES = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
+MIN_SECONDS = 150  # a demo is a full song
+LOAD_MAX = 96  # the model's load peak a demo may reach, %
+TRACKS = 8
 
-# (id, the project's name (12 characters at most), genre, blurb, script, SWAPS)
-# SWAPS: {track: (factory sample, notes moved)}. The slice tracks move by the sample's root over the break's 53 (the
-# slice a note picks is (note - root) mod 16); the pitched tracks by what makes the factory sample sound the song's pitch.
-# The kick's tone is about G1 under its declared root C4, so a kick played as a bass sits 29 semitones up.
+# (id: its script is tools/demos/web/ID.xy, the project's name (12 characters at most), the title the picker shows, blurb)
 DEMO_LIST = (
     (
-        "ambient",
-        "ambient",
-        "Ambient",
-        "Slow pads and bells, a long hall, no drums. 64 bpm.",
-        "ambient.xy",
-        {},
+        "house",
+        "deep_house",
+        "Deep house",
+        "A full deep house song in A minor: an electric-piano call, gospel organ stabs, a koto arp, a vocal chop, a withheld drop and a bass that takes the hook. 122 bpm.",
     ),
     (
         "soul",
         "soul_ballad",
         "Soul ballad",
         "A late-night ballad in Eb: a reed-lead hook that sighs in three voices, nylon guitar and electric piano, a deceptive turn, a last chorus a semitone up and a false ending. 72 bpm, swung.",
-        "web/soul.xy",
-        {},
     ),
     (
-        "hiphop",
-        "boom_bap",
-        "Hip hop",
-        "Boom bap: a crushed break, a horn stab on each chord, a scratched voice. 90 bpm, swung.",
-        "hiphop.xy",
-        {1: ("heat", 0), 5: ("brass", 0)},
+        "afterglow",
+        "afterglow",
+        "Afterglow",
+        "A slow, warm D-major song that opens on one lone electric-piano riff, adds a layer at a time, lifts a whole step into E and ends where it began. 88 bpm.",
     ),
     (
-        "pop",
-        "pop",
-        "Pop",
-        "A bright pop song in C: a flute hook over a clean kit, piano and a wide pad. 110 bpm.",
-        "pop.xy",
-        {4: ("strings", 7), 5: ("flute", 0)},
-    ),
-    (
-        "house",
-        "deep_house",
-        "Deep house",
-        "A full deep house song in A minor: an electric-piano call, gospel organ stabs, a koto arp, a vocal chop, a withheld drop and a bass that takes the hook. 122 bpm.",
-        "web/house.xy",
-        {},
-    ),
-    (
-        "house_acid",
-        "acid_house",
-        "Acid house",
-        "The deep house with a 303 line, slides and accents, and a 909 kick and clap. 122 bpm.",
-        "house_acid.xy",
-        {5: ("classic", 0), 6: ("brass", 0)},
-    ),
-    (
-        "house_909",
-        "house_909",
-        "House",
-        "The acid house with the 909's hats and cymbals too. 122 bpm.",
-        "house_909.xy",
-        {5: ("classic", 0), 6: ("brass", 0)},
-    ),
-    (
-        "garage",
-        "uk_garage",
-        "UK garage",
-        "The 2-step: a shuffled kit, a bouncing bass that glides, organ stabs, chopped flute. 132 bpm, swung.",
-        "garage.xy",
-        {4: ("flute", 19), 5: ("ecstasy", 0)},
-    ),
-    (
-        "hyperpop",
-        "hyperpop",
-        "Hyperpop",
-        "Fast, bright and loud: a kick bass that slides, a crushed flute chop, a toy lead through an arp. 160 bpm.",
-        "hyperpop.xy",
-        {2: ("kick", 29), 4: ("strings", 7)},
-    ),
-    (
-        "jungle",
-        "jungle",
-        "Jungle",
-        "Two chopped breaks over a rolling sub bass and pads, 90s style. 170 bpm.",
-        "jungle.xy",
-        {1: ("classic", 0), 6: ("heat", 0)},
-    ),
-    (
-        "techno",
-        "techno",
-        "Techno",
-        "A hard 909 kick, a rolling acid line with slides, minor stabs and a dark pad, a riser into the drop. 130 bpm.",
-        "web/techno.xy",
-        {},
+        "ambient",
+        "ambient",
+        "Ambient",
+        "A slow, still piece in F Lydian: a glass-bell motif turned over and over, a koto arpeggio running like water, a brief detour to Dbmaj7 and Ebadd9, then home. 64 bpm.",
     ),
     (
         "synthwave",
         "synthwave",
         "Synthwave",
-        "A retro night drive: an FM bass in eighths, a big snare in the hall, a lead over a plucked arpeggio and a wide pad. 108 bpm.",
-        "web/synthwave.xy",
-        {},
+        "A synthwave night drive in F# minor: a toy-keys arp motif, a rolling-octave chorus with a gated snare, and a last chorus lifted two semitones. 108 bpm.",
+    ),
+    (
+        "pop",
+        "pop",
+        "Pop",
+        "A radio pop song in E major: a syncopated pluck earworm, a singable vocal chorus, a half-time bridge with a one-beat stop and a last chorus lifted a semitone. 116 bpm.",
+    ),
+    (
+        "hiphop",
+        "boom_bap",
+        "Hip hop",
+        "Boom bap in D Dorian: a swung Rhodes bed, a horn-stab hook, a walking bass and a cracking break, a beat switch with scratches and a beatless strings bridge. 90 bpm.",
+    ),
+    (
+        "house_909",
+        "piano_house",
+        "Piano house",
+        "A piano house song in Bb major: a 909 kit, a rolling bass, sample-piano chords and tune, a soprano chop, a four-bar switch and a final drop lifted a tone. 126 bpm.",
+    ),
+    (
+        "house_acid",
+        "acid_house",
+        "Acid house",
+        "An acid house song in E Phrygian: a 16-bar 303 solo, organ-stab offbeats, a vocal-chop call and answer, a half-time jack section and throws at the section ends. 124 bpm.",
+    ),
+    (
+        "techno",
+        "techno",
+        "Techno",
+        "A techno song in F minor: a ringing 909 kick, a rolling 303 riff with two slides, a Gb organ stab in 3-3-2 and a tubular-bell counter-melody at the peak. 130 bpm.",
+    ),
+    (
+        "garage",
+        "uk_garage",
+        "UK garage",
+        "UK garage in Bb minor: a swung 2-step kit, a gliding sub, a pitched soprano-chop hook, an offbeat organ skank, a rewind and an 8-bar speed-garage switch. 132 bpm, swung.",
+    ),
+    (
+        "hyperpop",
+        "hyperpop",
+        "Hyperpop",
+        "Hyperpop in G# minor: a glitch verse and a four-bar hook that comes back as a music box, in thirds and slowed to a ballad, with a key-lift drop. 160 bpm.",
+    ),
+    (
+        "jungle",
+        "jungle",
+        "Jungle",
+        "Jungle in G minor: a reese bass riff and a ragga \"oh\" chop over a chopped break, a beatless pad break, steppers and a rewind. 170 bpm.",
     ),
 )
-# {demo id: {track: level}}: a track's level where the substitute sounds too loud or too soft
-LEVELS = {"hiphop": {5: 124}, "jungle": {1: 122}}
-
-
-def note_number(tok):
-    """a note as the host reads it (C4 = 60, F#3, Bb2) or a number, as a number"""
-    if tok.lstrip("-").isdigit():
-        return int(tok)
-    m = re.fullmatch(r"([A-Ga-g])([#b]?)(-?\d+)", tok)
-    if not m:
-        raise SystemExit(f"make_demos: not a note: {tok}")
-    n = NOTES[m[1].upper()] + {"#": 1, "b": -1, "": 0}[m[2]] + 12 * (int(m[3]) + 1)
-    return n
 
 
 def user_samples(lines):
@@ -180,6 +142,10 @@ def check_script(path):
         )
 
 
+def script_of(did):
+    return DEMOS / "web" / f"{did}.xy"
+
+
 def setup_of(script):
     """a script's lines before its "tap HOME": the project, without comments"""
     lines = script.read_text().splitlines()
@@ -193,48 +159,12 @@ def setup_of(script):
     ]
 
 
-def replace_sample(lines, demo, track, sample, shift):
-    want = re.compile(rf"knob {track} e1 u\d+")
-    at = [i for i, ln in enumerate(lines) if want.fullmatch(ln)]
-    if len(at) != 1:
-        raise SystemExit(
-            f"make_demos: {demo}: track {track} has {len(at)} user sample lines, not one"
-        )
-    lines[at[0]] = f"knob {track} e1 {sample}"
-    if shift:
-        for i, ln in enumerate(lines):
-            w = ln.split()
-            if w[0] == "notes" and w[1] == str(track):
-                lines[i] = " ".join(
-                    w[:6] + [str(note_number(t) + shift) for t in w[6:]]
-                )
-                if any(note_number(t) > 127 for t in lines[i].split()[6:]):
-                    raise SystemExit(
-                        f"make_demos: {demo}: {ln}: moved by {shift} beyond the top note"
-                    )
-
-
-def set_level(lines, demo, track, level):
-    at = [i for i, ln in enumerate(lines) if ln.startswith(f"knob {track} level ")]
-    if len(at) != 1:
-        raise SystemExit(
-            f"make_demos: {demo}: track {track} has {len(at)} level lines, not one"
-        )
-    lines[at[0]] = f"knob {track} level {level}"
-
-
 def project_script(demo):
-    """(setup lines of the demo, with factory sounds only)"""
-    did, _, _, _, script, swaps = next(d for d in DEMO_LIST if d[0] == demo)
-    path = DEMOS / script
-    lines = [ln for ln in setup_of(path) if not ln.startswith(SKIP)]
-    for track, (sample, shift) in swaps.items():
-        replace_sample(lines, did, track, sample, shift)
-    for track, level in LEVELS.get(did, {}).items():
-        set_level(lines, did, track, level)
+    """(setup lines of the demo: its script's project, without the master and samples lines)"""
+    lines = [ln for ln in setup_of(script_of(demo)) if not ln.startswith(SKIP)]
     bad = user_samples(lines)
     if bad:
-        raise SystemExit(f"make_demos: {did}: a user sample is left: {bad[0]}")
+        raise SystemExit(f"make_demos: {demo}: a user sample is left: {bad[0]}")
     return lines
 
 
@@ -286,29 +216,6 @@ def ensure_host():
         )
 
 
-def ensure_breaks():
-    if not BREAKS.exists():
-        BREAKS.parent.mkdir(parents=True, exist_ok=True)
-        r = subprocess.run(
-            [
-                sys.executable,
-                str(ROOT / "tools" / "soundplant_samples.py"),
-                "build",
-                "--no-factory",
-                str(BREAKS),
-                "breaks",
-            ],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if r.returncode:
-            raise SystemExit(
-                f"make_demos: the break pack did not build: {r.stdout}{r.stderr}"
-            )
-
-
 def run_host(script, out, what):
     out.mkdir(parents=True, exist_ok=True)  # (the host does not make its directory)
     r = subprocess.run(
@@ -320,7 +227,7 @@ def run_host(script, out, what):
     )  # (0 % load: the same render every time)
     log = r.stdout + r.stderr
     script.with_suffix(".log").write_text(log)
-    bad = [ln for ln in log.splitlines() if ln.startswith(("FAIL", "demo: ", "line "))]
+    bad = [ln for ln in log.splitlines() if ln.startswith(("FAIL", "demo: ", "line ")) or " not saved" in ln]
     if r.returncode or bad:
         raise SystemExit(
             f"make_demos: {what}: the host simulator failed (rc {r.returncode}): {bad[:3]} (see {script.with_suffix('.log')})"
@@ -340,7 +247,7 @@ def backup_script(name, lines):
 def render_script(lines, bars):
     """the demo played from the Song page, as a player starts it (HOME, SELECT, PLAY), to a WAV; the volume knob full"""
     return (
-        ["master 4096", f"samples {BREAKS}"]
+        ["master 4096"]
         + lines
         + [
             "tap HOME",
@@ -385,12 +292,41 @@ def make_one(did, name, lines, work, out, render):
         rd = render / did
         run_host(rs, rd, f"{did}'s render")
         (render / f"{did}.wav").write_bytes((rd / "demo.wav").read_bytes())
-        (render / f"{did}.midi.txt").write_bytes((rd / "midi_out.txt").read_bytes())
+        midi = (rd / "midi_out.txt").read_bytes()
+        (render / f"{did}.midi.txt").write_bytes(midi)
         for f in rd.iterdir():
             f.unlink()
         rd.rmdir()
         facts["load"] = logged(rs, r"model load peak (\d+) %")
+    short = shortfalls(facts, midi.decode() if render else None)
+    if short:
+        raise SystemExit(f"make_demos: {did}: {'; '.join(short)} ({summary(did, facts).strip()})")
     return facts
+
+
+def tracks_sounding(midi):
+    """the tracks (1 to 8) with a note-on in a host MIDI log (lines like "291 ms: 92 3A 5C -> USB": status, note, velocity)"""
+    return {
+        int(m[1], 16) % 16 + 1
+        for m in re.finditer(r"ms: (9[0-7]) [0-9A-F]{2} ([0-9A-F]{2})", midi)
+        if int(m[2], 16)
+    }
+
+
+def shortfalls(f, midi=None):
+    """what keeps a demo from being the full song it must be: under MIN_SECONDS long, over LOAD_MAX in the load model
+    (f has a "load" after a render), a track that never sounds (midi, the render's log)"""
+    out = []
+    seconds = f["bars"] * 4 * 60 / f["bpm"]
+    if seconds < MIN_SECONDS:
+        out.append(f"{seconds:.0f} s long, under {MIN_SECONDS} s")
+    if f.get("load", 0) > LOAD_MAX:
+        out.append(f"load peak {f['load']} %, over {LOAD_MAX} %")
+    if midi is not None:
+        silent = sorted(set(range(1, TRACKS + 1)) - tracks_sounding(midi))
+        if silent:
+            out.append(f"track(s) {silent} never sound")
+    return out
 
 
 def summary(did, f):
@@ -433,7 +369,6 @@ def main(argv):
     work.mkdir(parents=True, exist_ok=True)
     if song:
         check_script(song)
-        ensure_breaks()
         did = song.stem
         render = render or work / "render"
         render.mkdir(parents=True, exist_ok=True)
@@ -441,14 +376,10 @@ def main(argv):
         print(summary(did, make_one(did, did[:12], lines, work, None, render)))
         return 0
     out = Path(args[0]).resolve() if args else ROOT / "app" / "build" / "emu" / "demos"
-    for d in (
-        DEMO_LIST
-    ):  # (a web demo is a script of factory sounds only: the same check as --check)
-        if d[4].startswith("web/"):
-            check_script(DEMOS / d[4])
+    for d in DEMO_LIST:  # (a demo is a script of factory sounds only: the same check as --check)
+        check_script(script_of(d[0]))
     out.mkdir(parents=True, exist_ok=True)
     if render:
-        ensure_breaks()
         render.mkdir(parents=True, exist_ok=True)
     with ThreadPoolExecutor(jobs) as pool:
         made = list(
@@ -467,7 +398,7 @@ def main(argv):
             "blurb": blurb,
             "file": f"{did}.soundplant",
         }
-        for (did, name, genre, blurb, _, _), f in zip(DEMO_LIST, made)
+        for (did, name, genre, blurb), f in zip(DEMO_LIST, made)
     ]
     (out / "demos.json").write_text(json.dumps(listing, indent=1) + "\n")
     if render:

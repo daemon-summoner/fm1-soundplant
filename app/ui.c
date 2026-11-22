@@ -2671,7 +2671,11 @@ static void list_change_do(int32_t e)
         case A_SAVE_PRESET: ui.pick_slot = (uint8_t)((ui.pick_slot + d + NUSER_PRESETS) % NUSER_PRESETS); break;
         case A_KIT: ui.pick_kit = (uint8_t)((ui.pick_kit + d + NKITS) % NKITS); break;
         case A_SAVE_KIT: ui.pick_kslot = (uint8_t)((ui.pick_kslot + d + NUSER_KITS) % NUSER_KITS); break;
-        case A_LOAD_PROJ: ui.pick_slot = (uint8_t)((ui.pick_slot + d + NPROJ) % NPROJ); break;
+        case A_LOAD_PROJ: {                           /* the slots, then the built-in songs */
+            int n = NPROJ + project_demos();
+            ui.pick_slot = (uint8_t)((ui.pick_slot + d + n) % n);
+            break;
+        }
         case A_SAVE_TO: ui.pick_save = (uint8_t)((ui.pick_save + d + NPROJ) % NPROJ); break;
         case A_USB_AUDIO: {                           /* follows knob, full, stereo */
             int v = (int)proj.usb_full + (d > 0 ? 1 : -1);
@@ -3497,10 +3501,45 @@ static void after_load(void)
     ui.chordmode = 0;
     ui.bar = 0;
 }
+static int free_slot(void)                       /* the first empty slot, or PROJ_NOSLOT */
+{
+    int f = PROJ_NOSLOT;
+    for (int s = NPROJ - 1; s >= 0; s--)
+        if (!project_exists(s))
+            f = s;
+    return f;
+}
+static void do_load_demo(int k)                  /* a built-in song: no slot, nothing written, SAVE TO copies it into one */
+{
+    int f;
+    if (!project_demo_ok(k)) {
+        say_no("DEMO DAMAGED", "nothing changed");
+        return;
+    }
+    engine_transport(0);
+    engine_panic();
+    project_device_get();
+    if (project_load_demo(k) != 0) {
+        project_device_put();
+        say_no("DEMO DAMAGED", "defaults loaded");
+    } else {
+        project_device_put();
+        say("LOADED", project_demo_name(k));
+    }
+    f = free_slot();
+    if (f < NPROJ)
+        ui.pick_save = (uint8_t)f;
+    after_load();
+    ui.dirty = 0;
+}
 static void do_load_proj(void)
 {
-    int slot = ui.ask_arg % NPROJ;
+    int slot = ui.ask_arg;
     char t[16];
+    if (slot >= NPROJ) {
+        do_load_demo(slot - NPROJ);
+        return;
+    }
     engine_transport(0);
     engine_panic();
     project_device_get();                        /* (Setup's settings and the theme are the FM-1's, not the project's:
@@ -3563,10 +3602,7 @@ static void do_new_proj(void)
     project_random_sounds(plat_ms() * 2654435761u ^ proj_seed++);   /* a band of its own each time */
     after_load();
     ui.dirty = 1;
-    proj_slot = PROJ_NOSLOT;                     /* its slot: the first free one; none free, SAVE TO picks one */
-    for (int s = NPROJ - 1; s >= 0; s--)
-        if (!project_exists(s))
-            proj_slot = (uint8_t)s;
+    proj_slot = (uint8_t)free_slot();            /* its slot: the first free one; none free, SAVE TO picks one */
     if (proj_slot < NPROJ) {
         char t[16];
         num_s((uint32_t)proj_slot + 1u, s_cat(t, "slot "));
@@ -3927,7 +3963,7 @@ static void action_run(int a)
         play_press();
         break;
     case A_LOAD_PROJ:
-        act_load_proj(ui.pick_slot % NPROJ);
+        act_load_proj(ui.pick_slot % (NPROJ + project_demos()));
         return;
     case A_NEW_PROJ: ask("NEW PROJECT?", do_new_proj); return;
     case A_RANDOM_SOUNDS: ask("NEW SOUNDS ON T2 TO T8?", do_random_sounds); return;

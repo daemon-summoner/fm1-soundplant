@@ -1018,6 +1018,55 @@ static void t_locks(void)
     printf("ok %s\n", cur);
 }
 
+static const ev_t *last_lock(int trk, int param)
+{
+    int i;
+    const ev_t *r = NULL;
+    for (i = 0; i < nev; i++)
+        if (ev[i].kind == E_LOCK && ev[i].trk == trk && ev[i].a == param)
+            r = &ev[i];
+    return r;
+}
+
+/* a scene change from pattern 0 to pattern 1 where both have a lane on the cutoff: the lock the new pattern's step 1 puts
+ * on it stands, whichever lane has the lower index; with no lane in the new pattern the knob comes back */
+static void t_lock_lane_order(void)
+{
+    int a, b, order;
+    const ev_t *e;
+    cur = "lock-lane-order";
+    for (order = 0; order < 3; order++) {
+        reset();
+        note(0, 0, 60, 100);
+        P.pat[0][1].st[0].note[0] = 72;
+        P.pat[0][1].st[0].vel = 100;
+        P.scene[1].used = 1;
+        P.scene[1].pat[0] = 1;
+        if (order == 0) {                           /* the new pattern's lane first: the old pattern's lane comes after it */
+            b = lane_alloc(P.lane, 0, 1, TP_CUT);
+            a = lane_alloc(P.lane, 0, 0, TP_CUT);
+            CHECK(b >= 0 && a > b);
+        } else {
+            a = lane_alloc(P.lane, 0, 0, TP_CUT);
+            b = order == 1 ? lane_alloc(P.lane, 0, 1, TP_CUT) : -1;
+            CHECK(a >= 0 && (order == 2 || b > a));
+        }
+        P.lane[a].val[0] = 10;
+        if (b >= 0)
+            P.lane[b].val[0] = 77;
+        start();
+        run(L16);
+        e = last_lock(0, TP_CUT);
+        CHECK(e && e->b == 10);                     /* pattern 0's step 1 */
+        seq_cue_scene(&S, 1, 0);
+        run(20 * L16);
+        CHECK(S.scene == 1 && S.ppat[0] == 1);
+        e = last_lock(0, TP_CUT);
+        CHECK(e && e->b == (order == 2 ? LOCK_NONE : 77) && e->t + 2 >= 16 * L16 + 8);
+    }
+    printf("ok %s\n", cur);
+}
+
 static void t_scene(void)
 {
     cur = "scene";
@@ -3658,6 +3707,7 @@ int main(void)
     t_components();
     t_cond();
     t_locks();
+    t_lock_lane_order();
     t_kit11();
     t_hit_cond();
     t_hit_flam();

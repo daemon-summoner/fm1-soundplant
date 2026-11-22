@@ -187,6 +187,99 @@ Real screens from the manual, one per kind of page.
   </tr>
 </table>
 
+## The garden
+
+Both the FM-1 and the browser emulator can draw a song as a night garden: a plant for each of the eight tracks, in the
+track's colour. A hit rings its plant, a mute wilts it, and the patterns seed the garden, so every song grows its own.
+It only draws and listens. It never changes the sound.
+
+**On the FM-1,** press HOME, then turn SELECT twice. Knob 1 sets how often the picture glitches and knob 2 plants
+another garden. These nine moments are the host build of the firmware playing the three songs built into it, which
+LOAD PROJECT lists as Demo: Deep house, Demo: Synthwave and Demo: Afterglow. Each is the Garden page's picture and
+nothing else.
+
+<table>
+  <tr>
+    <td align="center" valign="top" width="33%">
+      <img src="docs/img/screen-garden-house.png" width="270" alt="The Garden page during Deep house: a night sky with a crescent moon over a row of plants in the eight track colours"><br>
+      <sub>Deep house, a minute in</sub>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <img src="docs/img/screen-garden-synth.png" width="270" alt="The Garden page during Synthwave, under a full moon, with a large green bloom in the middle"><br>
+      <sub>Synthwave, a minute and three quarters in</sub>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <img src="docs/img/screen-garden-after.png" width="270" alt="The Garden page two minutes into Afterglow, with the plants in bloom and glowing"><br>
+      <sub>Afterglow, two minutes in</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="33%">
+      <img src="docs/img/screen-garden-waking.png" width="270" alt="The Garden page in the first bars of Afterglow, most plants small and closed"><br>
+      <sub>Afterglow, first bars: most of the garden asleep</sub>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <img src="docs/img/screen-garden-seed.png" width="270" alt="The Garden page in Afterglow with the seed at 37, a different arrangement of the same eight plants"><br>
+      <sub>Afterglow again, seed 37: another garden</sub>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <img src="docs/img/screen-garden-muted.png" width="270" alt="The Garden page with four of the eight tracks muted: their plants are grey and drooping, the other four stand"><br>
+      <sub>Deep house, four tracks muted</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="33%">
+      <img src="docs/img/screen-garden-tear.png" width="270" alt="The Garden page during a tear glitch: bands of the picture slide sideways with red, green and blue edges"><br>
+      <sub>Glitch: a tear</sub>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <img src="docs/img/screen-garden-blocky.png" width="270" alt="The Garden page during a blocky-blur glitch: the whole picture shown as coarse squares"><br>
+      <sub>Glitch: a blocky blur</sub>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <img src="docs/img/screen-garden-fold.png" width="270" alt="The Garden page during a fold glitch: the picture is mirrored about its middle, with two moons"><br>
+      <sub>Glitch: a fold</sub>
+    </td>
+  </tr>
+</table>
+
+**In the browser,** switch the [emulator](https://daemon-summoner.github.io/fm1-soundplant/emu/) on and press the Garden button under its panel. The garden fills the window and the FM-1 docks in
+the corner, still playable. Calm, Trippy and Wild set how far the camera moves and how often it glitches, and the sky and
+the ground move through five night looks as the song goes on.
+
+<table>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <img src="docs/img/garden-web-trippy.jpg" width="410" alt="The browser's Night Garden during Deep house: glowing flowers on tall stems over a grassy pond, with curtains of light behind them and the FM-1 docked in the corner"><br>
+      <sub>Trippy, the default: the FM-1 stays docked in the corner and playable</sub>
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src="docs/img/garden-web-calm.jpg" width="410" alt="The Night Garden in its Calm look: a few flowers over a green field under a teal sky"><br>
+      <sub>Calm: the camera barely moves</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <img src="docs/img/garden-web-later.jpg" width="410" alt="The Night Garden later in the same song: big rings of light and glowing flowers in a blue-violet night"><br>
+      <sub>The same song, later: the sky and the ground have changed</sub>
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src="docs/img/garden-web-wild.jpg" width="410" alt="The Night Garden in its Wild look: the camera in among glowing flowers"><br>
+      <sub>Wild: the camera moves most and glitches most</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <img src="docs/img/garden-web-toolbar.jpg" width="410" alt="The Night Garden in Wild with its toolbar showing: Calm, Trippy and Wild, Regrow, Panel, Screen and Full screen, and Close"><br>
+      <sub>The toolbar: intensity, Regrow, the panel and the screen, full screen</sub>
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src="docs/img/garden-web-screen.jpg" width="410" alt="The Night Garden during Afterglow with the FM-1's own screen popped out above the panel, showing the firmware's Garden page"><br>
+      <sub>Afterglow, with Screen: large: the FM-1's own Garden beside the browser's</sub>
+    </td>
+  </tr>
+</table>
+
 <p align="center">
   <img src="docs/img/readme-rule.svg" width="830" alt="">
 </p>

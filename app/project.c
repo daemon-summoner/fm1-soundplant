@@ -15,12 +15,17 @@
  * effect (a pick, fx.h: the effect and the reverb's mode), TP_E1..E4 its four knobs, TP_FENV its
  * high-pass, TP_CUT its low-pass, TP_LEVEL the return, TP_SEND2 of FX I its feed into FX II; BRAIN:
  * TP_E1..E4 mode, key, scale, degree; PUNCH: TP_E1 latch.
+ *
+ * Built-in songs (builtin_songs.h, made by tools/make_demo_songs.py) sit in the firmware's flash as a slot's objects
+ * would, each LZMA-packed (boot_lzma.h): they open as a project with no slot, so nothing saves them unasked.
  * Part of the unity build, after app.h and engine.h. */
 #include <stddef.h>
 #include "app.h"
 #include "engine.h"
 #include "dsp/drumline.h"
 #include "lz.c"
+#include "boot_lzma.h"
+#include "builtin_songs.h"
 
 settings_t proj;
 uint8_t proj_par[NALLTRK][NTP] PLAT_POOL;
@@ -28,6 +33,7 @@ patterns_t pats PLAT_POOL;
 user_preset_t user_presets[NUSER_PRESETS];
 char user_kit_name[NUSER_KITS][NAME_LEN];
 uint8_t proj_slot;
+uint8_t proj_demo = 0xFF;
 
 #define PROJ_STREAM 2u                  /* the format word of the packed objects */
 #define NSTREAM (PROJ_NOBJ - 1)
@@ -250,6 +256,7 @@ void project_defaults(void)
     int t, k;
     uint8_t *z = (uint8_t *)&proj, keep = proj.magic == PROJ_MAGIC;   /* (a project before it: the FM-1's settings
                                                                      * carried over; at the first start, none) */
+    proj_demo = 0xFF;
     if (keep)
         project_device_get();
     for (k = 0; k < (int)sizeof proj; k++)
@@ -654,6 +661,19 @@ static void migrate_old(int fmt)
         memset(&pats.scene[on], 0, (NSCENE - on) * sizeof pats.scene[0]);
 }
 
+/* the raw store just unpacked (len bytes: its length says its format) made this format's */
+static void stream_fixup(uint32_t len)
+{
+    if (len != RAW_LEN)                           /* (an older store: no hit settings) */
+        memset(pats.hit, 0, sizeof pats.hit);
+    if (len == RAW_LEN17 && load_format > 17u)
+        load_format = 17u;
+    else if (len == RAW_LEN10 || len == RAW_LEN11) {
+        load_format = len == RAW_LEN10 ? 10u : 11u;
+        migrate_old(load_format);
+    }
+}
+
 /* 0 = loaded; -1 = not there or not good (pats then holds garbage). An older format's (load_format) as it was
  * saved, then migrated */
 static int load_stream(int n, uint32_t prev)
@@ -670,14 +690,7 @@ static int load_stream(int n, uint32_t prev)
     stored_hash[stream_obj[0]] = hash_of(io_buf, (uint32_t)n);
     if (lz_decompress(&src, raw, len) || crc32_of(raw, len) != crc)
         return -1;
-    if (len != RAW_LEN)                           /* (an older store: no hit settings) */
-        memset(pats.hit, 0, sizeof pats.hit);
-    if (len == RAW_LEN17 && load_format > 17u)
-        load_format = 17u;
-    else if (len == RAW_LEN10 || len == RAW_LEN11) {
-        load_format = len == RAW_LEN10 ? 10u : 11u;
-        migrate_old(load_format);
-    }
+    stream_fixup(len);
     packed_len = plen;
     return 0;
 }
@@ -783,6 +796,57 @@ static void slot_objects(int slot)
         stream_obj[k] = (uint8_t)OBJ_PROJ(slot, k + 1);
 }
 
+/* the settings just unpacked and valid (a slot's, or a built-in song's), an older format's made this format's */
+static void settings_migrate(void)
+{
+    load_format = (uint8_t)proj.format;
+    proj.format = PROJ_FORMAT;                        /* (an older one migrated: saved as this format next) */
+    if (load_format < 13u)                        /* (before 13 the conductor's LFO slots held a knit's defaults:
+                                                   * the shared LFO from its start) */
+        glfo_defaults(proj.trk[AUX_BRAIN].par);
+    if (load_format < 20u)                        /* (before 20 no PING WIDTH: the full bounce they had) */
+        proj.trk[AUX_FX1].par[TP_FX_WIDTH] = proj.trk[AUX_FX2].par[TP_FX_WIDTH] = 127;
+    if (load_format < 21u) {                      /* (before 21 no dotted arp speeds, the delay's times fewer) */
+        for (int t = 0; t < NTRK; t++)
+            if (proj.trk[t].par[TP_PLAYER] % NPL == PL_ARP)
+                proj.trk[t].par[TP_P1] = old_arp(proj.trk[t].par[TP_P1]);
+        for (int t = AUX_FX1; t <= AUX_FX2; t++)
+            if (fx_pick_type(proj.trk[t].par[TP_ENGINE] % NFXPICK) == FXT_DELAY)
+                proj.trk[t].par[TP_E1] = OLD_DLY[(proj.trk[t].par[TP_E1] & 127u) >> 4];
+    }
+    if (load_format < 22u)                        /* (before 22 the EQ page's fourth value was unused and may hold
+                                                   * anything: polish starts at its default) */
+        proj.master[MS_POLISH] = POLISH_DEF;
+    if (load_format < 14u)                        /* (before 14, off (FT_DYNAMIC) sat at 4 and bp12 at 5: swap) */
+        for (int t = 0; t < NTRK; t++) {
+            uint8_t ft = proj.trk[t].par[TP_FTYPE];
+            if (ft == 4u || ft == 5u)
+                proj.trk[t].par[TP_FTYPE] = (uint8_t)(9u - ft);
+        }
+    if (load_format == 10u) {                     /* 0.5-beta had no way to set a track's MIDI channel: they are
+                                                   * all off there. As a new project's: notes out, MIDI OUT on */
+        proj.send_notes = 1;
+        for (int t = 0; t < NTRK; t++)
+            if (!proj.trk[t].par[TP_CHAN])
+                proj.trk[t].par[TP_CHAN] = 1;
+    }
+    for (int t = 0; t < NTRK; t++)                /* (before C3 a track held its channel, 1-16: now MIDI OUT on) */
+        if (proj.trk[t].par[TP_CHAN])
+            proj.trk[t].par[TP_CHAN] = 1;
+}
+
+/* the patterns' locks of the arp's speeds, once the settings and the patterns are both in */
+static void lanes_migrate(void)
+{
+    if (load_format < 21u)
+        for (int k = 0; k < NLANE; k++) {
+            lane_t *L = &pats.lane[k];
+            if (L->used && L->param == TP_P1 && L->trk < NTRK && proj.trk[L->trk].par[TP_PLAYER] % NPL == PL_ARP)
+                for (int i = 0; i < NSTEP; i++)
+                    L->val[i] = old_arp(L->val[i]);
+        }
+}
+
 /* the defaults, then each object into its place: a load copies only what checks out */
 int project_load(int slot)
 {
@@ -798,40 +862,7 @@ int project_load(int slot)
     if (n > 0)
         stored_hash[OBJ_PROJ(slot, 0)] = hash_of(io_buf, (uint32_t)n);
     if (settings_unpack(n) == 0 && settings_valid(&proj)) {
-        load_format = (uint8_t)proj.format;
-        proj.format = PROJ_FORMAT;                    /* (an older one migrated: saved as this format next) */
-        if (load_format < 13u)                        /* (before 13 the conductor's LFO slots held a knit's defaults:
-                                                       * the shared LFO from its start) */
-            glfo_defaults(proj.trk[AUX_BRAIN].par);
-        if (load_format < 20u)                        /* (before 20 no PING WIDTH: the full bounce they had) */
-            proj.trk[AUX_FX1].par[TP_FX_WIDTH] = proj.trk[AUX_FX2].par[TP_FX_WIDTH] = 127;
-        if (load_format < 21u) {                      /* (before 21 no dotted arp speeds, the delay's times fewer) */
-            for (int t = 0; t < NTRK; t++)
-                if (proj.trk[t].par[TP_PLAYER] % NPL == PL_ARP)
-                    proj.trk[t].par[TP_P1] = old_arp(proj.trk[t].par[TP_P1]);
-            for (int t = AUX_FX1; t <= AUX_FX2; t++)
-                if (fx_pick_type(proj.trk[t].par[TP_ENGINE] % NFXPICK) == FXT_DELAY)
-                    proj.trk[t].par[TP_E1] = OLD_DLY[(proj.trk[t].par[TP_E1] & 127u) >> 4];
-        }
-        if (load_format < 22u)                        /* (before 22 the EQ page's fourth value was unused and may hold
-                                                       * anything: polish starts at its default) */
-            proj.master[MS_POLISH] = POLISH_DEF;
-        if (load_format < 14u)                        /* (before 14, off (FT_DYNAMIC) sat at 4 and bp12 at 5: swap) */
-            for (int t = 0; t < NTRK; t++) {
-                uint8_t ft = proj.trk[t].par[TP_FTYPE];
-                if (ft == 4u || ft == 5u)
-                    proj.trk[t].par[TP_FTYPE] = (uint8_t)(9u - ft);
-            }
-        if (load_format == 10u) {                     /* 0.5-beta had no way to set a track's MIDI channel: they are
-                                                       * all off there. As a new project's: notes out, MIDI OUT on */
-            proj.send_notes = 1;
-            for (int t = 0; t < NTRK; t++)
-                if (!proj.trk[t].par[TP_CHAN])
-                    proj.trk[t].par[TP_CHAN] = 1;
-        }
-        for (int t = 0; t < NTRK; t++)                /* (before C3 a track held its channel, 1-16: now MIDI OUT on) */
-            if (proj.trk[t].par[TP_CHAN])
-                proj.trk[t].par[TP_CHAN] = 1;
+        settings_migrate();
         stored_known[OBJ_PROJ(slot, 0)] = 1;
     } else {
         project_defaults();                           /* (an unpack may have left part of it) */
@@ -863,15 +894,85 @@ int project_load(int slot)
     } else {
         bad = 1;
     }
-    if (load_format < 21u)                            /* (the arp speeds' locks too: above) */
-        for (int k = 0; k < NLANE; k++) {
-            lane_t *L = &pats.lane[k];
-            if (L->used && L->param == TP_P1 && L->trk < NTRK && proj.trk[L->trk].par[TP_PLAYER] % NPL == PL_ARP)
-                for (int i = 0; i < NSTEP; i++)
-                    L->val[i] = old_arp(L->val[i]);
-        }
+    lanes_migrate();
     migrated = !bad && load_format != PROJ_FORMAT ? (uint8_t)slot : 0xFF;
     return bad ? -1 : 0;
+}
+
+/* ---- the built-in songs --------------------------------------------------------------------- */
+
+/* each song: its title, then its two LZMA streams in one run of bytes: the settings object as a slot stores it
+ * (set_raw bytes unpacked), the patterns as the stream's raw store (pat_raw bytes: a RAW_LEN*). The streams' lengths
+ * and CRC-32s let a load be refused before anything is touched; pat_crc is the unpacked patterns' (as the stream's own
+ * header) */
+typedef struct {
+    const char *name;
+    const uint8_t *data;
+    uint16_t set_n, pat_n, set_raw;
+    uint32_t pat_raw, crc, pat_crc;
+} demo_song_t;
+#define DEMO_MAX 3                                    /* (LOAD PROJECT's rows after the slots; the generator's too) */
+#define DEMO_SONG_MAX 3584                            /* a song's data, bytes (tools/make_demo_songs.py SONG_LIMIT) */
+_Static_assert(NDEMO >= 1 && NDEMO <= DEMO_MAX, "builtin_songs.h: 1 to 3 songs");
+#ifdef PLAT_HOST
+/* the simulator's list is writable: a script damages a blob or lists the last song again (host.c demo_damage, demo_pad)
+ * to reach the paths a list of one intact song never takes */
+static demo_song_t demo_tab[DEMO_MAX] = DEMO_ROWS;
+static int demo_count = NDEMO;
+static uint16_t demo_probs[BOOT_LZMA_PROBS];
+#define demo_probs_ready()
+#else
+static const demo_song_t demo_tab[NDEMO] = DEMO_ROWS;
+#define demo_count NDEMO
+/* the decoder's tables (8 KB) lent by the screen's canvas, as lz.c lends it the compressor's: a load runs in the main
+ * loop, after the last transfer (lcd_sync), and every page fills the canvas again before it sends it */
+_Static_assert(CV_MAX * sizeof cv_px[0] >= BOOT_LZMA_PROBS * sizeof(uint16_t), "the decoder's tables fit the canvas");
+#define demo_probs ((uint16_t *)(void *)cv_px)
+#define demo_probs_ready() lcd_sync()
+#endif
+
+int project_demos(void) { return demo_count; }
+const char *project_demo_name(int k) { return k >= 0 && k < demo_count ? demo_tab[k].name : ""; }
+
+/* 1 = the song's bytes are whole and its sizes are the ones a load takes; nothing is read but the flash */
+int project_demo_ok(int k)
+{
+    const demo_song_t *d;
+    if (k < 0 || k >= demo_count)
+        return 0;
+    d = &demo_tab[k];
+    return d->set_n && d->pat_n && (uint32_t)d->set_n + d->pat_n <= DEMO_SONG_MAX && d->set_raw >= SET_HDR + 4u &&
+           d->set_raw <= sizeof io_buf &&
+           (d->pat_raw == RAW_LEN || d->pat_raw == RAW_LEN17 || d->pat_raw == RAW_LEN10 || d->pat_raw == RAW_LEN11) &&
+           crc32_of(d->data, (uint32_t)d->set_n + d->pat_n) == d->crc;
+}
+
+/* song k (project_demo_ok first) into proj and pats as a slot's objects load: 0 = loaded; -1 = defaults are in place.
+ * It has no slot (PROJ_NOSLOT): nothing autosaves it and SAVE TO writes every object. It never touches what project.c
+ * knows of the flash (stored_hash, stored_known, stream_obj, slot_known): the flash holds what it held, so a later
+ * save of a slot is not skipped as unchanged */
+int project_load_demo(int k)
+{
+    const demo_song_t *d = &demo_tab[k];
+    project_defaults();
+    packed_len = 0;
+    migrated = 0xFF;
+    load_format = PROJ_FORMAT;
+    demo_probs_ready();
+    if (!boot_lzma(io_buf, d->set_raw, d->data, d->set_n, demo_probs) || settings_unpack((int)d->set_raw) ||
+        !settings_valid(&proj) || !boot_lzma((uint8_t *)&pats, d->pat_raw, d->data + d->set_n, d->pat_n, demo_probs) ||
+        crc32_of((const uint8_t *)&pats, d->pat_raw) != d->pat_crc) {
+        project_defaults();
+        proj_slot = PROJ_NOSLOT;
+        return -1;
+    }
+    settings_migrate();
+    stream_fixup(d->pat_raw);
+    patterns_clamp();
+    lanes_migrate();
+    proj_slot = PROJ_NOSLOT;
+    proj_demo = (uint8_t)k;
+    return 0;
 }
 
 static void count_next(void);                         /* (below: the save count) */
@@ -887,6 +988,7 @@ int project_save(int slot)
             stored_known[OBJ_PROJ(slot, i)] = 0;
     }
     proj_slot = (uint8_t)slot;
+    proj_demo = 0xFF;                                 /* (a built-in song saved is a slot's) */
     slot_objects(slot);
     proj.tempo_x10 = (uint16_t)(seq_tempo(&seq) * 10.0f + 0.5f);
     proj.clock = seq.clock;
