@@ -774,8 +774,18 @@ nudge 6 7 25 2
 notes 6 7 33 31.6 64 63
 nudge 6 7 33 2
 pat 6 8 64 1 100 0
-notes 6 8 33 31.6 76 58
+notes 6 8 1 15.8 78 63
+nudge 6 8 1 2
+notes 6 8 17 7.8 76 62
+nudge 6 8 17 2
+notes 6 8 25 7.8 76 60
+nudge 6 8 25 2
+notes 6 8 33 7.8 78 65
 nudge 6 8 33 2
+notes 6 8 41 7.8 78 65
+nudge 6 8 41 2
+notes 6 8 49 15.8 86 58
+nudge 6 8 49 2
 pat 7 1 64 1 100 0
 notes 7 1 5 4 92 82
 nudge 7 1 5 2

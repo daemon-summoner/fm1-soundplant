@@ -6,11 +6,11 @@ demos.json, the list the picker shows. A restore replaces the open project and t
 reloads only the open slot, so every slot holds the demo.
 
 The songs are tools/demos/*.xy, played in the host simulator: everything before a script's "tap HOME" is the project
-(sounds, patterns, scenes, song); what follows is a performance, left out. Those nine were made with private sample
+(sounds, patterns, scenes, song); what follows is a performance, left out. Those eight were made with private sample
 banks (a sung bar, a break, a 808, a vocal "hey"), which must never be published, so they are built here with
 factory sounds in their place: SWAPS names, per demo and track, the sample (the breaks come with the emulator) and how
 far the track's notes move so that it still plays the right slice or pitch. The master and samples lines are dropped (the
-page's volume knob is the master; the emulator has no user bank to load). The two songs written for the web, tools/demos/web/,
+page's volume knob is the master; the emulator has no user bank to load). The songs written for the web, tools/demos/web/,
 use factory sounds alone and are checked as strictly: a "samples" line or a user sample (u1, u2 ...) in one is an error.
 
     tools/make_demos.py [OUT_DIR]       images and demos.json into OUT_DIR (default app/build/emu/demos); the host
@@ -59,6 +59,14 @@ DEMO_LIST = (
         {},
     ),
     (
+        "soul",
+        "soul_ballad",
+        "Soul ballad",
+        "A late-night ballad in Eb: a reed-lead hook that sighs in three voices, nylon guitar and electric piano, a deceptive turn, a last chorus a semitone up and a false ending. 72 bpm, swung.",
+        "web/soul.xy",
+        {},
+    ),
+    (
         "hiphop",
         "boom_bap",
         "Hip hop",
@@ -78,9 +86,9 @@ DEMO_LIST = (
         "house",
         "deep_house",
         "Deep house",
-        "Round kick, offbeat hats, minor-ninth stabs and a pumped pad, the chords moving by a conductor track. 122 bpm.",
-        "house.xy",
-        {5: ("classic", 0), 6: ("brass", 0)},
+        "A full deep house song in A minor: an electric-piano call, gospel organ stabs, a koto arp, a vocal chop, a withheld drop and a bass that takes the hook. 122 bpm.",
+        "web/house.xy",
+        {},
     ),
     (
         "house_acid",
