@@ -1,0 +1,59 @@
+# A key lift in a song (tools/demos/web/*.xy raise their last chorus this way): a track that follows the conductor by
+# TRANSPOSE plays its notes unchanged in a home scene and N semitones higher in a scene whose chromatic conductor steps
+# to the tonic + N (a semitone: in the minor scale itself that step would land on a degree two semitones up, or
+# none). A track that does not follow stays put, and a bar with no conductor step goes home again (the conductor's
+# degree resets with every bar of the song).
+wait 300
+projnew
+bpm 120
+knob 9 e1 0
+knob 9 e2 9
+knob 9 e3 1
+knob 2 brain 2
+knob 3 brain no
+pat 2 1 16 1
+notes 2 1 1 1 100 A3
+pat 3 1 16 1
+notes 3 1 1 1 100 A3
+# conductor pattern 2: bar 1 steps to Bb4 (the key's tonic A4 + 1), bar 2 has no step
+pat 9 2 2 16
+notes 9 2 1 1 100 Bb4
+# the scenes are defined at home, then the lift scene again with the chromatic scale (a scene keeps the key and scale
+# the conductor had when it was defined), then the scale goes back
+scenedef 1 1 1 1 1 1 1 1 1 1 1
+knob 9 e3 9
+scenedef 2 1 1 1 1 1 1 1 1 2 1
+knob 9 e3 1
+scenedef 3 1 1 1 1 1 1 1 1 1 1
+song 1:1 2:2 3:1
+songloop 0
+tap HOME
+turn SELECT 1
+out
+tap PLAY
+# bar 1, home: both tracks play A3 (57), the follower (track 2) on MIDI channel 2 and the other on channel 3
+bars 0.5
+expect scene 1
+expect_out USB 91 39 64
+expect_out USB 92 39 64
+out
+# bar 2, the lift: the follower plays Bb3 (58), the other track still A3
+bars 1
+expect scene 2
+expect_out USB 91 3A 64
+expect_no_out USB 91 39 64
+expect_out USB 92 39 64
+out
+# bar 3, still scene 2 and no conductor step: home
+bars 1
+expect scene 2
+expect_out USB 91 39 64
+expect_no_out USB 91 3A 64
+out
+# bar 4, scene 3 (home): unchanged
+bars 1
+expect scene 3
+expect_out USB 91 39 64
+expect_no_out USB 91 3A 64
+tap PLAY
+expect playing 0

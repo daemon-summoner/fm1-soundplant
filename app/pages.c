@@ -3934,7 +3934,7 @@ static void draw_song(void)
         }
         if (sg->len >= 16) {
             num_s((uint32_t)sg->len, s_cat(num_s((uint32_t)top + 1u, s_cat(t, "slots ")), " to "));
-            text_r(232, 112, &FONT_XS, t, K_DIM);
+            text_r(232, 106, &FONT_XS, t, K_DIM);
         }
     }
 }

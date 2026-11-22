@@ -17,15 +17,21 @@ use factory sounds alone and are checked as strictly: a "samples" line or a user
                                         simulator is built first (./build.sh --host) when it is missing or older
                                         than the app
     tools/make_demos.py --render DIR    also each demo's song played through the host into DIR/NAME.wav (a break pack
-                                        in the bank for the breaks, as the emulator has them built in)
+                                        in the bank for the breaks, as the emulator has them built in), the MIDI it sent
+                                        in DIR/NAME.midi.txt, and the model's load peak and the project's share of a
+                                        slot printed
+    tools/make_demos.py --song FILE     one script on its own, as a song being written: its render, MIDI log, load and
+                                        size (into --render, default WORK/render); no images, no demos.json
     tools/make_demos.py --check FILE..  the scripts must have no user sample: the error otherwise (exit 1)
     --work DIR                          where the setup scripts, logs and renders go (default app/build/demos)
+    --jobs N                            N demos at a time (default 1)
 """
 
 import json
 import re
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -313,11 +319,14 @@ def run_host(script, out, what):
         )
 
 
+MEM_MAX = 66  # a slot's share, %: three copies must fit the 20-sector pool (the store's 3 x 7 objects)
+
+
 def backup_script(name, lines):
     out = list(lines)
     for slot in (1, 2, 3):
         out += [f"projsave {slot} {name}", "wait 200"]
-    return out + [f"backup out:{name}.soundplant"]
+    return out + [f"expect mem <{MEM_MAX}", f"backup out:{name}.soundplant"]
 
 
 def render_script(lines, bars):
@@ -328,28 +337,83 @@ def render_script(lines, bars):
         + [
             "tap HOME",
             "turn SELECT 1",
+            "stats reset",
             "wav demo.wav",
             "tap PLAY",
             f"bars {bars}",
             "wait 2500",
             "wavstop",
+            "stats",
         ]
     )
 
 
+def logged(script, pattern):
+    """the first number a host log line of the script's run has, by pattern (one group)"""
+    m = re.search(pattern, script.with_suffix(".log").read_text())
+    if not m:
+        raise SystemExit(f"make_demos: {script.with_suffix('.log')} has no line like {pattern}")
+    return int(m[1])
+
+
+def make_one(did, name, lines, work, out, render):
+    """one demo: its project's backup image (into out, unless None), and with render its WAV, MIDI log and load;
+    the facts a song's author watches (bpm, bars, the load peak, the share of a slot)"""
+    bpm, bars = bpm_of(lines), song_bars(lines)
+    (work / f"{did}.setup.xy").write_text("\n".join(lines) + "\n")
+    bs = work / f"{did}.backup.xy"
+    bs.write_text("\n".join(backup_script(name, lines)) + "\n")
+    wd = work / did
+    run_host(bs, wd, f"{did}'s image")
+    image = wd / f"{name}.soundplant"
+    if not image.exists():
+        raise SystemExit(f"make_demos: {did}: the host wrote no image")
+    if out:
+        (out / f"{did}.soundplant").write_bytes(image.read_bytes())
+    facts = {"bpm": bpm, "bars": bars, "mem": logged(bs, r"ok mem == (\d+)")}
+    if render:
+        rs = work / f"{did}.render.xy"
+        rs.write_text("\n".join(render_script(lines, bars)) + "\n")
+        rd = render / did
+        run_host(rs, rd, f"{did}'s render")
+        (render / f"{did}.wav").write_bytes((rd / "demo.wav").read_bytes())
+        (render / f"{did}.midi.txt").write_bytes((rd / "midi_out.txt").read_bytes())
+        for f in rd.iterdir():
+            f.unlink()
+        rd.rmdir()
+        facts["load"] = logged(rs, r"model load peak (\d+) %")
+    return facts
+
+
+def summary(did, f):
+    load = f" load peak {f['load']} %," if "load" in f else ""
+    return f"  {did}: {f['bars']} bars at {f['bpm']} bpm,{load} {f['mem']} % of a slot"
+
+
+def flag_path(args, flag):
+    """--FLAG VALUE taken out of args as a path, or None when the flag is not there"""
+    if flag not in args:
+        return None
+    i = args.index(flag)
+    if i + 1 >= len(args):
+        raise SystemExit(f"make_demos: {flag} needs a path")
+    val = Path(args[i + 1]).resolve()
+    del args[i : i + 2]
+    return val
+
+
 def main(argv):
-    args, work, render = list(argv), ROOT / "app" / "build" / "demos", None
-    for flag in ("--work", "--render"):
-        if flag in args:
-            i = args.index(flag)
-            val = Path(args[i + 1]).resolve() if i + 1 < len(args) else None
-            if val is None:
-                raise SystemExit(f"make_demos: {flag} needs a directory")
-            del args[i : i + 2]
-            if flag == "--work":
-                work = val
-            else:
-                render = val
+    args = list(argv)
+    work = flag_path(args, "--work") or ROOT / "app" / "build" / "demos"
+    render = flag_path(args, "--render")
+    song = flag_path(args, "--song")
+    jobs = 1
+    if "--jobs" in args:
+        i = args.index("--jobs")
+        if i + 1 >= len(args) or not args[i + 1].isdigit() or int(args[i + 1]) < 1:
+            raise SystemExit("make_demos: --jobs needs a number of 1 or more")
+        jobs = int(args[i + 1])
+        del args[i : i + 2]
     if args[:1] == ["--check"]:
         if len(args) < 2:
             raise SystemExit("make_demos: --check needs scripts")
@@ -357,51 +421,50 @@ def main(argv):
             check_script(f)
         print(f"make_demos: {len(args) - 1} scripts, no user sample")
         return 0
+    ensure_host()
+    work.mkdir(parents=True, exist_ok=True)
+    if song:
+        check_script(song)
+        ensure_breaks()
+        did = song.stem
+        render = render or work / "render"
+        render.mkdir(parents=True, exist_ok=True)
+        lines = [ln for ln in setup_of(song) if not ln.startswith(SKIP)]
+        print(summary(did, make_one(did, did[:12], lines, work, None, render)))
+        return 0
     out = Path(args[0]).resolve() if args else ROOT / "app" / "build" / "emu" / "demos"
     for d in (
         DEMO_LIST
     ):  # (a web demo is a script of factory sounds only: the same check as --check)
         if d[4].startswith("web/"):
             check_script(DEMOS / d[4])
-    ensure_host()
     out.mkdir(parents=True, exist_ok=True)
-    work.mkdir(parents=True, exist_ok=True)
     if render:
         ensure_breaks()
-    listing = []
-    for did, name, genre, blurb, script, _ in DEMO_LIST:
-        lines = project_script(did)
-        bpm, bars = bpm_of(lines), song_bars(lines)
-        (work / f"{did}.setup.xy").write_text("\n".join(lines) + "\n")
-        bs = work / f"{did}.backup.xy"
-        bs.write_text("\n".join(backup_script(name, lines)) + "\n")
-        run_host(bs, work, f"{did}'s image")
-        image = work / f"{name}.soundplant"
-        if not image.exists():
-            raise SystemExit(f"make_demos: {did}: the host wrote no image")
-        (out / f"{did}.soundplant").write_bytes(image.read_bytes())
-        image.unlink()
-        listing.append(
-            {
-                "id": did,
-                "genre": genre,
-                "project": name,
-                "bpm": bpm,
-                "bars": bars,
-                "blurb": blurb,
-                "file": f"{did}.soundplant",
-            }
+        render.mkdir(parents=True, exist_ok=True)
+    with ThreadPoolExecutor(jobs) as pool:
+        made = list(
+            pool.map(
+                lambda d: make_one(d[0], d[1], project_script(d[0]), work, out, render),
+                DEMO_LIST,
+            )
         )
-        if render:
-            rs = work / f"{did}.render.xy"
-            rs.write_text("\n".join(render_script(lines, bars)) + "\n")
-            rd = render / did
-            run_host(rs, rd, f"{did}'s render")
-            (render / f"{did}.wav").write_bytes((rd / "demo.wav").read_bytes())
-            for f in rd.iterdir():
-                f.unlink()
-            rd.rmdir()
+    listing = [
+        {
+            "id": did,
+            "genre": genre,
+            "project": name,
+            "bpm": f["bpm"],
+            "bars": f["bars"],
+            "blurb": blurb,
+            "file": f"{did}.soundplant",
+        }
+        for (did, name, genre, blurb, _, _), f in zip(DEMO_LIST, made)
+    ]
     (out / "demos.json").write_text(json.dumps(listing, indent=1) + "\n")
+    if render:
+        for d, f in zip(DEMO_LIST, made):
+            print(summary(d[0], f))
     print(
         f"demos    {len(listing)} projects in {out.relative_to(ROOT) if out.is_relative_to(ROOT) else out}: {', '.join(d['id'] for d in listing)}"
     )

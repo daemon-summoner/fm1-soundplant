@@ -10,7 +10,8 @@
   install/index.html            the web installer (fm1-base's web/installer.html, with fm1ports.js, fm1pkg.js, fm1ota.js and
                                 the package's metadata inlined; Chrome or Edge, Web MIDI)
   backup/index.html             backup and restore in the browser (fm1-base's web/backup/index.html: the projects and
-                                the user presets; the samples, app/web/backup/extras.js, in a section of the file)
+                                the user presets; the samples, app/web/backup/extras.js, in a section of the file; a card
+                                that puts the demo songs into empty slots, app/web/backup/demos.js)
   mirror/index.html             the screen and the panel on the computer (fm1-base's web/mirror/index.html; Chrome or
                                 Edge, Web MIDI)
   samples/index.html            the user sample bank in the browser (app/web/samples/: add, replace, rename, reorder,
@@ -421,6 +422,30 @@ def install_pages(pkg, version, out, conf):
     return name, product, len(raw)
 
 
+def backup_extras():
+    """the backup page's own script (its {{EXTRAS_JS}}): the sample bank section (app/web/backup/extras.js on the samples
+    page's code) and the demo songs card (app/web/backup/demos.js on the project codec). The codec and the card go first,
+    in a function of their own: the two libraries share names (crc32, u32, same ...), and a bare block would let a
+    sloppy-mode function declaration in it overwrite the samples library's."""
+    app = SRC / "app" / "web"
+    return (
+        "const EXTRAS = (() => {\n"
+        "(() => {\n"
+        + strip_module(
+            (app / "project" / "soundplant_project.js").read_text(encoding="utf-8")
+        )
+        + "\n"
+        + (app / "backup" / "demos.js").read_text(encoding="utf-8")
+        + "})();\n"
+        + strip_module(
+            (app / "samples" / "soundplant_samples.js").read_text(encoding="utf-8")
+        )
+        + "\n"
+        + (app / "backup" / "extras.js").read_text(encoding="utf-8")
+        + "})();"
+    )
+
+
 def main(pkg, version, out):
     """the site in out; pkg None: no release yet, a page in place of the installer and no download"""
     out = Path(out)
@@ -438,18 +463,7 @@ def main(pkg, version, out):
         status = STATUS.replace("__VERSION__", html.escape(version))
         download = DOWNLOAD.replace("__PKG__", name)
         made = f"install/ ({product}), firmware/{name} ({size} B)"
-    # the backup page's own section: the sample bank (app/web/backup/extras.js on the samples page's code)
-    extras = (
-        "const EXTRAS = (() => {\n"
-        + strip_module(
-            (SRC / "app" / "web" / "samples" / "soundplant_samples.js").read_text(
-                encoding="utf-8"
-            )
-        )
-        + "\n"
-        + (SRC / "app" / "web" / "backup" / "extras.js").read_text(encoding="utf-8")
-        + "})();"
-    )
+    extras = backup_extras()
     note = (
         "\n  <li>The samples go in the file too. A restore sends them after SoundPlant has said yes on its screen, which "
         "takes about 20 seconds more. An older backup has no samples, so a restore from it leaves the samples as they "
@@ -464,7 +478,12 @@ def main(pkg, version, out):
     tools = base_site.tool_pages(
         SRC / "app",
         conf,
-        {"NAME": "SoundPlant", "EXTRAS_JS": extras, "EXTRA": note, "TERMINAL": terminal},
+        {
+            "NAME": "SoundPlant",
+            "EXTRAS_JS": extras,
+            "EXTRA": note,
+            "TERMINAL": terminal,
+        },
     )
     (out / "backup" / "index.html").write_text(
         tools["backup/index.html"], encoding="utf-8"

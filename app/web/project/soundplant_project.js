@@ -15,6 +15,9 @@
 // Only the format the firmware writes now (PROJ_FORMAT 22) is read: decode() throws on an older slot (the FM-1 migrates it
 // when it loads it; load and save it there, then back up again). A slot's project name (settings_t.name) is not read by
 // the firmware since projects lost their names, so it is not in the model.
+//
+// addDemoSlots() (the Backup page's demo songs, app/web/backup/demos.js) works on the container's raw records and never decodes
+// a user's slot: a slot of an older format, or one this editor cannot read, stays as it is, byte for byte.
 
 export class ProjectError extends Error {
   constructor(message) {
@@ -639,4 +642,62 @@ export function encode(model) {
   });
   if (sectors > POOL_SECTORS) throw new ProjectError(`MEMORY FULL: the three slots take ${sectors} flash sectors and the FM-1 has ${POOL_SECTORS} for them.`);
   return buildContainer(model.container.version, model.container.flags, payloads, model.sections);
+}
+
+// ---- demo songs: whole songs put into the slots that are empty
+// A stream object after a slot's first two that is its format word alone is an empty one (app.h APP_STORE_POOL_EMPTY): it
+// takes no flash sector, and a slot of nothing else is empty.
+const isEmptyStream = (k, p) => k >= 2 && p.length === 4 && u32(p, 0) === PROJ_STREAM;
+const slotRecords = (payloads, n) => payloads.slice(1 + n * PROJ_NOBJ, 1 + (n + 1) * PROJ_NOBJ);
+const poolSectors = (payloads) => payloads.slice(1).filter((p, i) => p.length && !isEmptyStream(i % PROJ_NOBJ, p)).length;
+// Empty is stricter than the firmware's own idea: a slot with any other byte in it is somebody's project and is kept.
+const emptyIn = (payloads) => Array.from({ length: NPROJ }, (_, n) => n)
+  .filter((n) => slotRecords(payloads, n).every((p, k) => !p.length || isEmptyStream(k, p)));
+
+// emptySlots(backup bytes) -> the indexes (0 to 2) of the slots no project is in
+export function emptySlots(bytes) {
+  return emptyIn(readContainer(bytes).records.map((r) => r.payload));
+}
+
+// A demo is a whole backup (tools/make_demos.py) with its song in slot 1: that slot's seven records, after the checks a
+// restore would make of them.
+function demoRecords(name, file) {
+  let c;
+  try { c = readContainer(file); } catch (e) {
+    if (e instanceof ProjectError) throw new ProjectError(`The demo song ${name} cannot be used. ${e.message}`);
+    throw e;
+  }
+  const objs = slotRecords(c.records.map((r) => r.payload), 0);
+  const s = objs[0];
+  if (s.length < 8 || u32(s, 0) !== PROJ_MAGIC) throw new ProjectError(`The demo song ${name} cannot be used: it holds no project in its first slot.`);
+  if (u32(s, 4) !== PROJ_FORMAT) {
+    throw new ProjectError(`The demo song ${name} cannot be used: it is a project of format ${u32(s, 4)}, and this page puts format ${PROJ_FORMAT} on the FM-1.`);
+  }
+  return objs;
+}
+
+// addDemoSlots(backup bytes, [{name, bytes}]) -> {bytes, placed: [{slot (0 to 2), name}]}: the backup with each demo's song in
+// the next empty slot, in order. Everything else, the presets, the other slots and the sections after the backup, is the
+// bytes it was. Throws a ProjectError when nothing can be added: no empty slot, more songs than empty slots, a song that is
+// damaged or of another format, or more flash sectors than the FM-1's pool holds (a restore rewrites every pooled object, so
+// one that does not fit would leave the FM-1 half restored: it is refused here, before anything is sent).
+export function addDemoSlots(bytes, demos) {
+  const base = readContainer(bytes);
+  const payloads = base.records.map((r) => r.payload);
+  const free = emptyIn(payloads);
+  if (!demos.length) throw new ProjectError("No demo song is chosen.");
+  if (!free.length) throw new ProjectError("All three slots on the FM-1 hold a project, so a demo song has no slot to go in. The demos only go into empty slots.");
+  if (demos.length > free.length) {
+    throw new ProjectError(`${demos.length} songs are chosen and ${free.length} ${free.length === 1 ? "slot is" : "slots are"} empty. Choose fewer songs.`);
+  }
+  const out = payloads.slice();
+  const placed = demos.map((d, i) => {
+    out.splice(1 + free[i] * PROJ_NOBJ, PROJ_NOBJ, ...demoRecords(d.name, d.bytes));
+    return { slot: free[i], name: d.name };
+  });
+  const sectors = poolSectors(out);
+  if (sectors > POOL_SECTORS) {
+    throw new ProjectError(`MEMORY FULL: the three slots would take ${sectors} flash sectors and the FM-1 has ${POOL_SECTORS} for them. Choose fewer songs.`);
+  }
+  return { bytes: buildContainer(base.version, base.flags, out, base.sections), placed };
 }

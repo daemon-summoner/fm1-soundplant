@@ -1,0 +1,991 @@
+# SoundPlant demo: soul, 72 BPM, Eb major. Factory sounds only: tools/make_demos.py puts it on the emulator page.
+# A late-night soul ballad in Eb. The verses circle IV iii ii V and never touch the tonic; the chorus turns the corner
+# (IV, Bb/Ab, iii, vi, ii, V) and lands on it at last. A deceptive bVI opens the bridge, a tritone-sub dominant lifts the
+# last chorus a semitone, the lifted chorus hangs on IV (a false ending) and the keys come home alone.
+# T1 kit  T2 knit finger bass  T3 rayon mellow ep  T4 cane reed lead (the hook, the sigh Bb-Ab-G)  T5 cane nylon
+# T6 knit dusty pad  T7 rayon glass bell (the sigh again)  T8 voile soprano (the third voice of the sigh)
+# Song: intro 4, verse 8, pre 4, chorus 8, verse 2 8, pre 4, bridge 8, last chorus 8 (+1), tag 4.
+bpm 72
+knob 9 e1 0
+knob 9 e2 3
+knob 9 e3 0
+
+# ---- the sounds
+# T1 the kit: a soft round kick, a dry rim for the backbeat, brushed hats, a shaker
+knob 1 d1.k1 58
+knob 1 d1.k2 66
+knob 1 d1.k3 60
+knob 1 d1.k4 52
+knob 1 d1.volume 80
+knob 1 d2.volume 54
+knob 1 d2.send2 40
+knob 1 d3.volume 44
+knob 1 d4.volume 40
+knob 1 d9.volume 40
+knob 1 d9.send1 14
+knob 1 d8.volume 40
+knob 1 d8.send2 30
+knob 1 d6.volume 50
+knob 1 d7.volume 48
+knob 1 level 88
+# T2 a knit finger bass: round, close to the kick, a little low-pass
+preset 2 finger_bass knit
+param 2 oct 2
+knob 2 brain 2
+knob 2 cut 70
+knob 2 level 84
+# T3 a rayon mellow electric piano: the chords, in the room
+preset 3 mellow_ep rayon
+param 3 oct 2
+knob 3 brain 2
+knob 3 level 98
+knob 3 pan 76
+knob 3 send1 20
+knob 3 send2 34
+# T4 a cane reed lead: the voice of the song, in the echo and the hall
+preset 4 reed_lead cane
+param 4 oct 2
+knob 4 brain 2
+knob 4 level 94
+knob 4 pan 58
+knob 4 send1 34
+knob 4 send2 40
+# T5 a cane nylon guitar: fingerpicked arpeggios on the left
+preset 5 nylon cane
+param 5 oct 2
+knob 5 brain 2
+knob 5 level 84
+knob 5 pan 36
+knob 5 send1 18
+knob 5 send2 34
+# T6 a knit dusty pad: the warm bed under everything
+preset 6 dusty_pad knit
+param 6 oct 2
+knob 6 brain 2
+knob 6 level 64
+knob 6 pan 66
+knob 6 send2 50
+# T7 a rayon glass bell: the sigh again, high and small
+preset 7 glass_bell rayon
+param 7 oct 2
+knob 7 brain 2
+knob 7 level 70
+knob 7 pan 94
+knob 7 send1 36
+knob 7 send2 56
+# T8 a voile soprano: wordless, the third voice
+preset 8 soprano voile
+param 8 oct 2
+knob 8 brain 2
+knob 8 level 72
+knob 8 pan 44
+knob 8 send1 20
+knob 8 send2 60
+# FX I a slow echo, FX II a big hall
+knob 11 engine delay
+knob 11 e1 100
+knob 11 e3 46
+knob 11 e4 44
+knob 12 engine hall
+knob 12 e2 88
+knob 12 e3 58
+mst lo 60
+mst hi 46
+mst comp 44
+mst pump 0
+mst release 74
+mst level 104
+groove swing
+
+pat 1 1 64 1 60 16
+hits 1 1 1 x.......x.x.....x.......x.x.....x.......x.x.....x.......x.x.....
+hits 1 1 2 ....o.......o.......o.......o.......o.......o.......o.......o...
+hits 1 1 3 ..g...g...g...g...g...g...g...g...g...g...g...g...g...g...g..ggg
+hits 1 1 9 ...g...g...g...g...g...g...g...g...g...g...g...g................
+pat 1 2 64 1 60 16
+hits 1 2 1 x.......x.x.....x.......x.x.....x.......x.x.....x.......x.x.....
+hits 1 2 2 ....o.......o.......o.......o.......o.......o.......o.......o.o.
+hits 1 2 3 ..g...g...g...g...g...g...g...g...g...g...g...g...g...g...g...g.
+hits 1 2 9 ...g...g...g...g...g...g...g...g...g...g...g...g...g...g...g...g
+hits 1 2 8 ..........................g.......................g...........g.
+pat 1 3 64 1 60 16
+hits 1 3 1 x.......x.......x.......x.x.....x...x...x...x...x...x...x...x...
+hits 1 3 2 ....o.......o.......o.......o.......o...o...o...o.o.o.o.o.o.oooo
+hits 1 3 3 ..g...g...g...g...g...g...g...g..g.g.g.g.g.g.g.g.g.g.g.g.g.g.g.g
+hits 1 3 4 ..............................................................o.
+pat 1 4 64 1 60 16
+hits 1 4 1 x.....x.x.......x.......x.x.....x.....x.x.x.....x.......x.x.....
+hits 1 4 2 ....o.......o.......o.......o.......o.......o.......o.......o...
+hits 1 4 3 ..g...g...g...g...g...g...g...g...g...g...g...g...g...g...g...g.
+hits 1 4 4 ..............o...............................o.................
+hits 1 4 9 ...g...g...g...g...g...g...g...g...g...g...g...g...g...g...g...g
+hits 1 4 8 ..................g...........g...................g.....g.......
+pat 1 5 64 1 60 16
+hits 1 5 1 x.....x.x.......x.......x.x.....x.....x.x.......x...............
+hits 1 5 2 ....o.......o.......o.......o.......o.......o.......o...........
+hits 1 5 3 ..g...g...g...g...g...g...g...g...g...g...g...g...g...g.........
+hits 1 5 4 ..............o.................................................
+hits 1 5 9 ...g...g...g...g...g...g...g...g...g...g...g...g................
+hits 1 5 8 ..................g...........g.................................
+pat 1 6 64 1 60 16
+hits 1 6 1 x...............x.......x.......x...............x.......x.......
+hits 1 6 2 ........o...............o...............o...........o.......o...
+hits 1 6 9 ..g...g...g...g...g...g...g...g...g...g...g...g.................
+hits 1 6 3 ..g.......g.......g.......g.......g.......g.....................
+pat 1 7 64 1 60 16
+hits 1 7 1 x.......x.......x.......x.x.....x.......x.......x...x...x...x...
+hits 1 7 2 ....o.......o.......o.......o.......o.......o...o.o.o.o.o.o.oooo
+hits 1 7 9 ...g...g...g...g...g...g...g...g...g...g...g...g................
+hits 1 7 3 ..g...g...g...g...g...g...g...g...g...g...g...g..g.g.g.g.g.g.g.g
+hits 1 7 6 ........................................................o.......
+hits 1 7 7 ............................................................o...
+pat 1 8 64 1 60 16
+hits 1 8 1 x.....x.x.......x.......x.x.....................................
+hits 1 8 2 ....o.......o.......o.......o...................................
+hits 1 8 3 ..g...g...g...g...g...g...g...g.................................
+hits 1 8 4 ..............o.................................................
+hits 1 8 9 ...g...g...g...g...g...g...g...g................................
+pat 2 1 64 1 100 8
+notes 2 1 1 6 96 44
+notes 2 1 7 1.6 64 44
+notes 2 1 11 3 84 51
+notes 2 1 15 1.8 78 41
+notes 2 1 17 6 96 43
+notes 2 1 23 1.6 64 43
+notes 2 1 27 3 84 50
+notes 2 1 31 1.8 78 39
+notes 2 1 33 6 96 41
+notes 2 1 39 1.6 64 41
+notes 2 1 43 3 84 48
+notes 2 1 47 1.8 78 44
+notes 2 1 49 6 96 46
+notes 2 1 55 1.6 64 46
+notes 2 1 59 3 84 53
+notes 2 1 63 1.8 78 43
+pat 2 2 64 1 100 8
+notes 2 2 1 8 94 48
+notes 2 2 11 3 80 55
+notes 2 2 15 1.8 76 46
+notes 2 2 17 8 94 41
+notes 2 2 27 3 80 48
+notes 2 2 31 1.8 76 41
+notes 2 2 33 4 98 46
+notes 2 2 39 2 80 46
+notes 2 2 41 4 92 46
+notes 2 2 47 1.8 82 53
+notes 2 2 49 2 100 46
+notes 2 2 52 1 70 46
+notes 2 2 55 2 90 46
+notes 2 2 57 2 96 46
+notes 2 2 60 1 74 53
+notes 2 2 61 2 100 46
+notes 2 2 63 1.8 90 58
+pat 2 3 64 1 100 8
+notes 2 3 1 9.6 98 44
+notes 2 3 11 2 74 56
+notes 2 3 15 1.8 80 43
+notes 2 3 17 9.6 98 44
+notes 2 3 27 2 74 56
+notes 2 3 33 9.6 98 43
+notes 2 3 43 2 74 55
+notes 2 3 47 1.8 82 47
+notes 2 3 49 9.6 98 48
+notes 2 3 59 2 80 43
+notes 2 3 63 1.8 80 40
+pat 2 4 64 1 100 8
+notes 2 4 1 9.6 98 41
+notes 2 4 11 2 74 53
+notes 2 4 15 1.8 80 45
+notes 2 4 17 13.6 100 46
+notes 2 4 33 15.6 104 39
+notes 2 4 49 13.6 96 39
+notes 2 4 63 1.6 70 43
+pat 2 5 64 1 100 8
+notes 2 5 1 14 90 39
+notes 2 5 11 2 60 51
+notes 2 5 17 14 90 39
+notes 2 5 27 2 60 51
+notes 2 5 33 14 90 39
+notes 2 5 43 2 60 51
+notes 2 5 49 14 90 39
+notes 2 5 59 2 60 51
+pat 2 6 64 1 100 8
+notes 2 6 1 13.6 98 47
+notes 2 6 15 1.8 80 46
+notes 2 6 17 13.6 98 44
+notes 2 6 31 1.8 80 46
+notes 2 6 33 13.6 98 49
+notes 2 6 47 1.8 80 48
+notes 2 6 49 7.6 102 46
+notes 2 6 57 5.6 96 46
+notes 2 6 63 1.8 90 45
+pat 2 7 64 1 100 8
+notes 2 7 1 9.6 98 41
+notes 2 7 11 2 74 53
+notes 2 7 15 1.8 80 45
+notes 2 7 17 13.6 100 46
+notes 2 7 33 15.6 96 44
+pat 2 8 64 1 100 8
+notes 2 8 1 15.2 84 44
+notes 2 8 17 15.2 84 43
+notes 2 8 33 15.2 84 41
+notes 2 8 49 12 86 46
+notes 2 8 63 1.6 70 43
+pat 3 1 64 1 100 6
+notes 3 1 1 15.6 92 58 67 72
+notes 3 1 17 15.6 92 58 65 69
+notes 3 1 33 15.6 92 56 63 67
+notes 3 1 49 15.6 92 63 68 72
+pat 3 2 64 1 100 10
+notes 3 2 1 5.6 74 58 67 72
+notes 3 2 7 2.8 60 67 72
+notes 3 2 13 3.2 66 67 72
+notes 3 2 17 5.6 74 58 65 69
+notes 3 2 23 2.8 60 65 69
+notes 3 2 29 3.2 66 65 69
+notes 3 2 33 5.6 74 56 63 67
+notes 3 2 39 2.8 60 63 67
+notes 3 2 45 3.2 66 63 67
+notes 3 2 49 5.6 74 63 68 72
+notes 3 2 55 2.8 60 68 72
+notes 3 2 61 3.2 66 68 72
+pat 3 3 64 1 100 10
+notes 3 3 1 7.2 76 63 70 74
+notes 3 3 9 7.2 70 70 74
+notes 3 3 17 7.2 78 56 63 67
+notes 3 3 25 7.2 72 63 67
+notes 3 3 33 3.6 82 63 68 72
+notes 3 3 39 1.6 68 68 72
+notes 3 3 41 3.6 80 63 68 72
+notes 3 3 45 3.6 76 68 72
+notes 3 3 49 3.6 86 62 68 72
+notes 3 3 53 1.6 70 62 68 72
+notes 3 3 55 1.6 74 68 72
+notes 3 3 57 3.6 84 62 68 72
+notes 3 3 61 3.6 80 68 72
+pat 3 4 64 1 100 10
+notes 3 4 1 5.6 84 58 67 72
+notes 3 4 7 3.6 66 67 72
+notes 3 4 13 3.6 72 67 72
+notes 3 4 17 5.6 82 58 62 65
+notes 3 4 23 3.6 64 62 65
+notes 3 4 29 3.6 70 62 65
+notes 3 4 33 5.6 82 58 65 69
+notes 3 4 39 3.6 64 65 69
+notes 3 4 45 3.6 70 65 69
+notes 3 4 49 5.6 84 63 70 74
+notes 3 4 55 3.6 66 70 74
+notes 3 4 61 3.6 72 70 74
+pat 3 5 64 1 100 10
+notes 3 5 1 5.6 84 56 63 67
+notes 3 5 7 3.6 66 63 67
+notes 3 5 13 3.6 74 63 67
+notes 3 5 17 7.6 86 63 68 72
+notes 3 5 25 7.6 84 62 68 72
+notes 3 5 33 15.6 86 55 62 65
+notes 3 5 49 12 70 55 62 65
+pat 3 6 64 1 100 10
+notes 3 6 1 7.6 80 63 70 73
+notes 3 6 9 7.6 72 70 73
+notes 3 6 17 7.6 80 66 70 71
+notes 3 6 25 7.6 72 70 71
+notes 3 6 33 7.6 84 65 72 75
+notes 3 6 41 7.6 76 72 75
+notes 3 6 49 7.6 86 63 68 72
+notes 3 6 57 7.6 82 62 68 72
+pat 3 7 64 1 100 10
+notes 3 7 1 5.6 84 56 63 67
+notes 3 7 7 3.6 66 63 67
+notes 3 7 13 3.6 74 63 67
+notes 3 7 17 7.6 86 63 68 72
+notes 3 7 25 7.6 84 62 68 72
+notes 3 7 33 9.6 82 58 67 72
+pat 3 8 64 1 100 6
+notes 3 8 1 15.6 92 44 63 67 72
+notes 3 8 17 7.6 88 43 58 65 69
+notes 3 8 25 7.6 88 41 56 63 67
+notes 3 8 33 7.6 90 46 63 68 72
+notes 3 8 41 7.6 92 46 62 68 72
+notes 3 8 49 15.6 100 39 58 62 67
+pat 4 1 64 1 100 8
+notes 4 1 5 4 66 67
+nudge 4 1 5 3
+notes 4 1 9 2 68 70
+nudge 4 1 9 3
+notes 4 1 11 6 74 72
+nudge 4 1 11 3
+notes 4 1 17 6 72 70
+nudge 4 1 17 3
+notes 4 1 23 2 64 69
+nudge 4 1 23 3
+notes 4 1 25 8 68 67
+nudge 4 1 25 3
+notes 4 1 37 4 68 68
+nudge 4 1 37 3
+notes 4 1 41 4 72 72
+nudge 4 1 41 3
+notes 4 1 45 4 76 75
+nudge 4 1 45 3
+notes 4 1 49 8 76 77
+nudge 4 1 49 3
+notes 4 1 57 8 70 75
+nudge 4 1 57 3
+pat 4 2 64 1 100 8
+notes 4 2 9 4 66 67
+nudge 4 2 9 3
+notes 4 2 13 4 70 70
+nudge 4 2 13 3
+notes 4 2 17 6 72 72
+nudge 4 2 17 3
+notes 4 2 25 4 74 75
+nudge 4 2 25 3
+notes 4 2 29 4 78 77
+nudge 4 2 29 3
+notes 4 2 33 8 80 80
+nudge 4 2 33 3
+notes 4 2 41 8 84 82
+nudge 4 2 41 3
+notes 4 2 49 8 80 80
+nudge 4 2 49 3
+notes 4 2 57 4 74 77
+nudge 4 2 57 3
+pat 4 3 64 1 100 8
+notes 4 3 1 6 84 75
+nudge 4 3 1 3
+notes 4 3 7 2 80 79
+nudge 4 3 7 3
+notes 4 3 9 8 90 82
+nudge 4 3 9 3
+notes 4 3 17 4 88 80
+nudge 4 3 17 3
+notes 4 3 21 8 86 79
+nudge 4 3 21 3
+notes 4 3 29 4 78 77
+nudge 4 3 29 3
+notes 4 3 33 6 84 74
+nudge 4 3 33 3
+notes 4 3 39 2 78 77
+nudge 4 3 39 3
+notes 4 3 41 4 86 79
+nudge 4 3 41 3
+notes 4 3 45 4 78 77
+nudge 4 3 45 3
+notes 4 3 49 6 86 75
+nudge 4 3 49 3
+notes 4 3 55 2 76 74
+nudge 4 3 55 3
+notes 4 3 57 8 84 72
+nudge 4 3 57 3
+pat 4 4 64 1 100 8
+notes 4 4 1 6 88 80
+nudge 4 4 1 3
+notes 4 4 7 2 80 79
+nudge 4 4 7 3
+notes 4 4 9 4 86 80
+nudge 4 4 9 3
+notes 4 4 13 4 92 82
+nudge 4 4 13 3
+notes 4 4 17 8 94 82
+nudge 4 4 17 3
+notes 4 4 25 8 86 80
+nudge 4 4 25 3
+notes 4 4 33 10 90 79
+nudge 4 4 33 3
+notes 4 4 43 2 74 77
+nudge 4 4 43 3
+notes 4 4 45 4 80 75
+nudge 4 4 45 3
+notes 4 4 49 12 70 75
+nudge 4 4 49 3
+pat 4 5 64 1 100 8
+notes 4 5 1 4 74 75
+nudge 4 5 1 3
+notes 4 5 5 2 72 79
+nudge 4 5 5 3
+notes 4 5 7 10 80 82
+nudge 4 5 7 3
+notes 4 5 17 4 76 80
+nudge 4 5 17 3
+notes 4 5 21 12 74 79
+nudge 4 5 21 3
+notes 4 5 33 6 74 77
+nudge 4 5 33 3
+notes 4 5 39 2 66 75
+nudge 4 5 39 3
+notes 4 5 41 8 72 72
+nudge 4 5 41 3
+notes 4 5 49 8 76 77
+nudge 4 5 49 3
+notes 4 5 57 8 70 75
+nudge 4 5 57 3
+pat 4 6 64 1 100 8
+notes 4 6 1 15.6 74 70
+nudge 4 6 1 3
+notes 4 6 17 15.6 78 71
+nudge 4 6 17 3
+notes 4 6 33 7.6 82 80
+nudge 4 6 33 3
+notes 4 6 41 7.6 78 77
+nudge 4 6 41 3
+notes 4 6 49 8 82 75
+nudge 4 6 49 3
+notes 4 6 57 7.6 78 72
+nudge 4 6 57 3
+pat 4 7 64 1 100 8
+notes 4 7 1 6 90 80
+nudge 4 7 1 3
+notes 4 7 7 2 82 79
+nudge 4 7 7 3
+notes 4 7 9 4 88 80
+nudge 4 7 9 3
+notes 4 7 13 4 94 82
+nudge 4 7 13 3
+notes 4 7 17 8 96 82
+nudge 4 7 17 3
+notes 4 7 25 8 88 80
+nudge 4 7 25 3
+notes 4 7 33 12 76 80
+nudge 4 7 33 3
+pat 4 8 64 1 100 8
+notes 4 8 1 7.6 82 78
+nudge 4 8 1 3
+notes 4 8 9 7.6 76 75
+nudge 4 8 9 3
+notes 4 8 17 4 82 75
+nudge 4 8 17 3
+notes 4 8 21 4 84 78
+nudge 4 8 21 3
+notes 4 8 25 7.6 90 82
+nudge 4 8 25 3
+notes 4 8 33 7.6 90 80
+nudge 4 8 33 3
+notes 4 8 41 7.6 82 77
+nudge 4 8 41 3
+notes 4 8 49 8 94 82
+nudge 4 8 49 3
+notes 4 8 57 8 90 80
+nudge 4 8 57 3
+pat 5 1 64 1 100 12
+notes 5 1 1 3.6 74 56
+nudge 5 1 1 2
+notes 5 1 5 1.8 62 63
+nudge 5 1 5 2
+notes 5 1 7 1.8 66 67
+nudge 5 1 7 2
+notes 5 1 9 3.6 68 72
+nudge 5 1 9 2
+notes 5 1 13 1.8 64 67
+nudge 5 1 13 2
+notes 5 1 15 1.8 60 63
+nudge 5 1 15 2
+notes 5 1 17 3.6 74 55
+nudge 5 1 17 2
+notes 5 1 21 1.8 62 62
+nudge 5 1 21 2
+notes 5 1 23 1.8 66 65
+nudge 5 1 23 2
+notes 5 1 25 3.6 68 70
+nudge 5 1 25 2
+notes 5 1 29 1.8 64 65
+nudge 5 1 29 2
+notes 5 1 31 1.8 60 62
+nudge 5 1 31 2
+notes 5 1 33 3.6 74 53
+nudge 5 1 33 2
+notes 5 1 37 1.8 62 60
+nudge 5 1 37 2
+notes 5 1 39 1.8 66 63
+nudge 5 1 39 2
+notes 5 1 41 3.6 68 68
+nudge 5 1 41 2
+notes 5 1 45 1.8 64 63
+nudge 5 1 45 2
+notes 5 1 47 1.8 60 60
+nudge 5 1 47 2
+notes 5 1 49 3.6 74 58
+nudge 5 1 49 2
+notes 5 1 53 1.8 62 63
+nudge 5 1 53 2
+notes 5 1 55 1.8 66 65
+nudge 5 1 55 2
+notes 5 1 57 3.6 68 68
+nudge 5 1 57 2
+notes 5 1 61 1.8 64 65
+nudge 5 1 61 2
+notes 5 1 63 1.8 60 63
+nudge 5 1 63 2
+pat 5 2 64 1 100 12
+notes 5 2 1 1.8 60 60
+nudge 5 2 1 2
+notes 5 2 3 1.8 62 63
+nudge 5 2 3 2
+notes 5 2 5 1.8 64 67
+nudge 5 2 5 2
+notes 5 2 7 1.8 66 70
+nudge 5 2 7 2
+notes 5 2 9 1.8 68 72
+nudge 5 2 9 2
+notes 5 2 11 1.8 70 70
+nudge 5 2 11 2
+notes 5 2 13 1.8 72 67
+nudge 5 2 13 2
+notes 5 2 15 1.8 74 63
+nudge 5 2 15 2
+notes 5 2 17 1.8 64 53
+nudge 5 2 17 2
+notes 5 2 19 1.8 66 56
+nudge 5 2 19 2
+notes 5 2 21 1.8 68 60
+nudge 5 2 21 2
+notes 5 2 23 1.8 70 63
+nudge 5 2 23 2
+notes 5 2 25 1.8 72 65
+nudge 5 2 25 2
+notes 5 2 27 1.8 74 63
+nudge 5 2 27 2
+notes 5 2 29 1.8 76 60
+nudge 5 2 29 2
+notes 5 2 31 1.8 78 56
+nudge 5 2 31 2
+notes 5 2 33 1.8 68 58
+nudge 5 2 33 2
+notes 5 2 35 1.8 70 63
+nudge 5 2 35 2
+notes 5 2 37 1.8 72 65
+nudge 5 2 37 2
+notes 5 2 39 1.8 74 68
+nudge 5 2 39 2
+notes 5 2 41 1.8 76 70
+nudge 5 2 41 2
+notes 5 2 43 1.8 78 68
+nudge 5 2 43 2
+notes 5 2 45 1.8 80 65
+nudge 5 2 45 2
+notes 5 2 47 1.8 82 63
+nudge 5 2 47 2
+notes 5 2 49 1.8 72 58
+nudge 5 2 49 2
+notes 5 2 51 1.8 74 62
+nudge 5 2 51 2
+notes 5 2 53 1.8 76 65
+nudge 5 2 53 2
+notes 5 2 55 1.8 78 68
+nudge 5 2 55 2
+notes 5 2 57 1.8 80 70
+nudge 5 2 57 2
+notes 5 2 59 1.8 82 68
+nudge 5 2 59 2
+notes 5 2 61 1.8 84 65
+nudge 5 2 61 2
+notes 5 2 63 1.8 86 62
+nudge 5 2 63 2
+pat 5 3 64 1 100 12
+notes 5 3 1 3.6 70 56
+nudge 5 3 1 2
+notes 5 3 3 1.8 60 63
+nudge 5 3 3 2
+notes 5 3 7 1.8 62 67
+nudge 5 3 7 2
+notes 5 3 9 3.6 66 72
+nudge 5 3 9 2
+notes 5 3 13 1.8 60 67
+nudge 5 3 13 2
+notes 5 3 17 3.6 70 56
+nudge 5 3 17 2
+notes 5 3 19 1.8 60 62
+nudge 5 3 19 2
+notes 5 3 23 1.8 62 65
+nudge 5 3 23 2
+notes 5 3 25 3.6 66 70
+nudge 5 3 25 2
+notes 5 3 29 1.8 60 65
+nudge 5 3 29 2
+notes 5 3 33 3.6 70 55
+nudge 5 3 33 2
+notes 5 3 35 1.8 60 62
+nudge 5 3 35 2
+notes 5 3 39 1.8 62 65
+nudge 5 3 39 2
+notes 5 3 41 3.6 66 70
+nudge 5 3 41 2
+notes 5 3 45 1.8 60 65
+nudge 5 3 45 2
+notes 5 3 49 3.6 70 60
+nudge 5 3 49 2
+notes 5 3 51 1.8 60 67
+nudge 5 3 51 2
+notes 5 3 55 1.8 62 70
+nudge 5 3 55 2
+notes 5 3 57 3.6 66 75
+nudge 5 3 57 2
+notes 5 3 61 1.8 60 70
+nudge 5 3 61 2
+pat 5 4 64 1 100 12
+notes 5 4 1 3.6 70 53
+nudge 5 4 1 2
+notes 5 4 3 1.8 60 60
+nudge 5 4 3 2
+notes 5 4 7 1.8 62 63
+nudge 5 4 7 2
+notes 5 4 9 3.6 66 68
+nudge 5 4 9 2
+notes 5 4 13 1.8 60 63
+nudge 5 4 13 2
+notes 5 4 17 3.6 72 58
+nudge 5 4 17 2
+notes 5 4 19 1.8 62 63
+nudge 5 4 19 2
+notes 5 4 23 1.8 64 65
+nudge 5 4 23 2
+notes 5 4 25 3.6 68 68
+nudge 5 4 25 2
+notes 5 4 29 1.8 62 65
+nudge 5 4 29 2
+notes 5 4 33 3.6 72 63
+nudge 5 4 33 2
+notes 5 4 35 1.8 62 67
+nudge 5 4 35 2
+notes 5 4 39 1.8 64 70
+nudge 5 4 39 2
+notes 5 4 41 3.6 68 74
+nudge 5 4 41 2
+notes 5 4 45 1.8 62 70
+nudge 5 4 45 2
+notes 5 4 49 15.6 60 63
+nudge 5 4 49 2
+pat 5 5 64 1 100 12
+notes 5 5 1 3.6 70 53
+nudge 5 5 1 2
+notes 5 5 3 1.8 60 60
+nudge 5 5 3 2
+notes 5 5 7 1.8 62 63
+nudge 5 5 7 2
+notes 5 5 9 3.6 66 68
+nudge 5 5 9 2
+notes 5 5 13 1.8 60 63
+nudge 5 5 13 2
+notes 5 5 17 3.6 72 58
+nudge 5 5 17 2
+notes 5 5 19 1.8 62 63
+nudge 5 5 19 2
+notes 5 5 23 1.8 64 65
+nudge 5 5 23 2
+notes 5 5 25 3.6 68 68
+nudge 5 5 25 2
+notes 5 5 29 1.8 62 65
+nudge 5 5 29 2
+notes 5 5 33 8 66 56
+nudge 5 5 33 2
+pat 5 6 64 1 100 12
+notes 5 6 1 7.6 62 56
+nudge 5 6 1 2
+notes 5 6 9 7.6 56 67
+nudge 5 6 9 2
+notes 5 6 17 7.6 62 55
+nudge 5 6 17 2
+notes 5 6 25 7.6 56 65
+nudge 5 6 25 2
+notes 5 6 33 7.6 62 53
+nudge 5 6 33 2
+notes 5 6 41 7.6 56 63
+nudge 5 6 41 2
+notes 5 6 49 7.6 64 58
+nudge 5 6 49 2
+notes 5 6 57 7.6 58 68
+nudge 5 6 57 2
+pat 5 7 64 1 100 12
+notes 5 7 9 7.6 58 75
+nudge 5 7 9 2
+notes 5 7 25 7.6 58 78
+nudge 5 7 25 2
+notes 5 7 41 7.6 60 80
+nudge 5 7 41 2
+notes 5 7 49 7.6 60 77
+nudge 5 7 49 2
+notes 5 7 57 7.6 56 75
+nudge 5 7 57 2
+pat 6 1 64 1 100 0
+notes 6 1 1 15.8 82 63
+nudge 6 1 1 2
+notes 6 1 17 15.8 82 62
+nudge 6 1 17 2
+notes 6 1 33 15.8 82 60
+nudge 6 1 33 2
+notes 6 1 49 15.8 82 65
+nudge 6 1 49 2
+pat 6 2 64 1 100 0 100
+notes 6 2 1 15.8 56 67
+nudge 6 2 1 2
+notes 6 2 17 15.8 60 60
+nudge 6 2 17 2
+notes 6 2 33 15.8 64 65
+nudge 6 2 33 2
+notes 6 2 49 15.8 68 65
+nudge 6 2 49 2
+lock 6 2 1 cut 40
+lock 6 2 64 cut 110
+pat 6 3 64 1 100 0
+notes 6 3 1 15.8 60 63
+nudge 6 3 1 2
+notes 6 3 17 15.8 60 70
+nudge 6 3 17 2
+notes 6 3 33 15.8 60 62
+nudge 6 3 33 2
+notes 6 3 49 15.8 60 67
+nudge 6 3 49 2
+pat 6 4 64 1 100 0
+notes 6 4 1 15.8 60 60
+nudge 6 4 1 2
+notes 6 4 17 15.8 64 65
+nudge 6 4 17 2
+notes 6 4 33 15.8 64 58
+nudge 6 4 33 2
+notes 6 4 49 12 52 58
+nudge 6 4 49 2
+pat 6 5 64 1 100 0
+notes 6 5 1 15.8 54 66
+nudge 6 5 1 2
+notes 6 5 17 15.8 54 63
+nudge 6 5 17 2
+notes 6 5 33 15.8 54 68
+nudge 6 5 33 2
+notes 6 5 49 15.8 54 65
+nudge 6 5 49 2
+pat 6 6 64 1 100 0 100
+notes 6 6 1 15.8 58 66
+nudge 6 6 1 2
+notes 6 6 17 15.8 58 63
+nudge 6 6 17 2
+notes 6 6 33 15.8 58 68
+nudge 6 6 33 2
+notes 6 6 49 7.8 66 65
+nudge 6 6 49 2
+notes 6 6 57 7.8 70 65
+nudge 6 6 57 2
+lock 6 6 1 cut 50
+lock 6 6 64 cut 120
+pat 6 7 64 1 100 0
+notes 6 7 1 15.8 62 60
+nudge 6 7 1 2
+notes 6 7 17 7.8 66 65
+nudge 6 7 17 2
+notes 6 7 25 7.8 66 65
+nudge 6 7 25 2
+notes 6 7 33 31.6 64 63
+nudge 6 7 33 2
+pat 6 8 64 1 100 0
+notes 6 8 33 31.6 76 58
+nudge 6 8 33 2
+pat 7 1 64 1 100 0
+notes 7 1 5 4 92 82
+nudge 7 1 5 2
+notes 7 1 9 4 88 80
+nudge 7 1 9 2
+notes 7 1 13 4 84 79
+nudge 7 1 13 2
+notes 7 1 37 4 84 94
+nudge 7 1 37 2
+notes 7 1 41 4 80 92
+nudge 7 1 41 2
+notes 7 1 45 4 76 91
+nudge 7 1 45 2
+pat 7 2 64 1 100 0
+notes 7 2 13 4 52 87
+nudge 7 2 13 2
+notes 7 2 29 4 50 86
+nudge 7 2 29 2
+notes 7 2 45 4 52 84
+nudge 7 2 45 2
+notes 7 2 57 4 56 82
+nudge 7 2 57 2
+notes 7 2 61 4 54 87
+nudge 7 2 61 2
+pat 7 3 64 1 100 0
+notes 7 3 9 2 54 79
+nudge 7 3 9 2
+notes 7 3 13 2 56 82
+nudge 7 3 13 2
+notes 7 3 25 2 58 84
+nudge 7 3 25 2
+notes 7 3 29 2 60 87
+nudge 7 3 29 2
+notes 7 3 37 2 62 89
+nudge 7 3 37 2
+notes 7 3 41 2 64 92
+nudge 7 3 41 2
+notes 7 3 45 2 66 94
+nudge 7 3 45 2
+notes 7 3 49 4 68 94
+nudge 7 3 49 2
+notes 7 3 53 4 64 92
+nudge 7 3 53 2
+pat 7 4 64 1 100 0
+notes 7 4 25 4 62 94
+nudge 7 4 25 2
+notes 7 4 29 4 58 92
+nudge 7 4 29 2
+notes 7 4 41 2 54 86
+nudge 7 4 41 2
+notes 7 4 57 6 60 91
+nudge 7 4 57 2
+pat 7 5 64 1 100 0
+notes 7 5 9 2 56 87
+nudge 7 5 9 2
+notes 7 5 25 2 56 89
+nudge 7 5 25 2
+notes 7 5 41 4 64 94
+nudge 7 5 41 2
+notes 7 5 45 4 60 92
+nudge 7 5 45 2
+notes 7 5 49 15.6 62 91
+nudge 7 5 49 2
+pat 7 6 64 1 100 0
+notes 7 6 1 15.6 54 85
+nudge 7 6 1 2
+notes 7 6 17 15.6 54 87
+nudge 7 6 17 2
+notes 7 6 33 15.6 56 89
+nudge 7 6 33 2
+notes 7 6 49 7.6 58 87
+nudge 7 6 49 2
+notes 7 6 57 7.6 62 92
+nudge 7 6 57 2
+pat 7 7 64 1 100 0
+notes 7 7 9 2 58 87
+nudge 7 7 9 2
+notes 7 7 25 2 58 89
+nudge 7 7 25 2
+notes 7 7 33 4 66 94
+nudge 7 7 33 2
+notes 7 7 37 20 62 92
+nudge 7 7 37 2
+pat 7 8 64 1 100 0
+notes 7 8 5 4 86 82
+nudge 7 8 5 2
+notes 7 8 9 4 82 80
+nudge 7 8 9 2
+notes 7 8 13 4 82 79
+nudge 7 8 13 2
+notes 7 8 25 4 76 87
+nudge 7 8 25 2
+notes 7 8 41 4 78 80
+nudge 7 8 41 2
+notes 7 8 45 4 76 77
+nudge 7 8 45 2
+notes 7 8 49 15.6 78 82
+nudge 7 8 49 2
+pat 8 1 64 1 100 0
+notes 8 1 33 15.6 54 68
+nudge 8 1 33 3
+notes 8 1 49 15.6 58 75
+nudge 8 1 49 3
+pat 8 2 64 1 100 0
+notes 8 2 1 15.6 56 75
+nudge 8 2 1 3
+notes 8 2 17 15.6 58 77
+nudge 8 2 17 3
+notes 8 2 33 15.6 62 80
+nudge 8 2 33 3
+notes 8 2 49 11.6 62 80
+nudge 8 2 49 3
+pat 8 3 64 1 100 0
+notes 8 3 1 15.6 60 72
+nudge 8 3 1 3
+notes 8 3 17 15.6 60 70
+nudge 8 3 17 3
+notes 8 3 33 15.6 60 70
+nudge 8 3 33 3
+notes 8 3 49 15.6 60 67
+nudge 8 3 49 3
+pat 8 4 64 1 100 0
+notes 8 4 1 15.6 62 68
+nudge 8 4 1 3
+notes 8 4 17 15.6 64 68
+nudge 8 4 17 3
+notes 8 4 33 15.6 62 70
+nudge 8 4 33 3
+notes 8 4 49 11.6 54 70
+nudge 8 4 49 3
+pat 8 5 64 1 100 0
+notes 8 5 9 7.6 54 78
+nudge 8 5 9 3
+notes 8 5 25 7.6 56 82
+nudge 8 5 25 3
+notes 8 5 41 7.6 58 84
+nudge 8 5 41 3
+notes 8 5 49 15.6 62 82
+nudge 8 5 49 3
+pat 8 6 64 1 100 0
+notes 8 6 1 15.6 62 68
+nudge 8 6 1 3
+notes 8 6 17 15.6 64 68
+nudge 8 6 17 3
+notes 8 6 33 31.6 64 72
+nudge 8 6 33 3
+pat 9 2 1 16 100 0
+notes 9 2 1 1 100 64
+pat 10 2 16 4 100 0
+notes 10 2 15 2 100 20
+pat 10 3 16 4 100 0
+notes 10 3 9 7 100 5
+notes 10 3 16 1 100 2
+
+# ---- scenes and the song: the mask is T1..T8, COND, THROW; x = muted
+# intro: the keys, the nylon, the pad, the sigh in the bell
+scenedef 1 1 1 1 1 1 1 1 1 1 1
+scenemute 1 xx.x...x..
+# verse A: the band comes in on Ab | Gm | Fm | Bb sus, the tonic held back
+scenedef 2 1 1 2 1 1 1 2 1 1 1
+scenemute 2 ...x...x..
+# verse B: the reed sings, the soprano hangs on the last chord
+scenedef 3 1 1 2 1 1 1 2 1 1 1
+scenemute 3 ..........
+# pre: Cm7 | Fm9 | Bb7sus | Bb7, the kit and the strum close in, the filter opens
+scenedef 4 3 2 3 2 2 2 3 2 1 3
+scenemute 4 ..........
+# chorus A: the hook, Abmaj7 | Bb/Ab | Gm7 | Cm7
+scenedef 5 4 3 4 3 3 3 4 3 1 1
+scenemute 5 ..........
+# chorus B: Fm9 | Bb7sus | Ebmaj9, the sigh lands on the tonic at last
+scenedef 6 5 4 5 4 4 4 5 4 1 2
+scenemute 6 ..........
+# verse 2 A: stripped, the hook over the verse chords
+scenedef 7 1 8 1 5 1 1 8 1 1 1
+scenemute 7 x...x..x..
+# verse 2 B: the rim and the nylon return
+scenedef 8 2 1 2 5 6 1 2 1 1 1
+scenemute 8 ..........
+# pre 2: the same climb, and the dominant is left standing
+scenedef 9 3 2 3 2 2 2 3 2 1 3
+scenemute 9 ..........
+# bridge A: Cbmaj7 | Abm9 | Dbmaj7 | Bb7sus over an Eb pedal
+scenedef 10 6 5 6 6 7 5 6 5 1 1
+scenemute 10 ..........
+# bridge B: the roots step up, the kick comes in, the build to the lift
+scenedef 11 7 6 6 8 7 6 6 5 1 3
+scenemute 11 ..........
+# tag: home again, the keys, the nylon and the bell, the sigh finished, the tonic
+scenedef 14 1 1 8 1 6 8 8 1 1 1
+scenemute 14 xx.x...x..
+knob 9 e3 9
+# last chorus A, a semitone up: the tritone-sub dominant has dropped us on A
+scenedef 12 4 3 4 3 3 3 4 3 2 1
+scenemute 12 ..........
+# last chorus B: the sigh stops on the fourth, the band falls away, the pad holds the IV
+scenedef 13 8 7 7 7 5 7 7 6 2 1
+scenemute 13 ..........
+knob 9 e3 0
+song 1:4 2:4 3:4 4:4 5:4 6:4 7:4 8:4 9:4 10:4 11:4 12:4 13:4 14:4
+songloop 0
+expect lanes <65
+
+# ---- play the song (HOME, SELECT to the Song page, PLAY)
+tap HOME
+turn SELECT 1
+stats reset
+wav soundplant_demo_soul.wav
+tap PLAY
+bars 56
+wait 3000
+wavstop
+stats

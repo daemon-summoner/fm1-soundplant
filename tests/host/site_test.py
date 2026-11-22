@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: MPL-2.0
 """The site tools/make_pages.py makes for GitHub Pages: every section is there, every link between its pages lands on a
-file, the emulator has what it loads, and before the first release nothing offers a download or an installer that is
-not there. With a directory it checks that site (CI checks what it deploys); without one it makes the no-release site
+file, the emulator has what it loads, the Backup page's demo songs card finds the demos where the emulator keeps them, and
+before the first release nothing offers a download or an installer that is not there. With a directory it checks that site (CI checks what it deploys); without one it makes the no-release site
 first, from the emulator ./build.sh --web built.
   tests/host/site_test.py [SITE_DIR]      (tests/run_tests.sh runs it)"""
 
 import json
+import re
+import struct
 import subprocess
 import sys
 from html.parser import HTMLParser
@@ -13,6 +15,9 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "base" / "tools"))
+import fm1_backup  # fm1-base's backup file format
+
 SECTIONS = ("emu", "manual", "install", "backup", "mirror", "samples", "project")
 EMU_FILES = (
     "index.html",
@@ -29,6 +34,14 @@ EMU_FILES = (
 )
 # a project's first part in each of the three slots (APP_BACKUP_OBJS: the presets, then 7 parts a slot)
 DEMO_PARTS = (2, 9, 16)
+PROJ_MAGIC = 0x384D4F4C  # "LOM8", a project's first word
+# the format the firmware writes (app/app.h): the Backup page's card puts only this one on the FM-1
+_format = re.search(
+    r"#define PROJ_FORMAT (\d+)u", (ROOT / "app" / "app.h").read_text(encoding="utf-8")
+)
+if not _format:
+    raise SystemExit("site_test: app/app.h has no PROJ_FORMAT")
+PROJ_FORMAT = int(_format.group(1))
 bad = 0
 
 
@@ -69,9 +82,6 @@ def dead_links(site):
 
 def image_problem(image):
     """why a demo's file is not a backup this firmware restores whole (CRCs, magic, 22 parts, a project in each slot), or ''"""
-    sys.path.insert(0, str(ROOT / "base" / "tools"))
-    import fm1_backup
-
     try:
         _, objs = fm1_backup.parse(image)
     except fm1_backup.BackupError as e:
@@ -80,6 +90,26 @@ def image_problem(image):
         return f"magic {image[:4]!r} with {len(objs)} parts"
     empty = [o for o, d in objs if o in DEMO_PARTS and not d]
     return f"no project in parts {empty}" if empty else ""
+
+
+def project_format(image):
+    """the format word of the project in a demo's first slot (its settings part: "LOM8", then the format), None when the file is not a backup with one"""
+    try:
+        _, objs = fm1_backup.parse(image)
+    except fm1_backup.BackupError:
+        return None
+    settings = dict(objs).get(DEMO_PARTS[0], b"")
+    if len(settings) < 8:
+        return None
+    magic, fmt = struct.unpack_from("<II", settings)
+    return fmt if magic == PROJ_MAGIC else None
+
+
+def demo_image(fmt):
+    """a backup whose first slot holds a project of format fmt"""
+    settings = struct.pack("<II", PROJ_MAGIC, fmt) + bytes(56)
+    parts = [(o, settings if o == DEMO_PARTS[0] else b"") for o in range(1, 23)]
+    return fm1_backup.build(parts, magic=b"LM8B", version=1)
 
 
 def make_site():
@@ -194,6 +224,47 @@ check(
         for i in ("demos", "demo-play", "demo-load", "demo-undo", "demos-confirm")
     )
     and "demos/demos.json" in emu_app,
+)
+check(
+    f"every demo is what the Backup page's card reads: file, genre and blurb as text, the tempo a number ({len(demos)})",
+    demos
+    and all(
+        isinstance(d.get("file"), str)
+        and isinstance(d.get("genre"), str)
+        and isinstance(d.get("blurb"), str)
+        and isinstance(d.get("bpm"), (int, float))
+        for d in demos
+    ),
+)
+formats = {
+    d["file"]: project_format((demo_dir / d["file"]).read_bytes()) for d in demos
+}
+check(
+    f"every demo's first slot is a project of format {PROJ_FORMAT}, the one the card puts on the FM-1 ({[f for f, v in formats.items() if v != PROJ_FORMAT][:3]})",
+    demos and all(v == PROJ_FORMAT for v in formats.values()),
+)
+check(
+    "... and that check tells a format 22 project from an older one, a damaged backup and a file that is not one",
+    project_format(demo_image(PROJ_FORMAT)) == PROJ_FORMAT
+    and project_format(demo_image(15)) == 15
+    and project_format(demo_image(PROJ_FORMAT)[:-1]) is None
+    and project_format(b"") is None,
+)
+backup_page = (
+    (site / "backup" / "index.html").read_text(encoding="utf-8")
+    if (site / "backup" / "index.html").is_file()
+    else ""
+)
+demo_url = re.search(r'const DEMO_DIR = "([^"]+)"', backup_page)
+check(
+    "backup/ has the demo songs card, the one Restore card it follows, and the emulator's demos/ as its folder",
+    backup_page.count('id="rh"') == 1
+    and backup_page.count("function demoInstall()") == 1
+    and backup_page.count("function addDemoSlots(") == 1
+    and backup_page.count("const EXTRAS = (() => {") == 1
+    and demo_url
+    and (site / "backup" / (demo_url.group(1) + "demos.json")).resolve()
+    == listing.resolve(),
 )
 presets_file = site / "emu" / "presets.json"
 presets = (

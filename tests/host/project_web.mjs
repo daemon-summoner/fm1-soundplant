@@ -15,6 +15,8 @@
 //   6. encode refuses what the FM-1 would clamp or not hold: a tempo, a name, a level, a slot or the pool over the flash
 //   7. the pattern helpers: notes, kit sounds, step lengths, conditions
 //   8. the page (app/web/project/index.html) with the codec inlined as make_pages.py does: one valid module, every id it asks for
+//  14. addDemoSlots (the Backup page's demo songs): whole songs from other backups go into the empty slots and nothing else changes,
+//      the simulator restores and plays them; no empty slot, too many songs, a pool over 20 sectors, a damaged or old demo are refused
 //   node tests/host/project_web.mjs [PYTHON]       (the simulator: $SOUNDPLANT_HOST, default app/build/host/soundplant_host)
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -1259,6 +1261,103 @@ try {
     const w1 = worse.patterns[melT][1].steps.findIndex((st) => !P.stepIsEmpty(st));
     worse.patterns[melT][1].steps[w1].nudge += worse.patterns[melT][1].steps[w1].nudge === 12 ? -1 : 1;
     check("   ... and the simulator tells a pattern one nudge off from the imported one", !agrees(img, 0, worse, "midi_host_wrong").listing);
+  }
+
+  console.log("demo songs: addDemoSlots puts whole songs into the empty slots and changes nothing else");
+  {
+    const rec = (img) => records(img).recs.map((r) => r.payload);
+    const slotOf = (img, n) => rec(img).slice(1 + n * 7, 8 + n * 7);
+    const sameSlot = (a, b) => a.length === b.length && a.every((p, k) => same(p, b[k]));
+    const empty = () => new Uint8Array(0);
+    const none = () => Array.from({ length: 7 }, empty);
+    const settings = (format = 22) => { const s = new Uint8Array(64); put32(s, 0, 0x384D4F4C); put32(s, 4, format); return s; };
+    const stream = (k) => Uint8Array.from([2, 0, 0, 0, k, 1, 2, 3]);
+    const placeholder = () => Uint8Array.from([2, 0, 0, 0]);
+    // a slot with n objects holding data (the settings, then streams): n flash sectors; the rest empty
+    const sectors = (n, format = 22) => Array.from({ length: 7 }, (_, k) => k >= n ? empty() : k === 0 ? settings(format) : stream(k));
+    // two objects with data and five stream objects that are a placeholder: two sectors
+    const sparse = () => [settings(), stream(1), ...Array.from({ length: 5 }, placeholder)];
+    const alone = (k, bytes) => Array.from({ length: 7 }, (_, i) => i === k ? bytes : empty());
+    const image = (slots, flags = 0, presets = Uint8Array.from([1, 2, 3, 4, 5])) => build([presets, ...slots.flat()], { flags });
+    const sectorsOf = (img) => rec(img).slice(1).filter((p) => p.length).length;
+    // where record k's payload starts in the file
+    const payloadAt = (img, k) => records(img).recs.slice(0, k).reduce((a, r) => a + 8 + r.payload.length, 16 + 8);
+    const song = (name, n = 7, format = 22) => ({ name, bytes: image([sectors(n, format), none(), none()]) });
+
+    // the pool: 20 sectors, counted by the objects with data, a placeholder not one
+    const user6 = image([sectors(6), none(), none()]), user7 = image([sectors(7), none(), none()]);
+    const at20 = P.addDemoSlots(user6, [song("a"), song("b")]);
+    check("14. the pool's 20 sectors are allowed: slots of 6, 7 and 7 sectors are put together", at20.placed.length === 2 && sectorsOf(at20.bytes) === 20);
+    refuses("   21 sectors (7 + 7 + 7) are MEMORY FULL, refused before anything is sent: a restore that ran out half way would leave the FM-1 half restored",
+            () => P.addDemoSlots(user7, [song("a"), song("b")]), /MEMORY FULL.*21 flash sectors.*20.*Choose fewer songs/);
+    const sparseSong = { name: "sparse", bytes: image([sparse(), none(), none()]) };
+    check("   a demo's placeholders (a stream object that is its format word alone) take no sector: 7 + 2 + 7 fits, which 7 + 7 + 7 would not",
+          P.addDemoSlots(user7, [sparseSong, song("b")]).placed.length === 2);
+    const userSparse = image([sectors(7), sparse(), none()]);
+    check("   and the user's own placeholders take none: 7 + 2 + 7 fits",
+          P.addDemoSlots(userSparse, [song("b")]).placed[0].slot === 2);
+
+    // what an empty slot is
+    check("   a slot with nothing in it is empty, and so is one of placeholders alone (an older save's): slots 2 and 3",
+          same(P.emptySlots(image([sectors(3), alone(0, empty()).map((p, k) => k >= 2 ? placeholder() : p), none()])), [1, 2]));
+    const kept = image([alone(1, placeholder()), alone(3, Uint8Array.from([3, 0, 0, 0])), alone(2, Uint8Array.from([2, 0, 0, 0, 0]))]);
+    check("   anything else is a project, and kept: a placeholder where the stream header goes, a stream word that is not 2, a placeholder with a byte more",
+          same(P.emptySlots(kept), []));
+    check("   a settings object alone is a project too (a half-written slot is not cleared)", same(P.emptySlots(image([alone(0, settings()), none(), none()])), [1, 2]));
+    refuses("   a backup with no empty slot takes no song: refused, no project overwritten", () => P.addDemoSlots(kept, [song("a")]), /All three slots on the FM-1 hold a project/);
+    const holes = image([sectors(3), none(), sparse().map((p, k) => k < 2 ? empty() : p)]);
+    const filled = P.addDemoSlots(holes, [song("a"), song("b")]);
+    check("   the songs replace a slot of placeholders: slot 3's seven objects are the song's, none of the placeholders is left",
+          same(filled.placed.map((p) => p.slot), [1, 2]) && sameSlot(slotOf(filled.bytes, 2), slotOf(song("b").bytes, 0)));
+
+    // a slot of an older format is somebody's project: not decoded, not changed
+    const old = image([sectors(3, 15), none(), none()], 0, rec(presetsImg)[0]);
+    const withOld = P.addDemoSlots(old, [song("a")]);
+    check("   a slot of format 15 (the editor reads only 22) is kept byte for byte and the song goes in the next empty slot",
+          sameSlot(slotOf(withOld.bytes, 0), slotOf(old, 0)) && sameSlot(slotOf(withOld.bytes, 1), slotOf(song("a").bytes, 0)) && withOld.placed[0].slot === 1);
+    refuses("   (decode would have refused that file: it is why the songs are put in on the raw objects)", () => P.decode(withOld.bytes), /format 15/);
+
+    // real songs from the simulator into a backup of one project
+    const A = Uint8Array.from(images.A), B = Uint8Array.from(images.B), before = Uint8Array.from(presetsImg);
+    const merged = P.addDemoSlots(presetsImg, [{ name: "jungle", bytes: images.A }, { name: "house", bytes: images.B }]);
+    const mm = P.decode(merged.bytes), pm = P.decode(presetsImg);
+    check(`   two real songs go into the two empty slots, in order (placed: ${JSON.stringify(merged.placed)})`,
+          same(merged.placed.map((p) => p.slot), [1, 2]) && merged.placed.map((p) => p.name).join() === "jungle,house");
+    check("   slot 1 (the user's project) and the presets are the same bytes as before, decoded the same",
+          sameSlot(slotOf(merged.bytes, 0), slotOf(presetsImg, 0)) && same(rec(merged.bytes)[0], rec(presetsImg)[0]) && plain(mm.slots[0]) === plain(pm.slots[0]));
+    check("   slots 2 and 3 are the songs' first slots whole, not their other slots",
+          plain(mm.slots[1]) === plain(P.decode(images.A).slots[0]) && plain(mm.slots[2]) === plain(P.decode(images.B).slots[0]) &&
+          plain(mm.slots[1]) !== plain(P.decode(images.A).slots[1]));
+    check("   the backup and the song files are not changed by it", same(presetsImg, before) && same(images.A, A) && same(images.B, B));
+    const secs = Uint8Array.from({ length: 300 }, (_, i) => i * 7 & 255), withSecs = withSections(presetsImg, ["LSMP", secs]);
+    const kept2 = P.addDemoSlots(withSecs, [{ name: "jungle", bytes: images.A }]).bytes;
+    check("   the samples after the backup come through unchanged", same(kept2.subarray(kept2.length - 312), withSecs.subarray(withSecs.length - 312)));
+    const playing = build(rec(presetsImg), { flags: 1 });
+    check("   the container's version and flags (taken while playing) are the backup's", same(P.addDemoSlots(playing, [song("a")]).bytes.subarray(4, 12), playing.subarray(4, 12)));
+    const sims = [0, 1, 2].map((n) => agrees(merged.bytes, n, mm.slots[n], `demo_slot${n + 1}`));
+    check(`   the simulator restores it and loads each of the 3 slots as the model says (${sims.map((r) => `${r.oks}/${r.asked}`).join(" ")} values, ${sims.filter((r) => r.listing).length * 64} pattern listings)`,
+          sims.every((r) => r.rc === 0 && r.fails.length === 0 && r.listing && r.oks >= r.asked));
+
+    // what is refused
+    refuses("   a backup with all three slots full takes no song", () => P.addDemoSlots(images.C, [{ name: "jungle", bytes: images.A }]), /All three slots on the FM-1 hold a project/);
+    refuses("   3 songs for 2 empty slots are refused, and the message says how many", () => P.addDemoSlots(presetsImg, [song("a"), song("b"), song("c")]), /3 songs are chosen and 2 slots are empty\. Choose fewer songs/);
+    refuses("   2 songs for 1 empty slot are refused, the message in the singular", () => P.addDemoSlots(image([sectors(2), sectors(2), none()]), [song("a"), song("b")]), /2 songs are chosen and 1 slot is empty/);
+    refuses("   no song at all is refused", () => P.addDemoSlots(presetsImg, []), /No demo song is chosen/);
+    const flipped = Uint8Array.from(images.A); flipped[payloadAt(images.A, 0)] ^= 1;
+    const flippedEnd = Uint8Array.from(images.A); flippedEnd[payloadAt(images.A, 15)] ^= 1;
+    refuses("   a song file with a byte changed in its presets is refused, and named", () => P.addDemoSlots(presetsImg, [{ name: "jungle", bytes: flipped }]), /The demo song jungle cannot be used\. This backup is damaged/);
+    refuses("   ... and one changed in its third slot, which is not the one taken (the whole file is checked)", () => P.addDemoSlots(presetsImg, [{ name: "jungle", bytes: flippedEnd }]), /The demo song jungle cannot be used\. This backup is damaged/);
+    refuses("   a song file cut short by a byte is refused", () => P.addDemoSlots(presetsImg, [{ name: "jungle", bytes: images.A.subarray(0, images.A.length - 1) }]), /The demo song jungle cannot be used/);
+    refuses("   a page that is not a backup (a server's error page in its place) is refused", () => P.addDemoSlots(presetsImg, [{ name: "jungle", bytes: new TextEncoder().encode("<!doctype html><html><body>404 Not Found</body></html>") }]), /The demo song jungle cannot be used\. This file is not a SoundPlant backup/);
+    refuses("   a song of format 15 is refused: this page puts format 22 on the FM-1",
+            () => P.addDemoSlots(presetsImg, [{ name: "jungle", bytes: rebuilt(images.A, (p) => { const s = Uint8Array.from(p[1]); put32(s, 4, 15); p[1] = s; }) }]), /The demo song jungle cannot be used: .*format 15/);
+    refuses("   a song file with no project in its first slot is refused",
+            () => P.addDemoSlots(presetsImg, [{ name: "jungle", bytes: rebuilt(images.A, (p) => { for (let k = 1; k <= 7; k++) p[k] = empty(); }) }]), /holds no project in its first slot/);
+    refuses("   ... and one whose first slot is not a SoundPlant project",
+            () => P.addDemoSlots(presetsImg, [{ name: "jungle", bytes: rebuilt(images.A, (p) => { const s = Uint8Array.from(p[1]); s[0] ^= 1; p[1] = s; }) }]), /holds no project in its first slot/);
+    const mid = Uint8Array.from(presetsImg); mid[mid.length >> 1] ^= 1;
+    const e = thrown(() => P.addDemoSlots(mid, [{ name: "jungle", bytes: images.A }]));
+    check("   a damaged backup of the FM-1 is refused too, and not blamed on the song", e instanceof P.ProjectError && /damaged/.test(e.message) && !/demo song/.test(e.message));
   }
 } finally {
   rmSync(work, { recursive: true, force: true });

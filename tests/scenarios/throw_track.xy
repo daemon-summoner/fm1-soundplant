@@ -1,0 +1,47 @@
+# The THROW track in a song (tools/demos/web/*.xy sequence their risers, stutters and fills on it): a step's note is
+# the throw (index + 1; + 16 for the melodic group), it holds for the step's length, and a scene takes the track's
+# pattern from the tenth scenedef column. Pattern 1 stays empty, so a scene that names none throws nothing.
+wait 300
+projnew
+bpm 120
+# pattern 2: a stutter (note 2) on the percussive group for half of bar 1; pattern 3: the same on the melodic group
+pat 10 2 4 16
+notes 10 2 1 0.5 100 2
+pat 10 3 4 16
+notes 10 3 1 0.5 100 18
+scenedef 1 1 1 1 1 1 1 1 1 1 1
+scenedef 2 1 1 1 1 1 1 1 1 1 2
+scenedef 3 1 1 1 1 1 1 1 1 1 3
+scenedef 4 1 1 1 1 1 1 1 1 1
+song 1:1 2:1 3:1 4:1
+songloop 0
+tap HOME
+turn SELECT 1
+tap PLAY
+expect playing 1
+# scene 1 (THROW pattern 1, empty): no throw at all
+bars 0.25
+expect scene 1
+expect punch_drum 0
+expect punch_mel 0
+# scene 2: the percussive stutter (bit 1) while the step holds, then let go
+bars 1
+expect scene 2
+expect punch_drum 2
+expect punch_mel 0
+bars 0.5
+expect punch_drum 0
+# scene 3: the melodic stutter, and not the percussive
+bars 0.5
+expect scene 3
+expect punch_drum 0
+expect punch_mel 2
+bars 0.5
+expect punch_mel 0
+# scene 4 names no THROW column: pattern 1 again, nothing thrown
+bars 0.75
+expect scene 4
+expect punch_drum 0
+expect punch_mel 0
+tap PLAY
+expect playing 0
