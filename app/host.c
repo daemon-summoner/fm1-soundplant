@@ -29,7 +29,7 @@
  *   demo_pad                     the built-in songs made DEMO_MAX, the last again (the later rows and the wrap of LOAD
  *                                PROJECT's pick, whatever tools/make_demo_songs.py made)
  *   demo_name K TEXT             built-in song K's name in RAM (a name's row is drawn, and audited, as the song's)
- *   rowdemo K                    the picked row shows song K's "Demo: NAME"
+ *   rowdemo K                    the picked row shows song K's "Demo: NAME" ("NAME" in large type)
  *   cores N                      the second core on (1) or off (0): its job then runs in place
  *   passkey N                    a Bluetooth pairing waits for code N (the header shows it; -1 none)
  *   samples FILE                 the user sample bank from FILE (an image from tools/soundplant_samples.py build), as an
@@ -1994,7 +1994,7 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         char want[32];
         if (k < 0 || k >= demo_count)
             host_die("rowdemo: no song", a);
-        snprintf(want, sizeof want, "Demo: %s", demo_tab[k].name);
+        snprintf(want, sizeof want, "%s%s", large_type() ? "" : "Demo: ", demo_tab[k].name);
         list_build();
         if (!lst.open || lst.sel >= lst.n || strcmp(lst.row[lst.sel].val, want)) {
             printf("  FAIL rowdemo %s: the row shows \"%s\", not \"%s\"\n", a, lst.open && lst.sel < lst.n ? lst.row[lst.sel].val : "", want);

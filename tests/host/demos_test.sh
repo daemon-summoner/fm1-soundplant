@@ -164,5 +164,20 @@ for m in 10 26 29; do
     grep -q "demorule: track 1 key 1 uses the model" "$D/rule.log" || { cat "$D/rule.log"; echo "  FAIL model $m was refused for another reason"; exit 1; }
 done
 echo "  ok   a kit key on the sample model or a 909 cymbal breaks it: $(grep 'demorule: ' "$D/rule.log" | head -1)"
+# a name too wide for LOAD PROJECT's row is refused, in either type size (the layout audit says it is cut)
+"$PY" - <<'PYEOF' || { echo "  FAIL a name too wide for LOAD PROJECT's row was accepted"; exit 1; }
+import sys
+
+sys.path.insert(0, "tools")
+import make_demo_songs  # noqa: E402
+
+try:
+    make_demo_songs.name_check([{"name": "WWWWWWWWWWWW"}])
+except make_demo_songs.Refused as e:
+    assert "does not fit LOAD PROJECT's row in small type" in str(e), e
+    print("  ok   a name too wide for LOAD PROJECT's row is refused:", str(e)[:60])
+else:
+    sys.exit(1)
+PYEOF
 "$PY" tools/make_demo_songs.py --from "$D/out" --check || { echo "  FAIL app/builtin_songs.h is not what tools/make_demo_songs.py makes"; exit 1; }
 echo "  ok   app/builtin_songs.h holds the built-in songs"

@@ -1,4 +1,4 @@
-# the built-in songs: LOAD PROJECT lists them after Proj 1 to 3 ("Demo: NAME"). A song loads with no slot: nothing is
+# the built-in songs: LOAD PROJECT lists them after Proj 1 to 3 ("Demo: NAME", just "NAME" in large type). A song loads with no slot: nothing is
 # written to the flash (not by the load, not by the autosave), SAVE TO copies it into a slot whole, a damaged one is
 # refused before the engine stops, and it is not what a restart opens. Written for 1 to 3 songs: demo_pad lists the last
 # again up to three (after a reboot too: the list is RAM's), so the rows, the wrap and each song's load run whatever

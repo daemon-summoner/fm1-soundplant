@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MPL-2.0
-"""The songs built into the firmware (LOAD PROJECT's "Demo: NAME" rows): app/builtin_songs.h, made from the demo backup
+"""The songs built into the firmware (LOAD PROJECT's "Demo: NAME" rows, "NAME" in large type): app/builtin_songs.h, made from the demo backup
 images tools/make_demos.py writes. A song is a slot's objects as the firmware loads a slot: its settings object, and its
 patterns' raw store (the slot's stream objects joined and LZ-unpacked, app/lz.c), each LZMA-packed for the flash
 (base/tools/boot_pack.py's FILTERS: base/device/boot_lzma.h unpacks them).
@@ -238,8 +238,9 @@ def rule_check(images):
 
 
 def name_check(songs):
-    """each name on its LOAD PROJECT row in both type sizes: the row's value room is the layout audit's, a name wider than
-    it is cut (the 12 characters a name may have are not all as wide)"""
+    """each name on its LOAD PROJECT row in both type sizes ("Demo: NAME", then "NAME" in large type, where the label leaves
+    61 px): the row's value room is the layout audit's, a name wider than it is cut (the 12 characters a name may have
+    are not all as wide)"""
     for large in (False, True):
         lines = ["wait 300"] + (["large 1"] if large else []) + ["demo_pad"]
         lines += [f"demo_name {k} {s['name']}" for k, s in enumerate(songs, 1)]

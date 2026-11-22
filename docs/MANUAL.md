@@ -1685,7 +1685,7 @@ To load another project, hold **HOME** and press white key 1 to 3. The song stop
 SoundPlant asks first: **SEL** is yes and **HOME** is no. A slot with no project says so, and nothing changes. You can
 also pick LOAD PROJECT on **HOME**'s **SEL** list and turn **ALGORITHM** to the slot.
 
-**Demo songs.** After Proj 3, LOAD PROJECT lists the songs built into the FM-1, as Demo: and the song's name. A demo
+**Demo songs.** After Proj 3, LOAD PROJECT lists the songs built into the FM-1, as Demo: and the song's name (in large type, with less room, just the name). A demo
 loads like a project, with the same question first if you have unsaved changes, but it has no slot of its own. It never
 touches your three projects or your presets, and SoundPlant never saves it by itself, so after a change the header
 keeps saying "unsaved". Turning the FM-1 off and on opens the project you saved or loaded last, not a demo. To keep a

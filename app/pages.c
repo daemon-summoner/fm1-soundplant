@@ -3091,12 +3091,13 @@ static void list_add(const char *name, const char *val, int kind, int id)
     lst.n++;
 }
 static void proj_slot_text(int slot, char *t)     /* "Proj 2", "Proj 3 (open)", "Proj 1 (empty)": a project is its slot
-                                                   * (no names); past the slots, a built-in song: "Demo: Ambient" (no
-                                                   * "(open)": the row's 92 px hold about 17 letters, a name and its prefix) */
+                                                   * (no names); past the slots, a built-in song: "Demo: Ambient", in
+                                                   * large type just "Ambient" (no "(open)": the row's 92 px hold about 17
+                                                   * letters, a name and its prefix; large type's label leaves 61 px) */
 {
     char *e;
     if (slot >= NPROJ) {
-        s_cat(s_cat(t, "Demo: "), project_demo_name(slot - NPROJ));
+        s_cat(large_type() ? t : s_cat(t, "Demo: "), project_demo_name(slot - NPROJ));
         return;
     }
     e = num_s((uint32_t)slot + 1u, s_cat(t, "Proj "));
